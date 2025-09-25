@@ -21,11 +21,21 @@
 frontend/
   src/
     components/   // 공용 컴포넌트 (버튼, 카드 등)
+      여러 페이지에서 공통으로 쓰는 UI 조각들
+      버튼, 입력창, 카드, 네비게이션 바 같은 것들
     pages/        // 페이지 단위 화면 (로그인, 회원가입 등)
+      화면 단위 컴포넌트 (로그인 화면, 회원가입 화면 등)
+      주로 components/를 조합해서 화면 구성
     hooks/        // 커스텀 훅 (useAuth, useFetch 등)
+      반복되는 로직을 재사용할 때
+      로그인 여부 확인, API 호출 상태 관리 등
     services/     // API 호출 로직
+      백엔드 API 호출 담당
+      프론트에서 직접 DB에 접근하지 않고 → 백엔드 API만 호출
     assets/       // 이미지, CSS, 아이콘
+      이미지, CSS, 아이콘 등 정적 리소스
     utils/        // 공용 함수 (날짜 포맷, 숫자 변환 등)
+      어디서든 쓸 수 있는 공용 함수
 ```
 
 ### 백엔드 (Python/FastAPI)
@@ -33,19 +43,34 @@ frontend/
 backend/
   app/
     routers/     // API 엔드포인트
+      URL 경로에 해당하는 API 정의
+      /login, /users, /posts 같은 엔드포인트
     services/    // 비즈니스 로직
+      실제 기능(비즈니스 로직) 구현
+      DB 조회, 비밀번호 해시, 조건 검사 등
     models/      // DB 모델
+      DB 테이블 구조(SQLAlchemy) 정의
     schemas/     // 요청/응답 DTO
+      요청/응답 데이터 형식(Pydantic) 정의
+      “클라이언트가 보내는 JSON”과 “서버가 돌려주는 JSON”
     core/        // 설정, DB 연결, 보안
+      환경설정, DB 연결, 보안 관련 코드
     utils/       // 공용 함수
+      자주 쓰는 공용 함수
 ```
-
-### DB
-- migrations/ : 테이블 변경 이력 관리
 
 ---
 
 ## ⚙ 실행 방법
+
+### 1. 가상환경(venv) 설정 (최초 1회만)
+
+# 프로젝트 루트에서 가상환경 생성(가상환경은 team-project에서 설정해주세요. venv폴더가 프론트 백 폴더랑 나란히 같은위치가 되도록)
+python -m venv venv
+
+# 가상환경 활성화
+.\venv\Scripts\activate
+
 ### 프론트엔드
 cd frontend
 npm install
