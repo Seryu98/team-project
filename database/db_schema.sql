@@ -1,8 +1,6 @@
-/*mysql에서 이렇게 작성하면 여기 스크립트가 그대로 작성되서 실행되고 
-테이블 생성됨
+/* 실행 방법 예시
 mysql -u team_user -p team_project < database/db_schema.sql
 */
-
 
 -- USERS
 CREATE TABLE `users` (
@@ -10,23 +8,26 @@ CREATE TABLE `users` (
   `nickname` VARCHAR(100) NOT NULL COMMENT '사용자 닉네임',
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '가입일',
   `email` VARCHAR(255) NOT NULL COMMENT '이메일',
-  `user_id` VARCHAR(255) NOT NULL COMMENT '로그인 ID',
-  `password_hash` VARCHAR(255) NOT NULL COMMENT '해시 비밀번호',
+  `user_id` VARCHAR(255) NULL COMMENT '로컬 로그인 ID (소셜 로그인은 NULL 가능)',
+  `password_hash` VARCHAR(255) NULL COMMENT '로컬 로그인 시 해시 비밀번호',
+  `auth_provider` ENUM('LOCAL', 'GOOGLE', 'KAKAO', 'NAVER', 'GITHUB') NOT NULL DEFAULT 'LOCAL' COMMENT '인증 제공자',
+  `social_id` VARCHAR(255) NULL COMMENT '소셜 로그인 고유 식별자',
   `name` VARCHAR(50) NOT NULL COMMENT '실제 이름',
   `phone_number` VARCHAR(20) NULL COMMENT '전화번호',
   `role` ENUM('MEMBER', 'ADMIN', 'GUEST', 'LEADER') NOT NULL DEFAULT 'MEMBER' COMMENT '권한 구분',
   `status` ENUM('ACTIVE', 'BANNED', 'DELETED') NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태',
   `last_login_at` DATETIME NULL COMMENT '마지막 로그인 시각',
   `deleted_at` DATETIME NULL COMMENT '삭제 시각',
-  `reset_token` VARCHAR(255) NULL COMMENT '비밀번호 재설정 토큰',
-  `reset_token_expire` DATETIME NULL COMMENT '비밀번호 재설정 토큰 만료 시각',
+  `reset_token` VARCHAR(255) NULL COMMENT '비밀번호 재설정 토큰 (LOCAL 전용)',
+  `reset_token_expire` DATETIME NULL COMMENT '비밀번호 재설정 토큰 만료 시각 (LOCAL 전용)',
   `login_fail_count` INT NOT NULL DEFAULT 0 COMMENT '로그인 실패 횟수 누적',
   `last_fail_time` DATETIME NULL COMMENT '마지막 로그인 실패 시각',
   `account_locked` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '계정 잠금 여부',
   PRIMARY KEY (`id`),
-  CONSTRAINT uq_users_nickname UNIQUE (`nickname`),
-  CONSTRAINT uq_users_email UNIQUE (`email`),
-  CONSTRAINT uq_users_userid UNIQUE (`user_id`)
+  CONSTRAINT `uq_users_nickname` UNIQUE (`nickname`),
+  CONSTRAINT `uq_users_email` UNIQUE (`email`),
+  CONSTRAINT `uq_users_userid` UNIQUE (`user_id`),
+  CONSTRAINT `uq_users_social` UNIQUE (`auth_provider`, `social_id`)
 );
 
 -- PROFILES
@@ -51,17 +52,33 @@ CREATE TABLE `skills` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '고유 스킬ID',
   `name` VARCHAR(100) NOT NULL COMMENT '스킬명',
   PRIMARY KEY (`id`),
-  CONSTRAINT uq_skills_name UNIQUE (`name`)
+  CONSTRAINT `uq_skills_name` UNIQUE (`name`)
 );
+-- SKILLS Seed Data
+INSERT INTO `skills` (name) VALUES
+('C'), ('C++'), ('Rust'), ('Go'), ('Zig'),
+('Java'), ('C#'), ('Kotlin'), ('Swift'), ('ObjectiveC'),
+('Dart'), ('Scala'), ('Python'), ('Ruby'), ('Perl'),
+('PHP'), ('Lua'), ('R'), ('JavaScript'), ('TypeScript'),
+('HTML'), ('CSS'), ('SASS'), ('LESS'),
+('NodeJS'), ('ExpressJS'), ('Spring'), ('Django'), ('Flask'), ('Laravel'),
+('SQL'), ('MySQL'), ('PostgreSQL'), ('Oracle'), ('MSSQLServer'), ('SQLite'),
+('MongoDB'), ('Redis'), ('MATLAB'), ('Julia'), ('SPSS'),
+('Haskell'), ('F#'), ('Elixir'), ('Erlang'), ('OCaml'),
+('Lisp'), ('Clojure'), ('Scheme'),
+('Flutter'), ('React_Native'),
+('Bash'), ('PowerShell'), ('Groovy'),
+('JSON'), ('Markdown');
 
 -- USER_SKILLS
 CREATE TABLE `user_skills` (
   `user_id` BIGINT NOT NULL COMMENT '유저 ID',
   `skill_id` BIGINT NOT NULL COMMENT '스킬 ID',
-  `proficiency` ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT') NOT NULL DEFAULT 'BEGINNER' COMMENT '숙련도',
+  `level` DECIMAL(2,1) NOT NULL COMMENT '숙련도 (1.0 ~ 5.0)',
   PRIMARY KEY (`user_id`, `skill_id`),
   CONSTRAINT `FK_user_skills_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
-  CONSTRAINT `FK_user_skills_skill` FOREIGN KEY (`skill_id`) REFERENCES `skills` (`id`)
+  CONSTRAINT `FK_user_skills_skill` FOREIGN KEY (`skill_id`) REFERENCES `skills` (`id`),
+  CONSTRAINT `chk_level_range` CHECK (`level` >= 1.0 AND `level` <= 5.0)
 );
 
 -- POSTS
@@ -73,6 +90,11 @@ CREATE TABLE `posts` (
   `field` VARCHAR(100) NULL COMMENT '분야',
   `image_url` VARCHAR(255) NULL COMMENT '대표 이미지 URL',
   `capacity` INT NOT NULL COMMENT '모집 정원(>0)',
+  `current_members` INT NOT NULL DEFAULT 0 COMMENT '현재 참여 인원',
+  `description` TEXT NULL COMMENT '프로젝트 설명 / 스터디 소개',
+  `start_date` DATE NULL COMMENT '모집 시작일',
+  `end_date` DATE NULL COMMENT '모집 종료일',
+  `status` ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING' COMMENT '승인 상태',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성일',
   `deleted_at` DATETIME NULL COMMENT '삭제 시각',
   PRIMARY KEY (`id`),
@@ -80,28 +102,13 @@ CREATE TABLE `posts` (
   CONSTRAINT `chk_capacity` CHECK (`capacity` > 0)
 );
 
--- PROJECT_DETAILS
-CREATE TABLE `project_details` (
+-- POST_SKILLS
+CREATE TABLE `post_skills` (
   `post_id` BIGINT NOT NULL COMMENT '게시글 ID',
-  `description` TEXT NULL COMMENT '설명',
-  `goal` TEXT NULL COMMENT '목표',
-  `process` VARCHAR(200) NULL COMMENT '진행 방식',
-  `expectations` TEXT NULL COMMENT '기대 효과',
-  `etc` TEXT NULL COMMENT '기타',
-  PRIMARY KEY (`post_id`),
-  CONSTRAINT `FK_project_details_post` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`)
-);
-
--- STUDY_DETAILS
-CREATE TABLE `study_details` (
-  `post_id` BIGINT NOT NULL COMMENT '게시글 ID',
-  `description` TEXT NULL COMMENT '설명',
-  `goal` TEXT NULL COMMENT '목표',
-  `requirements` TEXT NULL COMMENT '요구 사항',
-  `process` VARCHAR(200) NULL COMMENT '진행 방식',
-  `etc` TEXT NULL COMMENT '기타',
-  PRIMARY KEY (`post_id`),
-  CONSTRAINT `FK_study_details_post` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`)
+  `skill_id` BIGINT NOT NULL COMMENT '스킬 ID',
+  PRIMARY KEY (`post_id`, `skill_id`),
+  CONSTRAINT `FK_post_skills_post` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`),
+  CONSTRAINT `FK_post_skills_skill` FOREIGN KEY (`skill_id`) REFERENCES `skills` (`id`)
 );
 
 -- POST_MEMBERS
@@ -136,6 +143,13 @@ CREATE TABLE `application_fields` (
   PRIMARY KEY (`id`)
 );
 
+-- APPLICATION_FIELDS Seed Data
+INSERT INTO `application_fields` (name) VALUES
+('이메일'), ('지원사유'), ('성별'), ('나이'),
+('자기소개'), ('경험/경력설명'),
+('직장인/취준생여부'), ('다룰 수 있는 언어/프로그램'),
+('투자가능한 시간(1주당)'), ('궁금한 점'), ('자유기재');
+
 -- APPLICATION_ANSWERS
 CREATE TABLE `application_answers` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '답변 ID',
@@ -158,6 +172,42 @@ CREATE TABLE `post_required_fields` (
   CONSTRAINT `FK_post_required_fields_field` FOREIGN KEY (`field_id`) REFERENCES `application_fields` (`id`)
 );
 
+-- FILES
+CREATE TABLE `files` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '파일 ID',
+  `post_id` BIGINT NULL COMMENT '프로젝트/스터디 ID',
+  `user_id` BIGINT NOT NULL COMMENT '업로더 ID',
+  `file_url` VARCHAR(255) NOT NULL COMMENT '파일 경로/URL',
+  `file_type` VARCHAR(50) NULL COMMENT '파일 타입',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '업로드 시각',
+  PRIMARY KEY (`id`),
+  CONSTRAINT `FK_files_post` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`),
+  CONSTRAINT `FK_files_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+);
+
+-- ANNOUNCEMENTS
+CREATE TABLE `announcements` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '공지사항 ID',
+  `admin_id` BIGINT NOT NULL COMMENT '작성자 (관리자) ID',
+  `title` VARCHAR(100) NOT NULL COMMENT '공지 제목',
+  `content` TEXT NOT NULL COMMENT '공지 내용',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '공지 작성일',
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_announcements_admin` FOREIGN KEY (`admin_id`) REFERENCES `users` (`id`)
+);
+
+-- ANNOUNCEMENT_READS
+CREATE TABLE `announcement_reads` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '읽음 ID',
+  `announcement_id` BIGINT NOT NULL COMMENT '공지사항 ID',
+  `user_id` BIGINT NOT NULL COMMENT '사용자 ID',
+  `is_read` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '읽음 여부',
+  `read_at` DATETIME NULL COMMENT '읽은 시각',
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_announcement_reads_announcement` FOREIGN KEY (`announcement_id`) REFERENCES `announcements` (`id`),
+  CONSTRAINT `fk_announcement_reads_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+);
+
 -- BOARDS
 CREATE TABLE `boards` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '게시판 ID',
@@ -166,21 +216,44 @@ CREATE TABLE `boards` (
   PRIMARY KEY (`id`)
 );
 
+-- CATEGORIES
+CREATE TABLE `categories` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '카테고리 ID',
+  `name` VARCHAR(100) NOT NULL COMMENT '카테고리명',
+  PRIMARY KEY (`id`),
+  CONSTRAINT `uq_categories_name` UNIQUE (`name`)
+) COMMENT '게시판 글 카테고리';
+
 -- BOARD_POSTS
 CREATE TABLE `board_posts` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '게시판 글 ID',
   `board_id` BIGINT NOT NULL COMMENT '게시판 ID',
+  `category_id` BIGINT NULL COMMENT '카테고리 ID (필터 기능용)',
   `author_id` BIGINT NOT NULL COMMENT '작성자 ID',
   `title` VARCHAR(200) NOT NULL COMMENT '제목',
   `content` TEXT NOT NULL COMMENT '내용',
+  `attachment_url` VARCHAR(255) NULL COMMENT '첨부파일 경로 (파일첨부 기능용)',
+  `view_count` INT NOT NULL DEFAULT 0 COMMENT '조회수 (랭킹 기능용)',
+  `like_count` INT NOT NULL DEFAULT 0 COMMENT '추천수 (랭king 기능용)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '작성일',
   `updated_at` DATETIME NULL COMMENT '수정일',
   `status` ENUM('VISIBLE', 'HIDDEN', 'DELETED') NOT NULL DEFAULT 'VISIBLE' COMMENT '상태',
   `deleted_at` DATETIME NULL COMMENT '삭제 시각',
   PRIMARY KEY (`id`),
   CONSTRAINT `FK_board_posts_board` FOREIGN KEY (`board_id`) REFERENCES `boards` (`id`),
-  CONSTRAINT `FK_board_posts_author` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`)
+  CONSTRAINT `FK_board_posts_author` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `FK_board_posts_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`)
 );
+
+-- BOARD_POST_LIKES
+CREATE TABLE `board_post_likes` (
+  `board_post_id` BIGINT NOT NULL COMMENT '게시판 글 ID',
+  `user_id` BIGINT NOT NULL COMMENT '추천한 사용자 ID',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '추천일',
+  PRIMARY KEY (`board_post_id`, `user_id`),
+  CONSTRAINT `FK_board_post_likes_post` FOREIGN KEY (`board_post_id`) REFERENCES `board_posts` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `FK_board_post_likes_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) COMMENT '게시판 글 추천 기록';
 
 -- COMMENTS
 CREATE TABLE `comments` (
@@ -240,7 +313,7 @@ CREATE TABLE `notifications` (
   `user_id` BIGINT NOT NULL COMMENT '알림을 받는 사용자 ID',
   `type` ENUM('FOLLOW', 'APPLICATION', 'APPLICATION_ACCEPTED', 'APPLICATION_REJECTED') NOT NULL COMMENT '알림 유형',
   `message` VARCHAR(255) NOT NULL COMMENT '알림 메시지',
-  `related_id` BIGINT NULL COMMENT '연관된 엔티티 ID (예: applications.id, follows.follower_id)',
+  `related_id` BIGINT NULL COMMENT '연관된 엔티티 ID',
   `is_read` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '읽음 여부',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '알림 생성 시각',
   PRIMARY KEY (`id`),
@@ -253,16 +326,9 @@ CREATE TABLE `messages` (
   `sender_id` BIGINT NOT NULL COMMENT '보낸 사용자 ID',
   `receiver_id` BIGINT NOT NULL COMMENT '받는 사용자 ID',
   `content` TEXT NOT NULL COMMENT '쪽지 내용',
-  `is_read` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '읽음 여부',
-  `deleted_by_sender` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '보낸 사람 삭제 여부',
-  `deleted_by_receiver` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '받는 사람 삭제 여부',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '보낸 시각',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '전송 시각',
+  `deleted_at` DATETIME NULL COMMENT '삭제 시각',
   PRIMARY KEY (`id`),
   CONSTRAINT `FK_messages_sender` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`),
   CONSTRAINT `FK_messages_receiver` FOREIGN KEY (`receiver_id`) REFERENCES `users` (`id`)
 );
-
--- ACTIVE USERS VIEW
-CREATE VIEW `active_users` AS
-SELECT * FROM `users`
-WHERE `deleted_at` IS NULL AND `status` = 'ACTIVE';
