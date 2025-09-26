@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from app.routers import auth, profile
 from app.routers import db_test, auth
 
 app = FastAPI()
@@ -7,3 +8,4 @@ app = FastAPI()
 
 app.include_router(auth.router)   # 임시 로그인/회원가입 라우터
 app.include_router(db_test.router)
+app.include_router(profile.router)  # ✅ 프로필 라우터 등록
