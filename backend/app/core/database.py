@@ -1,7 +1,11 @@
+# app/core/database.py
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
+
+# Base는 따로 분리
+from app.models.base import Base  
 
 load_dotenv()
 
@@ -18,9 +22,6 @@ engine = create_engine(DATABASE_URL, echo=True, future=True)
 
 # ✅ 세션 팩토리
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# ✅ Base 선언 (모델들이 상속받을 클래스)
-Base = declarative_base()
 
 # ✅ 의존성 주입용 DB 세션
 def get_db():
