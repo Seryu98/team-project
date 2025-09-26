@@ -1,6 +1,21 @@
-/* 실행 방법 예시
-mysql -u team_user -p team_project < database/db_schema.sql
-*/
+-- 프로젝트 생성
+CREATE DATABASE team_project CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+-- 기존 db 삭제
+DROP DATABASE IF EXISTS team_project;
+
+-- 프로젝트 선택
+USE team_project;
+
+-- 공통 아이디 비밀번호 생성
+-- 학원 컴퓨터 ip 192.168.55.92 
+-- 집에서 db 따로 만들때는 로컬이니깐 127.0.0.1인가 그거쓰면될지도
+CREATE USER 'team_user'@'%' IDENTIFIED BY '1234';
+
+-- 권한 부여 (모든 테이블에 SELECT, INSERT, UPDATE, DELETE 가능)
+GRANT ALL PRIVILEGES ON team_project.* TO 'team_user'@'%';
+
+-- 권한 적용
+FLUSH PRIVILEGES;
 
 -- USERS
 CREATE TABLE `users` (
@@ -23,6 +38,7 @@ CREATE TABLE `users` (
   `login_fail_count` INT NOT NULL DEFAULT 0 COMMENT '로그인 실패 횟수 누적',
   `last_fail_time` DATETIME NULL COMMENT '마지막 로그인 실패 시각',
   `account_locked` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '계정 잠금 여부',
+  `banned_until` DATETIME NULL COMMENT '정지 해제 예정일',
   PRIMARY KEY (`id`),
   CONSTRAINT `uq_users_nickname` UNIQUE (`nickname`),
   CONSTRAINT `uq_users_email` UNIQUE (`email`),
@@ -311,7 +327,7 @@ CREATE TABLE `follows` (
 CREATE TABLE `notifications` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '알림 ID',
   `user_id` BIGINT NOT NULL COMMENT '알림을 받는 사용자 ID',
-  `type` ENUM('FOLLOW', 'APPLICATION', 'APPLICATION_ACCEPTED', 'APPLICATION_REJECTED') NOT NULL COMMENT '알림 유형',
+  `type` ENUM('FOLLOW', 'APPLICATION', 'APPLICATION_ACCEPTED', 'APPLICATION_REJECTED', 'WARNING', 'BAN', 'UNBAN') NOT NULL COMMENT '알림 유형',
   `message` VARCHAR(255) NOT NULL COMMENT '알림 메시지',
   `related_id` BIGINT NULL COMMENT '연관된 엔티티 ID',
   `is_read` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '읽음 여부',
@@ -332,3 +348,46 @@ CREATE TABLE `messages` (
   CONSTRAINT `FK_messages_sender` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`),
   CONSTRAINT `FK_messages_receiver` FOREIGN KEY (`receiver_id`) REFERENCES `users` (`id`)
 );
+
+-- 권장: 신고 처리 이력 로그
+CREATE TABLE report_actions (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  report_id BIGINT NOT NULL,
+  admin_id BIGINT NOT NULL,
+  action ENUM('RESOLVE','REJECT','ESCALATE') NOT NULL,
+  reason VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_ra_report FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ra_admin  FOREIGN KEY (admin_id)  REFERENCES users(id)
+);
+
+-- 쪽지 사용자별 상태 (읽음/삭제)
+CREATE TABLE message_user_status (
+  message_id BIGINT NOT NULL,
+  user_id    BIGINT NOT NULL,
+  is_read    BOOLEAN NOT NULL DEFAULT FALSE,
+  read_at    DATETIME NULL,
+  is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+  deleted_at DATETIME NULL,
+  PRIMARY KEY (message_id, user_id),
+  CONSTRAINT fk_mus_msg  FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+  CONSTRAINT fk_mus_user FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE CASCADE
+);
+
+CREATE TABLE user_warnings (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL COMMENT '경고 대상 사용자',
+  admin_id BIGINT NOT NULL COMMENT '처리한 관리자',
+  reason VARCHAR(255) NOT NULL COMMENT '경고 사유',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '경고 시각',
+  PRIMARY KEY (id),
+  CONSTRAINT fk_uw_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_uw_admin FOREIGN KEY (admin_id) REFERENCES users(id)
+);
+
+-- 카테고리 시드 추가
+INSERT INTO `categories` (`name`) VALUES
+('잡담'),
+('홍보'),
+('질문&답변');
