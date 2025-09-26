@@ -1,6 +1,6 @@
-# app/models/user.py
 from sqlalchemy import Column, BigInteger, String, Enum, Boolean, DateTime, Integer
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 import enum
 
@@ -26,7 +26,11 @@ class User(Base):
     email = Column(String(255), nullable=False, unique=True)
     user_id = Column(String(255), nullable=True, unique=True)
     password_hash = Column(String(255), nullable=True)
-    auth_provider = Column(Enum("LOCAL", "GOOGLE", "KAKAO", "NAVER", "GITHUB", name="auth_provider_enum"), nullable=False, default="LOCAL")
+    auth_provider = Column(
+        Enum("LOCAL", "GOOGLE", "KAKAO", "NAVER", "GITHUB", name="auth_provider_enum"),
+        nullable=False,
+        default="LOCAL"
+    )
     social_id = Column(String(255), nullable=True, unique=True)
     name = Column(String(50), nullable=False)
     phone_number = Column(String(20), nullable=True)
@@ -39,3 +43,10 @@ class User(Base):
     login_fail_count = Column(Integer, nullable=False, default=0)
     last_fail_time = Column(DateTime, nullable=True)
     account_locked = Column(Boolean, nullable=False, default=False)
+
+    # 🔹 알림과의 1:N 관계 추가
+    notifications = relationship(
+        "Notification",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )

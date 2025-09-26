@@ -1,25 +1,10 @@
-import { useState } from "react";
+// 메인 App 컴포넌트 
+// - 현재는 알림 페이지를 기본 화면으로 연결
+
+import NotificationsPage from "./pages/NotificationsPage";
 
 function App() {
-  const [msg, setMsg] = useState("아직 요청 전");
-
-  const testApi = () => {
-    fetch(import.meta.env.VITE_API_BASE_URL + "/api/hello")
-      .then(res => {
-        if (!res.ok) throw new Error("API Error");
-        return res.json();
-      })
-      .then(d => setMsg(d.message))
-      .catch(() => setMsg("API 연결 실패"));
-  };
-
-  return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h1>Team Project Frontend</h1>
-      <p>React (Vite) 실행 확인용 화면</p>
-      <button onClick={testApi}>백엔드 연결 테스트</button>
-      <p>{msg}</p>
-    </div>
-  );
+  return <NotificationsPage />;
 }
+
 export default App;
