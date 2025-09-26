@@ -1,21 +1,21 @@
 # app/services/auth_service.py
+
 from sqlalchemy.orm import Session
 from app import models
 from app.schemas.auth import UserRegister, UserLogin
 from app.core.security import hash_password, verify_password, create_access_token
-from fastapi import HTTPException, status
+from datetime import timedelta
 
-# 회원가입 처리
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
 def register_user(db: Session, user: UserRegister):
-    # 이메일 중복 확인
     exists = db.query(models.User).filter(models.User.email == user.email).first()
     if exists:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise ValueError("이미 존재하는 이메일입니다.")
 
-    # 새 유저 생성 (비밀번호는 해시 저장)
     new_user = models.User(
         email=user.email,
-        user_id=user.email,  # 임시로 이메일을 로그인 ID로 사용
+        user_id=user.user_id,
         password_hash=hash_password(user.password),
         name=user.name,
         nickname=user.nickname,
@@ -26,13 +26,21 @@ def register_user(db: Session, user: UserRegister):
     db.refresh(new_user)
     return new_user
 
-# 로그인 처리
+
+def authenticate_user(db: Session, email: str, password: str):
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user or not verify_password(password, user.password_hash):
+        return None
+    return user
+
+
 def login_user(db: Session, user: UserLogin):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    # 이메일/비밀번호 검증
-    if not db_user or not verify_password(user.password, db_user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    
-    # JWT 토큰 발급
-    token = create_access_token({"sub": str(db_user.id)})
-    return {"access_token": token, "token_type": "bearer"}
+    db_user = authenticate_user(db, user.email, user.password)
+    if not db_user:
+        return None
+
+    access_token = create_access_token(
+        data={"sub": str(db_user.id)},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    return {"access_token": access_token, "token_type": "bearer"}

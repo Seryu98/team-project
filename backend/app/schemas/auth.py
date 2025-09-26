@@ -5,7 +5,8 @@ from typing import Optional
 # 회원가입 시 클라이언트가 보내는 데이터 형식 정의
 class UserRegister(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=6)  # 최소 6자
+    user_id: str                # 👈 추가
+    password: str = Field(..., min_length=6)
     name: str
     nickname: str
     phone_number: Optional[str]

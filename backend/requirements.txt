@@ -1,5 +1,16 @@
-fastapi
-uvicorn[standard]
-python-dotenv
-sqlalchemy
-pymysql
+fastapi==0.111.0
+uvicorn[standard]==0.30.0
+sqlalchemy==2.0.31
+pymysql==1.1.1
+python-dotenv==1.0.1
+
+# 인증 / 보안
+python-jose==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2   # passlib 과 호환되는 안정 버전
+
+# Pydantic
+pydantic==1.10.15
+
+# 기타
+typing-extensions>=4.12.2
