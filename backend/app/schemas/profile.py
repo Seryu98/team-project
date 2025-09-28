@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import date
 
 class SkillOut(BaseModel):
     id: int
@@ -10,14 +11,20 @@ class SkillOut(BaseModel):
     class Config:
         orm_mode = True
 
-# class ProjectOut(BaseModel):
-#     id: int
-#     title: str
-#     type: str  # PROJECT / STUDY
-#
-#     class Config:
-#         orm_mode = True
 
+# ✅ 프로필 수정용 DTO (자기소개/경력/자격증/생년월일/성별)
+class ProfileUpdate(BaseModel):
+    bio: Optional[str] = None
+    experience: Optional[str] = None
+    certifications: Optional[str] = None
+    birth_date: Optional[date] = None
+    gender: Optional[str] = None  # "MALE" / "FEMALE"
+
+    class Config:
+        orm_mode = True
+
+
+# ✅ 프로필 조회 응답 DTO
 class ProfileOut(BaseModel):
     id: int
     nickname: str
@@ -26,6 +33,8 @@ class ProfileOut(BaseModel):
     bio: Optional[str] = None
     experience: Optional[str] = None
     certifications: Optional[str] = None
+    birth_date: Optional[date] = None
+    gender: Optional[str] = None
     follower_count: int
     following_count: int
     skills: List[SkillOut] = []  # 유저가 가진 스킬 목록

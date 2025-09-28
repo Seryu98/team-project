@@ -3,15 +3,15 @@ from fastapi import HTTPException
 from app.models.user import User
 from app.models.profile import Profile
 from app.models.skill import Skill
-from app.models.user_skill import UserSkill  
-# from app.models.post import Post, PostMember
-
+from app.models.user_skill import UserSkill
+from app.schemas.profile import ProfileUpdate
 
 def get_or_create_profile(db: Session, user_id: int) -> Profile:
     """
     유저의 프로필을 조회하거나 없으면 새로 생성해서 반환
+    (profiles.id 는 users.id 를 참조하므로 user_id == profile.id)
     """
-    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    profile = db.query(Profile).filter(Profile.id == user_id).first()
     if not profile:
         # 유저 존재 여부 확인
         user = db.query(User).filter(User.id == user_id).first()
@@ -19,7 +19,7 @@ def get_or_create_profile(db: Session, user_id: int) -> Profile:
             raise HTTPException(status_code=404, detail="User not found")
 
         # 기본 프로필 생성
-        profile = Profile(user_id=user_id)
+        profile = Profile(id=user_id)
         db.add(profile)
         db.commit()
         db.refresh(profile)
@@ -76,8 +76,34 @@ def get_profile_detail(db: Session, user_id: int):
         "bio": profile.bio,
         "experience": profile.experience,
         "certifications": profile.certifications,
+        "birth_date": profile.birth_date,
+        "gender": profile.gender,
         "follower_count": profile.follower_count,
         "following_count": profile.following_count,
         "skills": skills_out,
         # "projects": projects_out,
     }
+
+
+def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
+    """
+    유저 프로필 수정 (자기소개, 경력, 자격증, 생년월일, 성별 등)
+    """
+    profile = db.query(Profile).filter(Profile.id == user_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="프로필을 찾을 수 없습니다.")
+
+    if update_data.bio is not None:
+        profile.bio = update_data.bio
+    if update_data.experience is not None:
+        profile.experience = update_data.experience
+    if update_data.certifications is not None:
+        profile.certifications = update_data.certifications
+    if update_data.birth_date is not None:
+        profile.birth_date = update_data.birth_date
+    if update_data.gender is not None:
+        profile.gender = update_data.gender
+
+    db.commit()
+    db.refresh(profile)
+    return profile
