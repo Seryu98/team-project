@@ -1,4 +1,3 @@
-# app/project_post/recipe_router.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -9,9 +8,32 @@ from app.core.deps import get_current_user
 from app.project_post.recipe_schema import RecipePostCreate, RecipePostResponse
 from app.project_post import recipe_service, recipe_model as models
 from app.users.user_model import User
-from app.meta.meta_schema import SkillResponse  # ✅ skill DTO (id, name) 불러오기
+from app.meta.meta_schema import SkillResponse  # ✅ skill DTO (id, name)
 
 router = APIRouter(prefix="/recipe", tags=["recipe"])
+
+
+# ✅ 공통 DTO 변환 함수
+def to_dto(post: models.RecipePost) -> RecipePostResponse:
+    return RecipePostResponse(
+        id=post.id,
+        title=post.title,
+        description=post.description,
+        capacity=post.capacity,
+        type=post.type,
+        field=post.field,
+        start_date=post.start_date,
+        end_date=post.end_date,
+        status=post.status,
+        created_at=post.created_at,
+        current_members=len(post.members),
+        image_url=post.image_url,
+        leader_id=post.leader_id,
+        skills=[
+            SkillResponse(id=s.skill.id, name=s.skill.name)
+            for s in post.skills
+        ],
+    )
 
 
 # ✅ 모집공고 생성
@@ -31,7 +53,9 @@ async def create_post(
         leader_id=current_user.id,
         **payload.dict()
     )
-    return new_post
+    db.refresh(new_post)  # 🔹 관계 데이터 새로고침
+
+    return to_dto(new_post)
 
 
 # ✅ 게시판 목록 조회
@@ -41,8 +65,8 @@ async def get_posts(
     type: Optional[str] = Query(None, description="PROJECT 또는 STUDY"),
     status: Optional[str] = Query("APPROVED", description="승인 상태"),
     skill_ids: Optional[List[int]] = Query(None, description="스킬 ID 배열"),  # ✅ 사용언어 필터
-    start_date: Optional[date] = Query(None, description="모집 시작일 (YYYY-MM-DD)"),  # ✅ 기간 검색 시작
-    end_date: Optional[date] = Query(None, description="모집 종료일 (YYYY-MM-DD)"),   # ✅ 기간 검색 종료
+    start_date: Optional[date] = Query(None, description="모집 시작일 (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="모집 종료일 (YYYY-MM-DD)"),
     search: Optional[str] = Query(None, description="검색어 (제목/설명)"),
     page: int = 1,
     page_size: int = 10,
@@ -51,71 +75,39 @@ async def get_posts(
     게시판 목록 조회 API
     - 승인된 게시글만 가져옴 (status 기본값 = APPROVED)
     - 프로젝트/스터디 필터, 스킬 필터, 기간검색, 텍스트 검색 지원
-    - skills, members 관계를 join 해서 프론트에서 바로 활용 가능
     """
 
     query = (
         db.query(models.RecipePost)
         .options(
-            joinedload(models.RecipePost.skills).joinedload(models.RecipePostSkill.skill),  # ✅ 사용언어 join
-            joinedload(models.RecipePost.members),  # ✅ 현재 인원 join
+            joinedload(models.RecipePost.skills).joinedload(models.RecipePostSkill.skill),
+            joinedload(models.RecipePost.members),
         )
         .filter(models.RecipePost.status == status)
     )
 
-    # ▶ 모집구분 필터 (PROJECT / STUDY)
     if type:
         query = query.filter(models.RecipePost.type == type)
 
-    # ▶ 스킬 필터 (프로젝트/스터디와 무관하게 적용)
     if skill_ids:
         query = query.join(models.RecipePostSkill).filter(
             models.RecipePostSkill.skill_id.in_(skill_ids)
         )
 
-    # ▶ 모집 기간 검색 (겹치는 경우만 조회)
     if start_date and end_date:
         query = query.filter(
             models.RecipePost.start_date <= end_date,
             models.RecipePost.end_date >= start_date,
         )
 
-    # ▶ 텍스트 검색 (제목 + 설명)
     if search:
         query = query.filter(
             (models.RecipePost.title.contains(search))
             | (models.RecipePost.description.contains(search))
         )
 
-    # ▶ 페이지네이션
     posts = query.offset((page - 1) * page_size).limit(page_size).all()
-
-    # ▶ DTO 변환
-    response_posts = []
-    for post in posts:
-        response_posts.append(
-            RecipePostResponse(
-                id=post.id,
-                title=post.title,
-                description=post.description,
-                capacity=post.capacity,
-                type=post.type,
-                field=post.field,
-                start_date=post.start_date,
-                end_date=post.end_date,
-                status=post.status,
-                created_at=post.created_at,
-                current_members=len(post.members),  # ✅ 현재 인원
-                image_url=post.image_url,           # ✅ 대표 이미지
-                leader_id=post.leader_id,           # ✅ 리더 ID
-                skills=[
-                    SkillResponse(id=s.skill.id, name=s.skill.name)
-                    for s in post.skills
-                ],  # ✅ 사용언어
-            )
-        )
-
-    return response_posts
+    return [to_dto(post) for post in posts]
 
 
 # ✅ 상세조회
@@ -136,25 +128,7 @@ async def get_post_detail(
     if not post:
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
 
-    return RecipePostResponse(
-        id=post.id,
-        title=post.title,
-        description=post.description,
-        capacity=post.capacity,
-        type=post.type,
-        field=post.field,
-        start_date=post.start_date,
-        end_date=post.end_date,
-        status=post.status,
-        created_at=post.created_at,
-        current_members=len(post.members),
-        image_url=post.image_url,
-        leader_id=post.leader_id,
-        skills=[
-            SkillResponse(id=s.skill.id, name=s.skill.name)
-            for s in post.skills
-        ],
-    )
+    return to_dto(post)
 
 
 # ✅ 게시글 수정
@@ -178,25 +152,7 @@ async def update_post(
     db.commit()
     db.refresh(post)
 
-    return RecipePostResponse(
-        id=post.id,
-        title=post.title,
-        description=post.description,
-        capacity=post.capacity,
-        type=post.type,
-        field=post.field,
-        start_date=post.start_date,
-        end_date=post.end_date,
-        status=post.status,
-        created_at=post.created_at,
-        current_members=len(post.members),
-        image_url=post.image_url,
-        leader_id=post.leader_id,
-        skills=[
-            SkillResponse(id=s.skill.id, name=s.skill.name)
-            for s in post.skills
-        ],
-    )
+    return to_dto(post)
 
 
 # ✅ 게시글 삭제
