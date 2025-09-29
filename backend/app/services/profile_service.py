@@ -86,9 +86,6 @@ def get_profile_detail(db: Session, user_id: int):
 
 
 def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
-    """
-    유저 프로필 수정 (자기소개, 경력, 자격증, 생년월일, 성별 등)
-    """
     profile = db.query(Profile).filter(Profile.id == user_id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="프로필을 찾을 수 없습니다.")
@@ -106,4 +103,7 @@ def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
 
     db.commit()
     db.refresh(profile)
-    return profile
+
+    # ✅ 여기서 DTO 변환 함수 호출
+    return get_profile_detail(db, user_id)
+
