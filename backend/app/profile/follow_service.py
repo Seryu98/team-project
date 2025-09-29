@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from app.models.follow import Follow
-from app.models.user import User
+from app.profile.follow_model import Follow
+from app.users.user_model import User
 
 # ✅ 한국 시간대
 KST = timezone(timedelta(hours=9))

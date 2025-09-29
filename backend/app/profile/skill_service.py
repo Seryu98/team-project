@@ -2,8 +2,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import HTTPException
 from typing import List
-from app.models.skill import Skill
-from app.models.user_skill import UserSkill
+from app.profile.skill_model import Skill
+from app.profile.user_skill_model import UserSkill
 
 # ------------------------------------------
 # 검색: 우리 DB에 등록된 스킬만 노출 (자동완성/검색용)

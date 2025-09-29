@@ -1,4 +1,4 @@
-
+from fastapi import FastAPI
 from app.auth import auth_router
 from app.test import db_test
 from app.profile import profile_router, follow_router, skill_router

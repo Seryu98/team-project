@@ -1,5 +1,5 @@
 from sqlalchemy import Column, BigInteger, String, Text, Integer, DateTime, Enum, Date
-from app.models.base import Base
+from app.core.base import Base
 
 class Profile(Base):
     __tablename__ = "profiles"

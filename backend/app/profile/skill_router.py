@@ -13,7 +13,7 @@ from app.profile.skill_service import (
     update_user_skill_level,
     remove_user_skill,
 )
-from app.profile.user_models import User
+from app.users.user_model import User
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
