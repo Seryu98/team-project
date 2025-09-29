@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import date, datetime
 
+# ▶ 요청 DTO
 class RecipePostCreate(BaseModel):
     title: str = Field(..., max_length=200)
     description: Optional[str] = None
@@ -15,6 +16,8 @@ class RecipePostCreate(BaseModel):
     required_fields: List[int] = []    # field_id 목록
     image_url: Optional[str] = None    # ✅ 대표 이미지 (업로드 후 URL 저장)
 
+
+# ▶ 응답 DTO
 class RecipePostResponse(BaseModel):
     id: int
     title: str
@@ -29,4 +32,4 @@ class RecipePostResponse(BaseModel):
     image_url: Optional[str] = None    # ✅ 대표 이미지
 
     class Config:
-        from_attributes = True
+        from_attributes = True   # ✅ ORM 객체를 Pydantic 모델로 변환

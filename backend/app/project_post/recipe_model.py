@@ -19,7 +19,8 @@ class RecipePost(Base):
     description = Column(Text)
     start_date = Column(Date)   
     end_date = Column(Date)
-    status = Column(Enum("PENDING", "APPROVED", "REJECTED", name="post_status"), default="PENDING")
+    #status = Column(Enum("PENDING", "APPROVED", "REJECTED", name="post_status"), default="PENDING")
+    status = Column(Enum("APPROVED", "REJECTED", name="post_status"), default="APPROVED")   # ✅ 기본값을 APPROVED 로 변경
     created_at = Column(DateTime, default=datetime.utcnow)
 
     skills = relationship("RecipePostSkill", back_populates="post")

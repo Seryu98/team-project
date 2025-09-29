@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import FormInput from "../components/RecipeFormInput";
+import FormInput from "./RecipeFormInput";
+import { useNavigate } from "react-router-dom";
 
 export default function RecipeCreate() {
     const [type, setType] = useState(""); // PROJECT or STUDY
@@ -8,6 +9,7 @@ export default function RecipeCreate() {
     const [skills, setSkills] = useState([]);
     const [skillSearch, setSkillSearch] = useState("");
     const [filteredSkills, setFilteredSkills] = useState([]);
+    const navigate = useNavigate();
 
     const [form, setForm] = useState({
         title: "",
@@ -129,13 +131,15 @@ export default function RecipeCreate() {
                 image_url: form.image_url, // ✅ 업로드된 URL
             };
 
-            console.log("📤 최종 전송 payload:", payload);
-
             const res = await axios.post("http://localhost:8000/recipe/", payload, {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
             alert("✅ 등록 완료!\nID: " + res.data.id);
+
+            // ✅ 등록 후 게시판으로 이동
+            navigate("/recipe/list");
+
         } catch (err) {
             console.error(err);
             alert("❌ 오류 발생: " + (err.response?.data?.detail || err.message));
