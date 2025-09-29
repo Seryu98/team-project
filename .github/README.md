@@ -64,8 +64,8 @@ backend/
 ## ⚙ 실행 방법
 
 ### 1. 가상환경(venv) 설정 (최초 1회만)
-
-# 프로젝트 루트에서 가상환경 생성(가상환경은 team-project에서 설정해주세요. venv폴더가 프론트 백 폴더랑 나란히 같은위치가 되도록)
+# 항상 백앤드는 가상화를 해주세요. 프론트는 그냥 하면되고 커맨드에
+# 프로젝트 루트에서 가상환경 생성(venv는 백앤드에 만들기 cd backend)
 python -m venv venv
 
 # 가상환경 활성화
@@ -74,7 +74,7 @@ python -m venv venv
 ### 프론트엔드
 cd frontend
 npm install
-npm start
+npm run dev
 
 ### 백엔드
 cd backend

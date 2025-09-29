@@ -1,7 +1,7 @@
 # app/models/user.py
 from sqlalchemy import Column, BigInteger, String, Enum, Boolean, DateTime, Integer
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.models.base import Base
 import enum
 
 # role과 status Enum 정의

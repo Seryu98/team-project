@@ -9,8 +9,9 @@ python-jose==3.3.0
 passlib[bcrypt]==1.7.4
 bcrypt==3.2.2   # compatible version
 
-# pydantic
-pydantic==1.10.15
+# pydantic (v2)
+pydantic==2.9.2
+pydantic-settings==2.6.1   # settings management (with python-dotenv)
 
 # etc
 typing-extensions>=4.12.2
