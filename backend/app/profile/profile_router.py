@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 import os
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.schemas.profile import ProfileOut, ProfileUpdate
-from app.services.profile_service import (
+from app.profile.profile_schemas import ProfileOut, ProfileUpdate
+from app.profile.profile_service import (
     get_profile_detail,
     update_profile,
     get_or_create_profile,

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.deps import get_db
-from app.services.follow_service import (
+from app.profile.follow_service import (
     follow_user,
     unfollow_user,
     get_followers,

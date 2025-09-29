@@ -1,7 +1,7 @@
 import { Routes, Route } from "react-router-dom";
-import Home from "./pages/Home";
-import ProfileCreate from "./pages/ProfileCreate";
-import Profile from "./pages/Profile";
+import Home from "./profile/home_pages";
+import ProfileCreate from "./profile/profileCreate_pages";
+import Profile from "./profile/profile_pages";
 
 function App() {
   return (

@@ -4,8 +4,8 @@ from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.schemas.skill import SkillCreate, UserSkillCreate, SkillOut
-from app.services.skill_service import (
+from app.profile.skill_schemas import SkillCreate, UserSkillCreate, SkillOut
+from app.profile.skill_service import (
     search_skills,
     create_skill,
     add_user_skill,
@@ -13,7 +13,7 @@ from app.services.skill_service import (
     update_user_skill_level,
     remove_user_skill,
 )
-from app.models.user import User
+from app.profile.user_models import User
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 

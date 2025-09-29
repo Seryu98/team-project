@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from app.models.user import User
-from app.models.profile import Profile
-from app.models.skill import Skill
-from app.models.user_skill import UserSkill
-from app.schemas.profile import ProfileUpdate
+from app.profile.user_models import User
+from app.profile.profile_models import Profile
+from app.profile.skill_models import Skill
+from app.profile.user_skill_models import UserSkill
+from app.profile.profile_schemas import ProfileUpdate
 
 def get_or_create_profile(db: Session, user_id: int) -> Profile:
     """
