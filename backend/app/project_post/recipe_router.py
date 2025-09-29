@@ -1,12 +1,12 @@
-# app/routers/recipe_router.py
+# app/project_post/recipe_router.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.schemas.pr_recipe import RecipePostCreate, RecipePostResponse
-from app.services import recipe_service
-from app.models import User
+from app.project_post.recipe_schema import RecipePostCreate, RecipePostResponse
+from app.project_post import recipe_service
+from app.users.user_model import User   # ✅ users 도메인에서 가져오기
 
 router = APIRouter(prefix="/recipe", tags=["recipe"])
 

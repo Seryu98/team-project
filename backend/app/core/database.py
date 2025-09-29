@@ -3,9 +3,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
-
-# Base는 따로 분리
-from app.models.base import Base 
+from app.core.base import Base  # Base는 따로 분리
 
 
 load_dotenv()

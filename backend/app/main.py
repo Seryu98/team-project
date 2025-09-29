@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.routers import db_test, auth
+from app.auth import auth_router
+from app.test import db_test
 import app.routers.recipe_router as recipe_router
 import app.routers.meta_router as meta_router
 from app.routers import upload_router
