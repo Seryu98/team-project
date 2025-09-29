@@ -1,11 +1,15 @@
-# app/main.py
-from fastapi import FastAPI
-from app.routers import auth, profile, follow, skill, db_test
+
+from app.auth import auth_router
+from app.test import db_test
+from app.profile import profile_router, follow_router, skill_router
 
 app = FastAPI()
 
-app.include_router(auth.router)
-app.include_router(profile.router)
-app.include_router(follow.router)
-app.include_router(skill.router)   
-app.include_router(db_test.router)
+# 테이블은 이미 MySQL에 있으므로 create_all() 생략
+
+app.include_router(auth_router.router)   # 임시 로그인/회원가입 라우터
+app.include_router(db_test.router)       # DB 연결 테스트 라우터
+app.include_router(profile_router.router)
+app.include_router(follow_router.router)
+app.include_router(skill_router.router)  
+
