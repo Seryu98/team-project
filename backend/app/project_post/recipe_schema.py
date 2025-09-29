@@ -1,4 +1,4 @@
-#schemas/pr_recipe.py
+#app/project_post/recipe_schema.py
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import date, datetime

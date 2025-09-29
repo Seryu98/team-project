@@ -1,4 +1,4 @@
-# app/services/recipe_service.py
+#app/project_post/recipe_sevice.py
 from sqlalchemy.orm import Session
 from app import models
 

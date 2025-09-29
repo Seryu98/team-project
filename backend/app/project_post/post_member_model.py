@@ -1,3 +1,4 @@
+#app/project_post/post_member_model.py
 from sqlalchemy import Column, BigInteger, Enum, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
