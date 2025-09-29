@@ -1,9 +1,10 @@
-# app/services/auth_service.py
+# app/auth/auth_service.py
 from sqlalchemy.orm import Session
 from app.users.user_model import User
-from app.auth.auth_schema import UserRegister, UserLogin
+from app.auth.auth_schema import UserRegister
 from app.core.security import hash_password, verify_password, create_access_token
 from datetime import timedelta, datetime
+from fastapi.security import OAuth2PasswordRequestForm
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
@@ -33,9 +34,9 @@ def authenticate_user(db: Session, email: str, password: str):
         return None
     return user
 
-# 로그인 처리 및 토큰 발급
-def login_user(db: Session, user: UserLogin):
-    db_user = authenticate_user(db, user.email, user.password)
+# 로그인 처리 및 토큰 발급 (OAuth2PasswordRequestForm)
+def login_user(db: Session, form_data: OAuth2PasswordRequestForm):
+    db_user = authenticate_user(db, form_data.username, form_data.password)
     if not db_user:
         return None
 
@@ -46,6 +47,6 @@ def login_user(db: Session, user: UserLogin):
 
     access_token = create_access_token(
         data={"sub": str(db_user.id)},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return {"access_token": access_token, "token_type": "bearer"}

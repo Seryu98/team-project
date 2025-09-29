@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from jose import jwt
 from passlib.context import CryptContext
+from fastapi.security import OAuth2PasswordBearer
 
 # JWT 관련 기본 설정
 SECRET_KEY = "temporary_secret"  # 실제 배포 시 환경변수로 교체 필요
@@ -33,3 +34,6 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+# Swagger Authorize 버튼과 연동되는 OAuth2 설정
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
