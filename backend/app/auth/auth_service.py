@@ -1,7 +1,7 @@
 # app/services/auth_service.py
 from sqlalchemy.orm import Session
-from app import models
-from app.schemas.auth import UserRegister, UserLogin
+from app.users.user_model import User
+from app.auth.auth_schema import UserRegister, UserLogin
 from app.core.security import hash_password, verify_password, create_access_token
 from datetime import timedelta, datetime
 
@@ -9,11 +9,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 # 회원가입 처리
 def register_user(db: Session, user: UserRegister):
-    exists = db.query(models.User).filter(models.User.email == user.email).first()
+    exists = db.query(User).filter(User.email == user.email).first()
     if exists:
         raise ValueError("이미 존재하는 이메일입니다.")
 
-    new_user = models.User(
+    new_user = User(
         email=user.email,
         user_id=user.user_id,
         password_hash=hash_password(user.password),
@@ -28,7 +28,7 @@ def register_user(db: Session, user: UserRegister):
 
 # 사용자 인증
 def authenticate_user(db: Session, email: str, password: str):
-    user = db.query(models.User).filter(models.User.email == email).first()
+    user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(password, user.password_hash):
         return None
     return user
