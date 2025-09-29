@@ -74,7 +74,7 @@ python -m venv venv
 ### 프론트엔드
 cd frontend
 npm install
-npm start
+npm run dev
 
 ### 백엔드
 cd backend

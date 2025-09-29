@@ -11,7 +11,7 @@ bcrypt==3.2.2   # compatible version
 
 # pydantic (v2)
 pydantic==2.9.2
-pydantic-settings==2.6.1   # 환경 변수 관리 (python-dotenv와 함께 사용 가능)
+pydantic-settings==2.6.1   # settings management (with python-dotenv)
 
 # etc
 typing-extensions>=4.12.2
