@@ -1,8 +1,8 @@
-# app/models/pr_recipe.py
 from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.models.base import Base
+from app.core.base import Base
+
 
 class RecipePost(Base):
     __tablename__ = "posts"   # 실제 DB 테이블 이름
@@ -18,13 +18,14 @@ class RecipePost(Base):
     description = Column(Text)
     start_date = Column(Date)   
     end_date = Column(Date)
-    status = Column(Enum("PENDING","APPROVED","REJECTED", name="post_status"), default="PENDING")
+    status = Column(Enum("PENDING", "APPROVED", "REJECTED", name="post_status"), default="PENDING")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     skills = relationship("RecipePostSkill", back_populates="post")
     files = relationship("RecipeFile", back_populates="post")
     required_fields = relationship("RecipePostRequiredField", back_populates="post")
     members = relationship("PostMember", back_populates="post", cascade="all, delete-orphan")
+
 
 class RecipePostSkill(Base):
     __tablename__ = "post_skills"
@@ -33,6 +34,7 @@ class RecipePostSkill(Base):
     skill_id = Column(Integer, ForeignKey("skills.id"), primary_key=True)
 
     post = relationship("RecipePost", back_populates="skills")
+
 
 class RecipeFile(Base):
     __tablename__ = "files"
@@ -46,10 +48,11 @@ class RecipeFile(Base):
 
     post = relationship("RecipePost", back_populates="files")
 
+
 class RecipePostRequiredField(Base):
     __tablename__ = "post_required_fields"
 
     post_id = Column(Integer, ForeignKey("posts.id"), primary_key=True)
-    field_id = Column(Integer, ForeignKey("required_fields.id"), primary_key=True)  # ✅ 수정
+    field_id = Column(Integer, ForeignKey("application_fields.id"), primary_key=True)  # ✅ DB 테이블명 맞춤
 
     post = relationship("RecipePost", back_populates="required_fields")

@@ -1,10 +1,10 @@
-# app/services/meta_service.py
+# app/meta/meta_service.py
 from sqlalchemy.orm import Session
-from backend.app.meta.skill_model import Skill
-from backend.app.meta.application_field_model import ApplicationField   # ✅
+from app.meta.skill_model import Skill
+from app.meta.application_field_model import ApplicationField
 
 def get_skills(db: Session):
     return db.query(Skill).all()
 
 def get_required_fields(db: Session):
-    return db.query(ApplicationField).all()   # ✅
+    return db.query(ApplicationField).all()
