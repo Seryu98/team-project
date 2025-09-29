@@ -1,8 +1,12 @@
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import Register from "./features/auth/Register";
+import Login from "./features/auth/Login";
 import { useState } from "react";
 
 function App() {
   const [msg, setMsg] = useState("아직 요청 전");
 
+  // API 연결 테스트용
   const testApi = () => {
     fetch(import.meta.env.VITE_API_BASE_URL + "/api/hello")
       .then(res => {
@@ -14,12 +18,25 @@ function App() {
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h1>Team Project Frontend</h1>
-      <p>React (Vite) 실행 확인용 화면</p>
-      <button onClick={testApi}>백엔드 연결 테스트</button>
-      <p>{msg}</p>
-    </div>
+    <Router>
+      <div style={{ textAlign: "center", marginTop: "30px" }}>
+        <h1>Team Project Frontend</h1>
+        <nav style={{ marginBottom: "20px" }}>
+          <Link to="/register" style={{ margin: "0 10px" }}>회원가입</Link>
+          <Link to="/login" style={{ margin: "0 10px" }}>로그인</Link>
+          <button onClick={testApi} style={{ marginLeft: "20px" }}>
+            백엔드 연결 테스트
+          </button>
+        </nav>
+        <p>{msg}</p>
+
+        <Routes>
+          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<Login />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
+
 export default App;
