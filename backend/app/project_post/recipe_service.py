@@ -1,13 +1,25 @@
-#app/project_post/recipe_sevice.py
 from sqlalchemy.orm import Session
 from app import models
 
-# ▶ 모집공고 생성 서비스
-def create_recipe_post(db: Session, leader_id: int, title: str, description: str,
-                       capacity: int, type: str, field: str, start_date: str,
-                       end_date: str, skills: list[int], required_fields: list[int],
-                       image_url: str = None):   # ✅ 대표 이미지 추가
-
+def create_recipe_post(
+    db: Session,
+    leader_id: int,
+    title: str,
+    description: str,
+    capacity: int,
+    type: str,
+    field: str,
+    start_date: str,
+    end_date: str,
+    skills: list[int],
+    required_fields: list[int],
+    image_url: str = None,
+):
+    """
+    모집공고 생성 서비스
+    - 리더 자동 참여
+    - current_members = 1 로 초기화
+    """
     new_post = models.RecipePost(
         leader_id=leader_id,
         type=type,
@@ -17,13 +29,14 @@ def create_recipe_post(db: Session, leader_id: int, title: str, description: str
         description=description,
         start_date=start_date,
         end_date=end_date,
-        image_url=image_url,   # ✅ URL 바로 저장
+        image_url=image_url,
+        current_members=1,  # ✅ DB에 바로 반영
     )
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
 
-    # ▶ 리더를 자동으로 post_members에 등록
+    # ▶ 리더 멤버 등록
     leader_member = models.PostMember(
         post_id=new_post.id,
         user_id=leader_id,
