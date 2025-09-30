@@ -16,3 +16,6 @@ backend/venv/
 frontend/.env
 backend/.env
 .vscode/
+
+#Backend logs
+backend/logs/
