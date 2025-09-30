@@ -7,7 +7,8 @@ export default function Home() {
       <nav>
         <ul>
           <li><Link to="/profile/create">프로필 생성</Link></li>
-          <li><Link to="/profile">프로필 확인/수정</Link></li>
+          <li><Link to="/profile/21">내 프로필 확인/수정</Link></li>
+          <li><Link to="/profile/23">민준 프로필 보기</Link></li>
         </ul>
       </nav>
     </div>

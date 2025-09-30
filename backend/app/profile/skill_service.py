@@ -9,18 +9,21 @@ from app.profile.user_skill_model import UserSkill
 # 검색: 우리 DB에 등록된 스킬만 노출 (자동완성/검색용)
 # ------------------------------------------
 def search_skills(db: Session, q: str, limit: int = 10) -> List[dict]:
-    """
-    q 가 비어있으면 상위 N개만, 있으면 부분일치로 반환.
-    MySQL 기본 collation이 대소문자 무시인 경우가 많지만, 안전하게 LIKE 사용.
-    """
     query = db.query(Skill)
     if q:
         like = f"%{q}%"
-        query = query.filter(Skill.name.like(like))
+        query = query.filter(Skill.name.ilike(like))  # ✅ 대소문자 무시, 특수문자도 그대로 처리
     skills = query.order_by(Skill.name.asc()).limit(limit).all()
 
-    return [{"id": s.id, "name": s.name, "level": None, "icon": f"/assets/skills/{s.name.lower()}.png"} for s in skills]
-
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "level": None,
+            "icon": f"/assets/skills/{s.name.lower().replace('+', 'plus').replace('#', 'sharp')}.png"
+        }
+        for s in skills
+    ]
 
 # ------------------------------------------
 # 스킬 등록 (초기 시드/관리자용) - 필요 시 사용

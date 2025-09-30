@@ -4,13 +4,19 @@ from app.auth.auth_schema import UserRegister, UserLogin
 from app.core.security import hash_password, verify_password, create_access_token
 from datetime import timedelta
 
+# 프로필 모델 import
+from app.profile.profile_model import Profile  
+
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
+
 def register_user(db: Session, user: UserRegister):
+    # 이메일 중복 체크
     exists = db.query(User).filter(User.email == user.email).first()
     if exists:
         raise ValueError("이미 존재하는 이메일입니다.")
 
+    # 유저 생성
     new_user = User(
         email=user.email,
         user_id=user.user_id,
@@ -22,6 +28,12 @@ def register_user(db: Session, user: UserRegister):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    # ✅ 기본 프로필 자동 생성
+    profile = Profile(id=new_user.id)
+    db.add(profile)
+    db.commit()
+
     return new_user
 
 

@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.profile.follow_model import Follow
 from app.users.user_model import User
+from app.profile.profile_model import Profile
 
 # ✅ 한국 시간대
 KST = timezone(timedelta(hours=9))
@@ -13,7 +14,7 @@ def follow_user(db: Session, follower_id: int, following_id: int):
     if follower_id == following_id:
         raise HTTPException(status_code=400, detail="자기 자신은 팔로우할 수 없습니다.")
 
-    # 대상 유저 확인
+    # 대상 유저 존재 확인
     target_user = db.query(User).filter(User.id == following_id).first()
     if not target_user:
         raise HTTPException(status_code=404, detail="대상 유저를 찾을 수 없습니다.")
@@ -56,29 +57,80 @@ def unfollow_user(db: Session, follower_id: int, following_id: int):
     if follow.deleted_at is not None:
         raise HTTPException(status_code=400, detail="이미 언팔로우된 상태입니다.")
 
-    # ✅ deleted_at 한국시간으로 기록
+    # ✅ deleted_at 한국시간 기록
     follow.deleted_at = datetime.now(KST)
     db.commit()
     db.refresh(follow)
     return {"success": True, "message": "언팔로우 성공"}
 
 
-
-# ✅ 팔로워 목록
-def get_followers(db: Session, user_id: int):
+# ✅ 팔로워 목록 (나를 팔로우하는 사람들)
+def get_followers(db: Session, user_id: int, current_user_id: int = None):
     followers = (
-        db.query(Follow)
+        db.query(Follow, User, Profile)
+        .join(User, Follow.follower_id == User.id)
+        .join(Profile, Profile.id == User.id)
         .filter(Follow.following_id == user_id, Follow.deleted_at.is_(None))
         .all()
     )
-    return followers
+
+    result = []
+    for _, user, profile in followers:
+        # 현재 로그인 유저가 이 유저를 팔로우 중인지 체크
+        is_following = False
+        if current_user_id:
+            check = (
+                db.query(Follow)
+                .filter(
+                    Follow.follower_id == current_user_id,
+                    Follow.following_id == user.id,
+                    Follow.deleted_at.is_(None)
+                )
+                .first()
+            )
+            is_following = bool(check)
+
+        result.append({
+            "id": user.id,
+            "nickname": user.nickname,
+            "profile_image": profile.profile_image,
+            "headline": profile.headline,
+            "is_following": is_following,
+        })
+    return result
 
 
-# ✅ 팔로잉 목록
-def get_followings(db: Session, user_id: int):
+# ✅ 팔로잉 목록 (내가 팔로우하는 사람들)
+def get_followings(db: Session, user_id: int, current_user_id: int = None):
     followings = (
-        db.query(Follow)
+        db.query(Follow, User, Profile)
+        .join(User, Follow.following_id == User.id)
+        .join(Profile, Profile.id == User.id)
         .filter(Follow.follower_id == user_id, Follow.deleted_at.is_(None))
         .all()
     )
-    return followings
+
+    result = []
+    for _, user, profile in followings:
+        # 현재 로그인 유저가 이 유저를 팔로우 중인지 체크
+        is_following = False
+        if current_user_id:
+            check = (
+                db.query(Follow)
+                .filter(
+                    Follow.follower_id == current_user_id,
+                    Follow.following_id == user.id,
+                    Follow.deleted_at.is_(None)
+                )
+                .first()
+            )
+            is_following = bool(check)
+
+        result.append({
+            "id": user.id,
+            "nickname": user.nickname,
+            "profile_image": profile.profile_image,
+            "headline": profile.headline,
+            "is_following": is_following,
+        })
+    return result
