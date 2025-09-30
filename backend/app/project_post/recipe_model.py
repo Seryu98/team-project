@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Enum, Fore
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.base import Base
+from app.project_post.post_member_model import PostMember
 
 
 # ✅ 게시글 테이블

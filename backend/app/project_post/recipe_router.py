@@ -1,3 +1,4 @@
+# app/project_post/recipe_router.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -40,7 +41,7 @@ def to_dto(post: models.RecipePost) -> RecipePostResponse:
         ],
         members=[
             PostMemberResponse(user_id=m.user_id, role=m.role) for m in post.members
-        ],  # ✅ 추가됨
+        ],
     )
 
 
@@ -60,7 +61,7 @@ async def create_post(
     return to_dto(new_post)
 
 
-# ✅ 목록 조회 (삭제 제외)
+# ✅ 목록 조회
 @router.get("/list", response_model=List[RecipePostResponse])
 async def get_posts(
     db: Session = Depends(get_db),
@@ -162,13 +163,11 @@ async def apply_post(
     if not post:
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
 
-    # 지원서 생성
     application = models.Application(post_id=post_id, user_id=current_user.id)
     db.add(application)
     db.commit()
     db.refresh(application)
 
-    # 답변 저장
     for ans in answers:
         db.add(models.ApplicationAnswer(
             application_id=application.id,
@@ -178,3 +177,92 @@ async def apply_post(
 
     db.commit()
     return {"message": "✅ 지원 완료", "application_id": application.id}
+
+
+# ✅ 지원서 승인
+@router.post("/{post_id}/applications/{application_id}/approve")
+async def approve_application(
+    post_id: int,
+    application_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    post = db.query(models.RecipePost).filter(models.RecipePost.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="게시글 없음")
+
+    if current_user.id != post.leader_id:
+        raise HTTPException(status_code=403, detail="리더만 승인 가능")
+
+    application = db.query(models.Application).filter(
+        models.Application.id == application_id,
+        models.Application.post_id == post_id
+    ).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="지원서 없음")
+
+    application.status = "APPROVED"
+    db.add(models.PostMember(post_id=post_id, user_id=application.user_id, role="MEMBER"))
+    db.commit()
+    return {"message": "✅ 승인 완료"}
+
+
+# ✅ 지원서 거절
+@router.post("/{post_id}/applications/{application_id}/reject")
+async def reject_application(
+    post_id: int,
+    application_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    post = db.query(models.RecipePost).filter(models.RecipePost.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="게시글 없음")
+
+    if current_user.id != post.leader_id:
+        raise HTTPException(status_code=403, detail="리더만 거절 가능")
+
+    application = db.query(models.Application).filter(
+        models.Application.id == application_id,
+        models.Application.post_id == post_id
+    ).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="지원서 없음")
+
+    application.status = "REJECTED"
+    db.commit()
+    return {"message": "🚫 거절 처리 완료"}
+
+    # ✅ 탈퇴하기
+@router.post("/{post_id}/leave")
+async def leave_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # 게시글 찾기
+    post = db.query(models.RecipePost).filter(
+        models.RecipePost.id == post_id,
+        models.RecipePost.deleted_at.is_(None)
+    ).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="게시글 없음")
+
+    # 리더는 탈퇴 불가
+    if current_user.id == post.leader_id:
+        raise HTTPException(status_code=400, detail="리더는 탈퇴할 수 없습니다")
+
+    # 멤버 관계 찾기
+    membership = db.query(models.PostMember).filter(
+        models.PostMember.post_id == post_id,
+        models.PostMember.user_id == current_user.id
+    ).first()
+
+    if not membership:
+        raise HTTPException(status_code=400, detail="참여중인 멤버가 아닙니다")
+
+    # 삭제 처리
+    db.delete(membership)
+    db.commit()
+
+    return {"message": "✅ 탈퇴 완료"}
