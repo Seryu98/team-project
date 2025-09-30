@@ -9,7 +9,7 @@ from app.notify.application_model import (
 )
 from app.notify.application_schemas import ApplicationCreate, ApplicationStatus as SchemaStatus
 
-# 알림: notifications 테이블에 직접 insert (알림 모듈은 건드리지 않음)
+
 def _notify(db: Session, user_id: int, ntype: str, message: str, related_id: Optional[int] = None):
     sql = text("""
         INSERT INTO notifications (user_id, type, message, related_id, is_read, created_at)

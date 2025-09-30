@@ -24,6 +24,9 @@ class Application(Base):
         "ApplicationAnswer", back_populates="application", cascade="all, delete-orphan"
     )
 
+    # ✅ 같은 글에 같은 유저는 한 번만 지원 가능
+    __table_args__ = (UniqueConstraint("post_id", "user_id", name="uq_post_user"),)
+
 class ApplicationField(Base):
     __tablename__ = "application_fields"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True)

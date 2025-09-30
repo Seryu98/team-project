@@ -1,15 +1,15 @@
 // 메인 App 컴포넌트 
 // - 현재는 알림 페이지를 기본 화면으로 연결
 
-import NotificationsPage from "./pages/NotificationsPage";
+import NotificationsPage from "./features/notify/NotificationsPage";
 
 // ✅ 추가 import
 import { BrowserRouter as Router, Routes, Route, useParams } from "react-router-dom";
-import ApplicationsPage from "./pages/ApplicationsPage";
+import ApplicationsPage from "./features/apply/ApplicationsPage";
 
 // ✅ 추가 import (리더/지원자 전용 라우트에서 직접 사용)
-import ApplicationForm from "./components/applications/ApplicationForm";
-import ApplicationList from "./components/applications/ApplicationList";
+import ApplicationForm from "./features/apply/ApplicationForm";
+import ApplicationList from "./features/apply/ApplicationList";
 
 // ✅ 추가: URL의 :postId를 읽어 Form만 렌더하는 래퍼
 function PostApplyRoute() {

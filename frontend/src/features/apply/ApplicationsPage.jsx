@@ -1,6 +1,6 @@
 // src/pages/ApplicationsPage.jsx
-import ApplicationForm from "../components/applications/ApplicationForm";
-import ApplicationList from "../components/applications/ApplicationList";
+import ApplicationForm from "./ApplicationForm";
+import ApplicationList from "./ApplicationList";
 
 export default function ApplicationsPage() {
   return (

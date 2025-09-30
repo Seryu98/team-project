@@ -1,6 +1,6 @@
 // src/components/applications/ApplicationForm.jsx
 import { useEffect, useMemo, useState } from "react";
-import { getRequiredFields, submitApplication } from "../../services/applicationService";
+import { getRequiredFields, submitApplication } from "./applicationService";
 
 function useQuery() {
   return useMemo(() => new URLSearchParams(window.location.search), []);

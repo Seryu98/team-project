@@ -4,8 +4,8 @@
 // - 상태 관리: React useState + useEffect 사용
 
 import React, { useEffect, useState } from "react";
-import { getNotifications, markNotificationRead } from "../services/notificationService";
-import NotificationList from "../components/NotificationList";
+import { getNotifications, markNotificationRead } from "./notificationService";
+import NotificationList from "./NotificationList";
 
 function NotificationsPage() {
   const [notifications, setNotifications] = useState([]); // 알림 목록 상태

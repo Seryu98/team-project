@@ -1,6 +1,6 @@
 // src/components/applications/ApplicationList.jsx
 import { useEffect, useMemo, useState } from "react";
-import { fetchApplications, processApplication } from "../../services/applicationService";
+import { fetchApplications, processApplication } from "./applicationService";
 
 function useQuery() {
   return useMemo(() => new URLSearchParams(window.location.search), []);
