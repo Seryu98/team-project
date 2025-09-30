@@ -2,41 +2,45 @@ import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
 import { useState } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
 
 function App() {
   const [msg, setMsg] = useState("아직 요청 전");
 
-  // API 연결 테스트용
+  // ✅ API 연결 테스트 함수
   const testApi = () => {
     fetch(import.meta.env.VITE_API_BASE_URL + "/api/hello")
-      .then(res => {
+      .then((res) => {
         if (!res.ok) throw new Error("API Error");
         return res.json();
       })
-      .then(d => setMsg(d.message))
+      .then((d) => setMsg(d.message))
       .catch(() => setMsg("API 연결 실패"));
   };
 
   return (
     <Router>
-      <div style={{ textAlign: "center", marginTop: "30px" }}>
-        <h1>Team Project Frontend</h1>
-        <nav style={{ marginBottom: "20px" }}>
-          <Link to="/register" style={{ margin: "0 10px" }}>회원가입</Link>
-          <Link to="/login" style={{ margin: "0 10px" }}>로그인</Link>
-          <button onClick={testApi} style={{ marginLeft: "20px" }}>
-            백엔드 연결 테스트
-          </button>
-        </nav>
-        <p>{msg}</p>
+      {/* ✅ 공통 네비게이션 바 */}
+      <Navbar />
 
-        <Routes>
-          <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<Login />} />
-        </Routes>
-      </div>
+      {/* ✅ 라우트 - 메인 페이지만 */}
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <div style={{ textAlign: "center", marginTop: "50px" }}>
+              <h1>Team Project Frontend</h1>
+              <p>React (Vite) 실행 확인용 화면</p>
+              <button onClick={testApi}>백엔드 연결 테스트</button>
+              <p>{msg}</p>
+            </div>
+          }
+        />
+      </Routes>
     </Router>
+
   );
 }
-
 export default App;
+
