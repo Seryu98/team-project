@@ -25,17 +25,32 @@ function Home() {
   };
   return (
     <div style={{ textAlign: "center", marginTop: 50 }}>
-      <h1>Team Project Frontend</h1>
-      <p>React (Vite) 실행 확인용 화면</p>
+      <h1>홈 화면</h1>
+      <p>Team Project Frontend</p>
       <button onClick={testApi}>백엔드 연결 테스트</button>
       <p>{msg}</p>
+      <button
+        style={{ padding: "10px 20px", marginTop: "20px" }}
+        onClick={() => (window.location.href = "/posts")}
+      >
+        게시판 가기
+      </button>
     </div>
   );
 }
-function Posts() { return <div style={{ padding: 24 }}>프로젝트/스터디 게시판 (준비중)</div>; }
-function Board() { return <div style={{ padding: 24 }}>유저게시판 (준비중)</div>; }
-function Ranking() { return <div style={{ padding: 24 }}>랭킹게시판 (준비중)</div>; }
-function Profile() { return <div style={{ padding: 24 }}>내 프로필 (준비중)</div>; }
+
+function Posts() {
+  return <div style={{ padding: 24 }}>프로젝트/스터디 게시판 (준비중)</div>;
+}
+function Board() {
+  return <div style={{ padding: 24 }}>유저게시판 (준비중)</div>;
+}
+function Ranking() {
+  return <div style={{ padding: 24 }}>랭킹게시판 (준비중)</div>;
+}
+function Profile() {
+  return <div style={{ padding: 24 }}>내 프로필 (준비중)</div>;
+}
 
 // ✅ 레이아웃 1: Navbar 포함(일반 화면)
 function MainLayout() {
@@ -65,43 +80,15 @@ export default function App() {
         {/* Navbar 있는 그룹 */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/posts" element={<Posts />} />
+          <Route path="/posts" element={<ProjectPostList />} />
           <Route path="/board" element={<Board />} />
           <Route path="/ranking" element={<Ranking />} />
           <Route path="/profile" element={<Profile />} />
+
+          {/* 모집공고 관련 */}
+          <Route path="/recipe/create" element={<RecipeCreate />} />
+          <Route path="/recipe/:postId" element={<ProjectPostDetail />} />
         </Route>
-    <Router>
-      {/* ✅ 공통 네비게이션 바 */}
-      <Navbar />
-
-      <Routes>
-        {/* 메인 화면 */}
-        <Route
-          path="/"
-          element={
-            <div style={{ textAlign: "center", marginTop: "50px" }}>
-              <h1>홈 화면</h1>
-              <p>Team Project Frontend</p>
-              <button onClick={testApi}>백엔드 연결 테스트</button>
-              <p>{msg}</p>
-              <button
-                style={{ padding: "10px 20px", marginTop: "20px" }}
-                onClick={() => (window.location.href = "/posts")}
-              >
-                게시판 가기
-              </button>
-            </div>
-          }
-        />
-
-        {/* 게시판 */}
-        <Route path="/posts" element={<ProjectPostList />} />
-
-        {/* 모집공고 생성 */}
-        <Route path="/recipe/create" element={<RecipeCreate />} />
-
-        {/* 모집공고 상세 */}
-        <Route path="/recipe/:postId" element={<ProjectPostDetail />} />
       </Routes>
     </Router>
   );
