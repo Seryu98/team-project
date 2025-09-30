@@ -1,3 +1,4 @@
+#app/project_post/recipe_model.py
 from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime

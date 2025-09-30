@@ -1,4 +1,4 @@
-# models/skill_model.py
+# app/meta/skill_model.py
 from sqlalchemy import Column, Integer, String
 from app.core.base import Base
 

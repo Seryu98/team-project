@@ -1,3 +1,4 @@
+//  frontend/src/feature/project_post/ProjectPostDetail.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";

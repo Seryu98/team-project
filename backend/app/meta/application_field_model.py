@@ -1,4 +1,4 @@
-# app/models/application_field_model.py
+# app/meta/application_field_model.py
 from sqlalchemy import Column, Integer, String
 from app.core.base import Base
 

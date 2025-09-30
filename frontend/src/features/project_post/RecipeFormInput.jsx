@@ -1,4 +1,4 @@
-// frontend/src/components/RecipeFormInput.jsx
+// frontend/src/feature/project_post/RecipeFormInput.jsx
 export default function FormInput({ label, name, type="text", value, onChange, required=false }) {
   return (
     <div style={{ marginBottom: "1rem" }}>
