@@ -1,8 +1,8 @@
 import logging
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from app.models.notification import Notification
-from app.schemas.notification import NotificationCreate
+from app.notify.notification_model import Notification
+from app.notify.notification_schemas import NotificationCreate
 
 logging.basicConfig(level=logging.INFO)
 

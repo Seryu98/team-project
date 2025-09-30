@@ -4,16 +4,13 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.schemas.notification import (
-    NotificationCreate,
-    NotificationItem,
-)
-from app.services.notification_service import (
+from app.notify.notification_schemas import NotificationCreate, NotificationItem
+from app.notify.notification_service import (
     create_notification,
     get_notifications_by_user,
     mark_notification_read,
 )
-from app.utils.response import ok, fail
+from app.notify.response_util import ok, fail
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 

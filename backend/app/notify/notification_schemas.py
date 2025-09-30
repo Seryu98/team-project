@@ -2,7 +2,7 @@
 from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
-from app.models.notification import NotificationType
+from app.notify.notification_model import NotificationType
 
 # 입력 DTO: JSON에서는 "type"으로 받되, 내부는 notification_type 사용
 class NotificationCreate(BaseModel):

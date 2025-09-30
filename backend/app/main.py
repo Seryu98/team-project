@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from app.auth import auth_router
 from app.test import db_test
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import db_test, auth, notifications, application
+from app.notify import notifications_router, application_router
 
 app = FastAPI()
 
@@ -26,7 +26,7 @@ app.add_middleware(
 # ========================
 # 라우터 등록
 # ========================
-app.include_router(notifications.router)
-app.include_router(application.router)
+app.include_router(notifications_router.router)
+app.include_router(application_router.router)
 app.include_router(auth_router.router)   # 임시 로그인/회원가입 라우터
 app.include_router(db_test.router)       # DB 연결 테스트 라우터

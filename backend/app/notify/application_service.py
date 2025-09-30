@@ -3,11 +3,11 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import text
 
-from app.models.application import (
+from app.notify.application_model import (
     Application, ApplicationAnswer, ApplicationStatus,
     ApplicationField, PostRequiredField
 )
-from app.schemas.application import ApplicationCreate, ApplicationStatus as SchemaStatus
+from app.notify.application_schemas import ApplicationCreate, ApplicationStatus as SchemaStatus
 
 # 알림: notifications 테이블에 직접 insert (알림 모듈은 건드리지 않음)
 def _notify(db: Session, user_id: int, ntype: str, message: str, related_id: Optional[int] = None):

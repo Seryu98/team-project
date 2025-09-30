@@ -6,10 +6,10 @@ from sqlalchemy import text
 
 from app.core.database import get_db  # ← 프로젝트 구조에 맞게 조정 (예: from app.database import get_db)
 
-from app.schemas.application import (
+from app.notify.application_schemas import (
     ApplicationOut, ApplicationCreate, ApplicationStatus as SchemaStatus, RequiredFieldOut
 )
-from app.services.application_service import (
+from app.notify.application_service import (
     create_application, list_applications, update_application_status, get_required_fields
 )
 
