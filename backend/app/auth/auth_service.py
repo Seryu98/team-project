@@ -1,4 +1,3 @@
-# app/auth/auth_service.py
 from datetime import datetime, timedelta
 import logging
 from fastapi.security import OAuth2PasswordRequestForm

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "../../services/api";
+import api from "./api";
 export default function ProfileCreate() {
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState({});
