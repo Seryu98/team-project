@@ -337,3 +337,71 @@ WHERE users.id = %(id_1)s
  LIMIT %(param_1)s
 2025-09-30 11:19:53,243 [INFO] sqlalchemy.engine.Engine: [cached since 0.4131s ago] {'id_1': '17', 'param_1': 1}
 2025-09-30 11:19:53,248 [INFO] sqlalchemy.engine.Engine: ROLLBACK
+2025-09-30 11:26:03,589 [INFO] sqlalchemy.engine.Engine: BEGIN (implicit)
+2025-09-30 11:26:03,590 [INFO] sqlalchemy.engine.Engine: SELECT users.id AS users_id, users.nickname AS users_nickname, users.created_at AS users_created_at, users.email AS users_email, users.user_id AS users_user_id, users.password_hash AS users_password_hash, users.auth_provider AS users_auth_provider, users.social_id AS users_social_id, users.name AS users_name, users.phone_number AS users_phone_number, users.`role` AS users_role, users.status AS users_status, users.last_login_at AS users_last_login_at, users.deleted_at AS users_deleted_at, users.reset_token AS users_reset_token, users.reset_token_expire AS users_reset_token_expire, users.login_fail_count AS users_login_fail_count, users.last_fail_time AS users_last_fail_time, users.account_locked AS users_account_locked, users.banned_until AS users_banned_until 
+FROM users 
+WHERE users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2025-09-30 11:26:03,592 [INFO] sqlalchemy.engine.Engine: [cached since 391.8s ago] {'email_1': 'sol2@example.com', 'param_1': 1}
+2025-09-30 11:26:03,595 [INFO] sqlalchemy.engine.Engine: SELECT users.id AS users_id, users.nickname AS users_nickname, users.created_at AS users_created_at, users.email AS users_email, users.user_id AS users_user_id, users.password_hash AS users_password_hash, users.auth_provider AS users_auth_provider, users.social_id AS users_social_id, users.name AS users_name, users.phone_number AS users_phone_number, users.`role` AS users_role, users.status AS users_status, users.last_login_at AS users_last_login_at, users.deleted_at AS users_deleted_at, users.reset_token AS users_reset_token, users.reset_token_expire AS users_reset_token_expire, users.login_fail_count AS users_login_fail_count, users.last_fail_time AS users_last_fail_time, users.account_locked AS users_account_locked, users.banned_until AS users_banned_until 
+FROM users 
+WHERE users.user_id = %(user_id_1)s 
+ LIMIT %(param_1)s
+2025-09-30 11:26:03,597 [INFO] sqlalchemy.engine.Engine: [cached since 391.8s ago] {'user_id_1': 'sol2', 'param_1': 1}
+2025-09-30 11:26:03,600 [INFO] sqlalchemy.engine.Engine: SELECT users.id AS users_id, users.nickname AS users_nickname, users.created_at AS users_created_at, users.email AS users_email, users.user_id AS users_user_id, users.password_hash AS users_password_hash, users.auth_provider AS users_auth_provider, users.social_id AS users_social_id, users.name AS users_name, users.phone_number AS users_phone_number, users.`role` AS users_role, users.status AS users_status, users.last_login_at AS users_last_login_at, users.deleted_at AS users_deleted_at, users.reset_token AS users_reset_token, users.reset_token_expire AS users_reset_token_expire, users.login_fail_count AS users_login_fail_count, users.last_fail_time AS users_last_fail_time, users.account_locked AS users_account_locked, users.banned_until AS users_banned_until 
+FROM users 
+WHERE users.nickname = %(nickname_1)s 
+ LIMIT %(param_1)s
+2025-09-30 11:26:03,602 [INFO] sqlalchemy.engine.Engine: [cached since 391.8s ago] {'nickname_1': '잠이콜콜', 'param_1': 1}
+2025-09-30 11:26:03,867 [INFO] sqlalchemy.engine.Engine: INSERT INTO users (nickname, email, user_id, password_hash, auth_provider, social_id, name, phone_number, `role`, status, last_login_at, deleted_at, reset_token, reset_token_expire, login_fail_count, last_fail_time, account_locked, banned_until) VALUES (%(nickname)s, %(email)s, %(user_id)s, %(password_hash)s, %(auth_provider)s, %(social_id)s, %(name)s, %(phone_number)s, %(role)s, %(status)s, %(last_login_at)s, %(deleted_at)s, %(reset_token)s, %(reset_token_expire)s, %(login_fail_count)s, %(last_fail_time)s, %(account_locked)s, %(banned_until)s)
+2025-09-30 11:26:03,867 [INFO] sqlalchemy.engine.Engine: [cached since 391.8s ago] {'nickname': '잠이콜콜', 'email': 'sol2@example.com', 'user_id': 'sol2', 'password_hash': '$2b$12$GoctvAwjbGprfOSkC71CEup6FmFL6JUf2L0trhnFoNR/Fy0xz6pw.', 'auth_provider': 'LOCAL', 'social_id': None, 'name': '김솔이', 'phone_number': '01098765432', 'role': 'MEMBER', 'status': 'ACTIVE', 'last_login_at': None, 'deleted_at': None, 'reset_token': None, 'reset_token_expire': None, 'login_fail_count': 0, 'last_fail_time': None, 'account_locked': 0, 'banned_until': None}
+2025-09-30 11:26:03,867 [INFO] sqlalchemy.engine.Engine: COMMIT
+2025-09-30 11:26:03,867 [INFO] sqlalchemy.engine.Engine: BEGIN (implicit)
+2025-09-30 11:26:03,867 [INFO] sqlalchemy.engine.Engine: SELECT users.id, users.nickname, users.created_at, users.email, users.user_id, users.password_hash, users.auth_provider, users.social_id, users.name, users.phone_number, users.`role`, users.status, users.last_login_at, users.deleted_at, users.reset_token, users.reset_token_expire, users.login_fail_count, users.last_fail_time, users.account_locked, users.banned_until 
+FROM users 
+WHERE users.id = %(pk_1)s
+2025-09-30 11:26:03,881 [INFO] sqlalchemy.engine.Engine: [cached since 391.8s ago] {'pk_1': 18}
+2025-09-30 11:26:03,883 [INFO] app.auth.auth_service: 회원가입 성공 id=18 email=sol2@example.com
+2025-09-30 11:26:03,884 [INFO] sqlalchemy.engine.Engine: ROLLBACK
+2025-09-30 11:26:20,788 [INFO] sqlalchemy.engine.Engine: BEGIN (implicit)
+2025-09-30 11:26:20,789 [INFO] sqlalchemy.engine.Engine: SELECT users.id AS users_id, users.nickname AS users_nickname, users.created_at AS users_created_at, users.email AS users_email, users.user_id AS users_user_id, users.password_hash AS users_password_hash, users.auth_provider AS users_auth_provider, users.social_id AS users_social_id, users.name AS users_name, users.phone_number AS users_phone_number, users.`role` AS users_role, users.status AS users_status, users.last_login_at AS users_last_login_at, users.deleted_at AS users_deleted_at, users.reset_token AS users_reset_token, users.reset_token_expire AS users_reset_token_expire, users.login_fail_count AS users_login_fail_count, users.last_fail_time AS users_last_fail_time, users.account_locked AS users_account_locked, users.banned_until AS users_banned_until 
+FROM users 
+WHERE users.user_id = %(user_id_1)s 
+ LIMIT %(param_1)s
+2025-09-30 11:26:20,791 [INFO] sqlalchemy.engine.Engine: [cached since 409s ago] {'user_id_1': 'sol2', 'param_1': 1}
+2025-09-30 11:26:20,793 [INFO] sqlalchemy.engine.Engine: SELECT users.id AS users_id, users.nickname AS users_nickname, users.created_at AS users_created_at, users.email AS users_email, users.user_id AS users_user_id, users.password_hash AS users_password_hash, users.auth_provider AS users_auth_provider, users.social_id AS users_social_id, users.name AS users_name, users.phone_number AS users_phone_number, users.`role` AS users_role, users.status AS users_status, users.last_login_at AS users_last_login_at, users.deleted_at AS users_deleted_at, users.reset_token AS users_reset_token, users.reset_token_expire AS users_reset_token_expire, users.login_fail_count AS users_login_fail_count, users.last_fail_time AS users_last_fail_time, users.account_locked AS users_account_locked, users.banned_until AS users_banned_until 
+FROM users 
+WHERE users.user_id = %(user_id_1)s 
+ LIMIT %(param_1)s
+2025-09-30 11:26:20,794 [INFO] sqlalchemy.engine.Engine: [cached since 409s ago] {'user_id_1': 'sol2', 'param_1': 1}
+2025-09-30 11:26:21,069 [INFO] sqlalchemy.engine.Engine: UPDATE users SET last_login_at=%(last_login_at)s WHERE users.id = %(users_id)s
+2025-09-30 11:26:21,071 [INFO] sqlalchemy.engine.Engine: [cached since 388.3s ago] {'last_login_at': datetime.datetime(2025, 9, 30, 2, 26, 21, 69999), 'users_id': 18}
+2025-09-30 11:26:21,073 [INFO] sqlalchemy.engine.Engine: COMMIT
+2025-09-30 11:26:21,081 [INFO] sqlalchemy.engine.Engine: BEGIN (implicit)
+2025-09-30 11:26:21,082 [INFO] sqlalchemy.engine.Engine: SELECT users.id, users.nickname, users.created_at, users.email, users.user_id, users.password_hash, users.auth_provider, users.social_id, users.name, users.phone_number, users.`role`, users.status, users.last_login_at, users.deleted_at, users.reset_token, users.reset_token_expire, users.login_fail_count, users.last_fail_time, users.account_locked, users.banned_until 
+FROM users 
+WHERE users.id = %(pk_1)s
+2025-09-30 11:26:21,083 [INFO] sqlalchemy.engine.Engine: [cached since 409s ago] {'pk_1': 18}
+2025-09-30 11:26:21,086 [INFO] app.auth.auth_service: 로그인 성공 user_id=sol2 id=18
+2025-09-30 11:26:21,087 [INFO] sqlalchemy.engine.Engine: ROLLBACK
+2025-09-30 11:26:21,094 [INFO] sqlalchemy.engine.Engine: BEGIN (implicit)
+2025-09-30 11:26:21,095 [INFO] sqlalchemy.engine.Engine: SELECT users.id AS users_id, users.nickname AS users_nickname, users.created_at AS users_created_at, users.email AS users_email, users.user_id AS users_user_id, users.password_hash AS users_password_hash, users.auth_provider AS users_auth_provider, users.social_id AS users_social_id, users.name AS users_name, users.phone_number AS users_phone_number, users.`role` AS users_role, users.status AS users_status, users.last_login_at AS users_last_login_at, users.deleted_at AS users_deleted_at, users.reset_token AS users_reset_token, users.reset_token_expire AS users_reset_token_expire, users.login_fail_count AS users_login_fail_count, users.last_fail_time AS users_last_fail_time, users.account_locked AS users_account_locked, users.banned_until AS users_banned_until 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2025-09-30 11:26:21,096 [INFO] sqlalchemy.engine.Engine: [cached since 388.3s ago] {'id_1': '18', 'param_1': 1}
+2025-09-30 11:26:21,098 [INFO] sqlalchemy.engine.Engine: ROLLBACK
+2025-09-30 11:26:21,412 [INFO] sqlalchemy.engine.Engine: BEGIN (implicit)
+2025-09-30 11:26:21,414 [INFO] sqlalchemy.engine.Engine: SELECT users.id AS users_id, users.nickname AS users_nickname, users.created_at AS users_created_at, users.email AS users_email, users.user_id AS users_user_id, users.password_hash AS users_password_hash, users.auth_provider AS users_auth_provider, users.social_id AS users_social_id, users.name AS users_name, users.phone_number AS users_phone_number, users.`role` AS users_role, users.status AS users_status, users.last_login_at AS users_last_login_at, users.deleted_at AS users_deleted_at, users.reset_token AS users_reset_token, users.reset_token_expire AS users_reset_token_expire, users.login_fail_count AS users_login_fail_count, users.last_fail_time AS users_last_fail_time, users.account_locked AS users_account_locked, users.banned_until AS users_banned_until 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2025-09-30 11:26:21,417 [INFO] sqlalchemy.engine.Engine: [cached since 388.6s ago] {'id_1': '18', 'param_1': 1}
+2025-09-30 11:26:21,422 [INFO] sqlalchemy.engine.Engine: ROLLBACK
+2025-09-30 11:26:21,431 [INFO] sqlalchemy.engine.Engine: BEGIN (implicit)
+2025-09-30 11:26:21,433 [INFO] sqlalchemy.engine.Engine: SELECT users.id AS users_id, users.nickname AS users_nickname, users.created_at AS users_created_at, users.email AS users_email, users.user_id AS users_user_id, users.password_hash AS users_password_hash, users.auth_provider AS users_auth_provider, users.social_id AS users_social_id, users.name AS users_name, users.phone_number AS users_phone_number, users.`role` AS users_role, users.status AS users_status, users.last_login_at AS users_last_login_at, users.deleted_at AS users_deleted_at, users.reset_token AS users_reset_token, users.reset_token_expire AS users_reset_token_expire, users.login_fail_count AS users_login_fail_count, users.last_fail_time AS users_last_fail_time, users.account_locked AS users_account_locked, users.banned_until AS users_banned_until 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2025-09-30 11:26:21,437 [INFO] sqlalchemy.engine.Engine: [cached since 388.6s ago] {'id_1': '18', 'param_1': 1}
+2025-09-30 11:26:21,443 [INFO] sqlalchemy.engine.Engine: ROLLBACK
