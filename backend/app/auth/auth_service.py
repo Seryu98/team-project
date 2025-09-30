@@ -1,11 +1,14 @@
 # app/auth/auth_service.py
 from datetime import datetime, timedelta
 import logging
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
 from app.users.user_model import User
 from app.auth.auth_schema import UserRegister
+from app.core.database import get_db
 from app.core.security import (
     hash_password,
     verify_password,
@@ -13,6 +16,13 @@ from app.core.security import (
 )
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
+# ⚠️ create_access_token 에서 쓰는 값과 동일해야 함
+SECRET_KEY = "your_secret"   # 나중에 core/security.py 값으로 바꿔도 됨
+ALGORITHM = "HS256"
+
+# 토큰을 가져올 방식 정의 (Authorization: Bearer <token>)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 # 로그인 실패/잠금 정책 (요구사항 8 반영)
 MAX_LOGIN_FAILS = 5
@@ -140,3 +150,23 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm):
     )
     logger.info("로그인 성공 user_id=%s id=%s", db_user.user_id, db_user.id)
     return {"access_token": access_token, "token_type": "bearer"}
+
+# 현재 로그인한 유저 반환
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="인증이 필요합니다.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if user is None:
+        raise credentials_exception
+    return user

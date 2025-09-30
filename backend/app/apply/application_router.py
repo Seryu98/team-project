@@ -1,19 +1,19 @@
 from enum import Enum
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session 
 from sqlalchemy import text
 
 # ✅ DB 세션
 from app.core.database import get_db
 
 # ✅ 스키마 & 서비스 불러오기
-from app.notify.application_schemas import (
+from backend.app.apply.application_schemas import (
     ApplicationOut,
     ApplicationCreate,
     ApplicationStatus as SchemaStatus,
     RequiredFieldOut,
 )
-from app.notify.application_service import (
+from backend.app.apply.application_service import (
     create_application,
     list_applications,
     update_application_status,

@@ -1,13 +1,13 @@
 # services/application_service.py
 from typing import List, Optional
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import text
+from sqlalchemy import text 
 
-from app.notify.application_model import (
+from backend.app.apply.application_model import (
     Application, ApplicationAnswer, ApplicationStatus,
     ApplicationField, PostRequiredField
 )
-from app.notify.application_schemas import ApplicationCreate, ApplicationStatus as SchemaStatus
+from backend.app.apply.application_schemas import ApplicationCreate, ApplicationStatus as SchemaStatus
 
 
 def _notify(db: Session, user_id: int, ntype: str, message: str, related_id: Optional[int] = None):

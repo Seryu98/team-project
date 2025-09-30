@@ -2,11 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth import auth_router
 from app.test import db_test
-from app.notify import notifications_router, application_router
+from app.notify import notifications_router
+from app.message import message_route
 
 import logging
 import os
 from logging.handlers import RotatingFileHandler
+
+from backend.app.apply import application_router
 
 # 공통 로깅 설정
 LOG_LEVEL = logging.INFO
@@ -51,6 +54,7 @@ app.include_router(notifications_router.router)
 app.include_router(application_router.router)
 app.include_router(auth_router.router)
 app.include_router(db_test.router)
+app.include_router(message_route.router)
 
 # 서버 실행 확인 로그
 logging.info("🚀 FastAPI 서버가 시작되었습니다.")

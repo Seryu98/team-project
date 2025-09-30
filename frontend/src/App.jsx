@@ -1,6 +1,7 @@
 // src/App.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Outlet, useParams } from "react-router-dom";
+import axios from "axios";
 import Navbar from "./components/Navbar";
 
 // pages
@@ -10,6 +11,11 @@ import NotificationsPage from "./features/notify/NotificationsPage";
 import ApplicationsPage from "./features/apply/ApplicationsPage";
 import ApplicationForm from "./features/apply/ApplicationForm";
 import ApplicationList from "./features/apply/ApplicationList";
+
+// ✅ 쪽지 관련 페이지 import
+import MessagesPage from "./pages/MessagesPage";
+import MessageDetailPage from "./pages/MessageDetailPage";
+import MessageComposePage from "./features/message/MessageComposePage";
 
 // ======================
 // 임시/테스트용 페이지들
@@ -65,10 +71,10 @@ function PostApplicationsRoute() {
 // ======================
 // 레이아웃
 // ======================
-function MainLayout() {
+function MainLayout({ currentUser, setCurrentUser }) {
   return (
     <>
-      <Navbar />
+      <Navbar currentUser={currentUser} setCurrentUser={setCurrentUser} />
       <Outlet />
     </>
   );
@@ -81,6 +87,29 @@ function AuthLayout() {
 // App 컴포넌트
 // ======================
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // ✅ App 시작 시 로그인 사용자 로드
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setCurrentUser(null);
+          return;
+        }
+        const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+        const res = await axios.get(`${base}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCurrentUser(res.data);
+      } catch (err) {
+        setCurrentUser(null);
+      }
+    }
+    fetchUser();
+  }, []);
+
   return (
     <Router>
       <Routes>
@@ -91,7 +120,7 @@ export default function App() {
         </Route>
 
         {/* Navbar 있는 그룹 */}
-        <Route element={<MainLayout />}>
+        <Route element={<MainLayout currentUser={currentUser} setCurrentUser={setCurrentUser} />}>
           <Route path="/" element={<Home />} />
           <Route path="/posts" element={<Posts />} />
           <Route path="/board" element={<Board />} />
@@ -105,6 +134,11 @@ export default function App() {
           <Route path="/applications" element={<ApplicationsPage />} />
           <Route path="/posts/:postId/apply" element={<PostApplyRoute />} />
           <Route path="/posts/:postId/applications" element={<PostApplicationsRoute />} />
+
+          {/* ✅ 쪽지 라우트 */}
+          <Route path="/messages" element={<MessagesPage currentUser={currentUser} />} />
+          <Route path="/messages/:id" element={<MessageDetailPage currentUser={currentUser} />} />
+          <Route path="/messages/new" element={<MessageComposePage />} />
         </Route>
       </Routes>
     </Router>
