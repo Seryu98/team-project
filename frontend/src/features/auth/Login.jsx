@@ -1,4 +1,3 @@
-// src/features/auth/Login.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { login, getCurrentUser } from "./api";
@@ -9,6 +8,7 @@ function Login() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
 
+  // 이미 로그인된 상태면 메인으로
   useEffect(() => {
     (async () => {
       const token = localStorage.getItem("token");
@@ -17,7 +17,7 @@ function Login() {
         await getCurrentUser();
         navigate("/", { replace: true });
       } catch {
-        /* ignore */
+        localStorage.removeItem("token"); // ✅ 토큰 무효 → 삭제
       }
     })();
   }, [navigate]);
@@ -26,7 +26,7 @@ function Login() {
     e.preventDefault();
     setMsg("");
     try {
-      const res = await login(userId, password); // <-- userId 사용
+      const res = await login(userId, password);
       localStorage.setItem("token", res.access_token);
       const user = await getCurrentUser();
       setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);

@@ -6,12 +6,13 @@ import { FaBell, FaEnvelope } from "react-icons/fa";
 export default function Navbar() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
-  const [menuOpen, setMenuOpen] = useState(false); // ✅ 드롭다운 상태
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  // ✅ 더미 카운트 (나중에 API 연결해서 동적으로 변경 가능)
-  const [unreadNotifications, setUnreadNotifications] = useState(3);
-  const [unreadMessages, setUnreadMessages] = useState(5);
+  // 더미 카운트 (추후 API 연동 예정)
+  const [unreadNotifications] = useState(3);
+  const [unreadMessages] = useState(5);
 
+  // 로그인 상태 확인
   useEffect(() => {
     async function fetchUser() {
       try {
@@ -22,13 +23,15 @@ export default function Navbar() {
         });
         setCurrentUser(res.data);
       } catch (err) {
-        console.warn("⚠ 로그인 사용자 없음");
+        console.warn("⚠ 로그인 사용자 없음 또는 토큰 만료");
+        localStorage.removeItem("token"); // ✅ 토큰 삭제
+        setCurrentUser(null);              // ✅ 상태 초기화
       }
     }
     fetchUser();
   }, []);
 
-  // ✅ 아이콘 버튼 + 뱃지 UI
+  // 아이콘 버튼 컴포넌트
   const IconButton = ({ icon, count, onClick, label }) => (
     <div style={{ position: "relative" }}>
       <button
@@ -64,12 +67,12 @@ export default function Navbar() {
     </div>
   );
 
-  // ✅ 로그아웃 핸들러
+  // 로그아웃 핸들러
   const handleLogout = () => {
-    localStorage.removeItem("token"); // 토큰 삭제
-    setCurrentUser(null); // 상태 초기화
-    setMenuOpen(false); // 드롭다운 닫기
-    navigate("/login"); // 로그인 페이지로 이동
+    localStorage.removeItem("token");
+    setCurrentUser(null);
+    setMenuOpen(false);
+    navigate("/login");
   };
 
   return (
@@ -151,23 +154,18 @@ export default function Navbar() {
       <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
         {currentUser ? (
           <>
-            {/* 알림 아이콘 */}
             <IconButton
               icon={<FaBell />}
               count={unreadNotifications}
               onClick={() => alert("알림 페이지 연결 예정")}
               label="알림"
             />
-
-            {/* 메시지 아이콘 */}
             <IconButton
               icon={<FaEnvelope />}
               count={unreadMessages}
               onClick={() => alert("메시지 페이지 연결 예정")}
               label="메시지"
             />
-
-            {/* 프로필 (드롭다운 메뉴) */}
             <div style={{ position: "relative" }}>
               <div
                 style={{
