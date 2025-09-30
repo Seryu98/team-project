@@ -1,9 +1,8 @@
-# app/models/user_model.py
 from sqlalchemy import Column, BigInteger, String, Enum, Boolean, DateTime, Integer
 from sqlalchemy.sql import func
 from app.core.base import Base
 import enum
-from sqlalchemy.orm import relationship  # ✅ 2. 외부 라이브러리
+from sqlalchemy.orm import relationship
 
 # role과 status Enum 정의
 class UserRole(str, enum.Enum):
@@ -27,11 +26,14 @@ class User(Base):
     email = Column(String(255), nullable=False, unique=True)
     user_id = Column(String(255), nullable=True, unique=True)
     password_hash = Column(String(255), nullable=True)
+
+    # ✅ 양쪽 다 반영: GITHUB provider 포함
     auth_provider = Column(
         Enum("LOCAL", "GOOGLE", "KAKAO", "NAVER", "GITHUB", name="auth_provider_enum"),
         nullable=False,
         default="LOCAL"
     )
+
     social_id = Column(String(255), nullable=True, unique=True)
     name = Column(String(50), nullable=False)
     phone_number = Column(String(20), nullable=True)
@@ -45,10 +47,12 @@ class User(Base):
     last_fail_time = Column(DateTime, nullable=True)
     account_locked = Column(Boolean, nullable=False, default=False)
 
-    # 🔹 알림과의 1:N 관계 추가
+    # ✅ 알림 관계 유지
     notifications = relationship(
         "Notification",
         back_populates="user",
         cascade="all, delete-orphan"
     )
 
+    # ✅ 정지 만료일 유지
+    banned_until = Column(DateTime, nullable=True)

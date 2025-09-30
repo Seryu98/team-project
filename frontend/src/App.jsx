@@ -1,17 +1,48 @@
-// 메인 App 컴포넌트 
-// - 현재는 알림 페이지를 기본 화면으로 연결
+// src/App.jsx
+import React, { useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Outlet, useParams } from "react-router-dom";
+import Navbar from "./components/Navbar";
 
+// pages
+import Register from "./features/auth/Register";
+import Login from "./features/auth/Login";
 import NotificationsPage from "./features/notify/NotificationsPage";
-
-// ✅ 추가 import
-import { BrowserRouter as Router, Routes, Route, useParams } from "react-router-dom";
 import ApplicationsPage from "./features/apply/ApplicationsPage";
-
-// ✅ 추가 import (리더/지원자 전용 라우트에서 직접 사용)
 import ApplicationForm from "./features/apply/ApplicationForm";
 import ApplicationList from "./features/apply/ApplicationList";
 
-// ✅ 추가: URL의 :postId를 읽어 Form만 렌더하는 래퍼
+// ======================
+// 임시/테스트용 페이지들
+// ======================
+function Home() {
+  const [msg, setMsg] = useState("아직 요청 전");
+  const testApi = () => {
+    const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+    fetch(base + "/")
+      .then((res) => {
+        if (!res.ok) throw new Error("API Error");
+        return res.text();
+      })
+      .then(() => setMsg("백엔드 연결 OK"))
+      .catch(() => setMsg("API 연결 실패"));
+  };
+  return (
+    <div style={{ textAlign: "center", marginTop: 50 }}>
+      <h1>Team Project Frontend</h1>
+      <p>React (Vite) 실행 확인용 화면</p>
+      <button onClick={testApi}>백엔드 연결 테스트</button>
+      <p>{msg}</p>
+    </div>
+  );
+}
+function Posts() { return <div style={{ padding: 24 }}>프로젝트/스터디 게시판 (준비중)</div>; }
+function Board() { return <div style={{ padding: 24 }}>유저게시판 (준비중)</div>; }
+function Ranking() { return <div style={{ padding: 24 }}>랭킹게시판 (준비중)</div>; }
+function Profile() { return <div style={{ padding: 24 }}>내 프로필 (준비중)</div>; }
+
+// ======================
+// 지원 관련 라우트
+// ======================
 function PostApplyRoute() {
   const { postId } = useParams();
   return (
@@ -21,8 +52,6 @@ function PostApplyRoute() {
     </div>
   );
 }
-
-// ✅ 추가: URL의 :postId를 읽어 List만 렌더하는 래퍼(리더/관리용)
 function PostApplicationsRoute() {
   const { postId } = useParams();
   return (
@@ -33,24 +62,51 @@ function PostApplicationsRoute() {
   );
 }
 
-function App() {
+// ======================
+// 레이아웃
+// ======================
+function MainLayout() {
+  return (
+    <>
+      <Navbar />
+      <Outlet />
+    </>
+  );
+}
+function AuthLayout() {
+  return <Outlet />;
+}
+
+// ======================
+// App 컴포넌트
+// ======================
+export default function App() {
   return (
     <Router>
       <Routes>
-        {/* 기존 알림 페이지 (기본 화면) */}
-        <Route path="/" element={<NotificationsPage />} />
+        {/* Navbar 없는 그룹 */}
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+        </Route>
 
-        {/* ✅ 추가: 지원 관리 페이지(폼+리스트 동시 페이지) */}
-        <Route path="/applications" element={<ApplicationsPage />} />
+        {/* Navbar 있는 그룹 */}
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/posts" element={<Posts />} />
+          <Route path="/board" element={<Board />} />
+          <Route path="/ranking" element={<Ranking />} />
+          <Route path="/profile" element={<Profile />} />
 
-        {/* ✅ 추가: 지원자용 — 특정 게시글에 지원서 작성 */}
-        <Route path="/posts/:postId/apply" element={<PostApplyRoute />} />
+          {/* 알림 */}
+          <Route path="/notifications" element={<NotificationsPage />} />
 
-        {/* ✅ 추가: 리더/관리용 — 특정 게시글 지원서 검토/승인·거절 */}
-        <Route path="/posts/:postId/applications" element={<PostApplicationsRoute />} />
+          {/* 지원 관리 */}
+          <Route path="/applications" element={<ApplicationsPage />} />
+          <Route path="/posts/:postId/apply" element={<PostApplyRoute />} />
+          <Route path="/posts/:postId/applications" element={<PostApplicationsRoute />} />
+        </Route>
       </Routes>
     </Router>
   );
 }
-
-export default App;

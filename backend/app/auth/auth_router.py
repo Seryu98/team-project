@@ -1,9 +1,10 @@
-# app/routers/auth_router.py
+# app/auth/auth_router.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordRequestForm
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.auth.auth_schema import UserRegister, UserLogin, TokenResponse
+from app.auth.auth_schema import UserRegister, TokenResponse
 from app.auth import auth_service
 from app.users.user_model import User
 
@@ -15,10 +16,10 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
     new_user = auth_service.register_user(db, user)
     return {"success": True, "message": "User registered", "user_id": new_user.id}
 
-# 로그인
+# 로그인 (Swagger → username/password 입력 가능)
 @router.post("/login", response_model=TokenResponse)
-def login(user: UserLogin, db: Session = Depends(get_db)):
-    token = auth_service.login_user(db, user)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    token = auth_service.login_user(db, form_data)
     if not token:
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
     return token
