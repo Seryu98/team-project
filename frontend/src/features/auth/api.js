@@ -1,23 +1,21 @@
-// 로그인/회원가입/유저 정보 관련 API 함수 모음
-
+// src/features/auth/api.js
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
-// 회원가입 요청 함수
+// 회원가입 그대로
 export async function register(data) {
   const res = await fetch(`${API_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-
   if (!res.ok) throw new Error("회원가입 실패");
   return res.json();
 }
 
-// 로그인 요청 함수 (JWT 발급)
-export async function login(email, password) {
+// ✅ 로그인: 아이디로 로그인 (username=user_id)
+export async function login(loginId, password) {
   const params = new URLSearchParams();
-  params.append("username", email); // FastAPI OAuth2PasswordRequestForm은 username 필드를 요구
+  params.append("username", loginId);   // <-- 여기!
   params.append("password", password);
 
   const res = await fetch(`${API_URL}/auth/login`, {
@@ -26,11 +24,10 @@ export async function login(email, password) {
     body: params,
   });
 
-  if (!res.ok) throw new Error("로그인 실패");
-  return res.json(); // { access_token, token_type }
+  if (!res.ok) throw new Error(String(res.status));
+  return res.json();
 }
 
-// 현재 사용자 정보 요청 함수 (/auth/me)
 export async function getCurrentUser() {
   const token = localStorage.getItem("token");
   if (!token) throw new Error("토큰 없음");
