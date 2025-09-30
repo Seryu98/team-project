@@ -25,30 +25,16 @@ function App() {
       {/* ✅ 공통 네비게이션 바 */}
       <Navbar />
 
-      {/* ✅ 라우트 - 메인 페이지만 */}
       <Routes>
-        <Route
-          path="/"
-          element={
-            <div style={{ textAlign: "center", marginTop: "50px" }}>
-              <h1>Team Project Frontend</h1>
-              <p>React (Vite) 실행 확인용 화면</p>
-              <button onClick={testApi}>백엔드 연결 테스트</button>
-              <p>{msg}</p>
-            </div>
-          }
-        />
-      </Routes>
-    </Router>
-    <Router>
-      <Routes>
-        {/* 메인 → 게시판 이동 버튼만 있음 */}
+        {/* 메인 화면 */}
         <Route
           path="/"
           element={
             <div style={{ textAlign: "center", marginTop: "50px" }}>
               <h1>홈 화면</h1>
               <p>Team Project Frontend</p>
+              <button onClick={testApi}>백엔드 연결 테스트</button>
+              <p>{msg}</p>
               <button
                 style={{ padding: "10px 20px", marginTop: "20px" }}
                 onClick={() => (window.location.href = "/posts")}
@@ -72,6 +58,4 @@ function App() {
   );
 }
 
-
 export default App;
-
