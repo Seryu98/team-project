@@ -8,8 +8,7 @@ app = FastAPI()
 
 # 테이블은 이미 MySQL에 있으므로 create_all() 생략
 
-app.include_router(auth_router.router)   # 임시 로그인/회원가입 라우터
-app.include_router(db_test.router)       # DB 연결 테스트 라우터
+
 # ========================
 # CORS 설정 추가
 # ========================
@@ -27,7 +26,7 @@ app.add_middleware(
 # ========================
 # 라우터 등록
 # ========================
-app.include_router(auth.router)          # 임시 로그인/회원가입 라우터
-app.include_router(db_test.router)
 app.include_router(notifications.router)
 app.include_router(application.router)
+app.include_router(auth_router.router)   # 임시 로그인/회원가입 라우터
+app.include_router(db_test.router)       # DB 연결 테스트 라우터
