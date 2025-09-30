@@ -30,8 +30,13 @@ def post_notification(payload: NotificationCreate, db: Session = Depends(get_db)
       "related_id": 123
     }
     """
+
     item = create_notification(db, payload)
-    return ok(data=NotificationItem.model_validate(item).model_dump(by_alias=True), message="생성 성공")
+    return ok(
+        data=NotificationItem.model_validate(item).model_dump(by_alias=True),
+        message="생성 성공"
+)
+
 
 # 사용자 알림 목록 조회 API (페이징 지원)
 @router.get("/{user_id}", response_model=None)

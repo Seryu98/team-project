@@ -10,13 +10,23 @@ import NotificationList from "../components/NotificationList";
 function NotificationsPage() {
   const [notifications, setNotifications] = useState([]); // 알림 목록 상태
 
-  // 🔹 알림 목록 불러오기
+  // 📌 알림 목록 불러오기
   async function loadNotifications() {
-    const res = await getNotifications(1, { skip: 0, limit: 10 }); // user_id=1 임시
-    if (res.success) {
+  try {
+    const res = await getNotifications(1, { skip: 0, limit: 10 }); // user_id=1 확인
+    console.log("API 응답:", res); // 👉 터미널/브라우저 콘솔에서 확인
+    if (res?.success && Array.isArray(res.data)) {
       setNotifications(res.data);
+    } else {
+      setNotifications([]);
     }
+  } catch (err) {
+    console.error("알림 조회 에러:", err);
+    setNotifications([]);
   }
+}
+
+
 
   // 🔹 알림 읽음 처리
   async function handleRead(id) {

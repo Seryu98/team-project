@@ -1,7 +1,10 @@
+import enum  # ✅ 1. 표준 라이브러리
+
 from sqlalchemy import Column, BigInteger, String, Enum, Boolean, DateTime, Integer
 from sqlalchemy.sql import func
-from app.models.base import Base
-import enum
+from sqlalchemy.orm import relationship  # ✅ 2. 외부 라이브러리
+
+from app.models.base import Base  # ✅ 3. 내부 모듈
 
 # role과 status Enum 정의
 class UserRole(str, enum.Enum):

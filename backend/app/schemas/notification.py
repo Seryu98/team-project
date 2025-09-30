@@ -1,30 +1,26 @@
 # app/schemas/notification.py
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from app.models.notification import NotificationType
 
-# 알림 생성 요청 DTO
+# 입력 DTO: JSON에서는 "type"으로 받되, 내부는 notification_type 사용
 class NotificationCreate(BaseModel):
-    user_id: int                   # 수신자 ID
-    message: str                   # 알림 메시지
-    related_id: Optional[int] = None  # 연관 엔티티 ID (없을 수도 있음)
+    model_config = ConfigDict(populate_by_name=True)
+    user_id: int
+    message: str
+    related_id: Optional[int] = None
+    # 입력 시 "type" -> notification_type 로 매핑
+    notification_type: NotificationType = Field(validation_alias="type")
 
-    # JSON 필드명은 DB와 맞추어 "type" 사용 → Python 코드에서는 notification_type 으로 매핑
-    notification_type: NotificationType = Field(alias="type")
-
-    class Config:
-        populate_by_name = True    # alias 변환 허용
-
-# 알림 조회 응답 DTO
+# 출력 DTO: JSON에서는 "type"으로 내보내고, ORM에선 notification_type에서 읽기
 class NotificationItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     id: int
     user_id: int
     message: str
     is_read: bool
     created_at: datetime
-    notification_type: NotificationType = Field(alias="type")
-
-    class Config:
-        orm_mode = True            # ORM 객체 → Pydantic 자동 변환 허용
-        populate_by_name = True
+    # ORM의 notification_type을 읽어서, 응답에선 "type"으로 직렬화
+    type: NotificationType = Field(validation_alias="notification_type",
+                                   serialization_alias="type")
