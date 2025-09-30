@@ -20,43 +20,31 @@
 ```
 frontend/
   src/
-    components/   // 공용 컴포넌트 (버튼, 카드 등)
-      여러 페이지에서 공통으로 쓰는 UI 조각들
-      버튼, 입력창, 카드, 네비게이션 바 같은 것들
-    pages/        // 페이지 단위 화면 (로그인, 회원가입 등)
-      화면 단위 컴포넌트 (로그인 화면, 회원가입 화면 등)
-      주로 components/를 조합해서 화면 구성
-    hooks/        // 커스텀 훅 (useAuth, useFetch 등)
-      반복되는 로직을 재사용할 때
-      로그인 여부 확인, API 호출 상태 관리 등
-    services/     // API 호출 로직
-      백엔드 API 호출 담당
-      프론트에서 직접 DB에 접근하지 않고 → 백엔드 API만 호출
-    assets/       // 이미지, CSS, 아이콘
-      이미지, CSS, 아이콘 등 정적 리소스
-    utils/        // 공용 함수 (날짜 포맷, 숫자 변환 등)
-      어디서든 쓸 수 있는 공용 함수
+    app/           // 전역 설정 (라우팅, 상태관리, 환경설정)
+    components/    // 공용 컴포넌트 (Header, Footer, Modal 등)
+    features/      // 기능(도메인) 단위 모듈
+      auth/        // 로그인, 회원가입 UI + API
+      notify/      // 알림 관련 UI + API
+      profile/     // 프로필 페이지, 편집 UI
+      project_post // 프로젝트/스터디 게시판 UI + 필터
+    shared/        // 공용 훅, 유틸, 정적 리소스
+    App.jsx
+    main.jsx
 ```
 
 ### 백엔드 (Python/FastAPI)
 ```
 backend/
   app/
-    routers/     // API 엔드포인트
-      URL 경로에 해당하는 API 정의
-      /login, /users, /posts 같은 엔드포인트
-    services/    // 비즈니스 로직
-      실제 기능(비즈니스 로직) 구현
-      DB 조회, 비밀번호 해시, 조건 검사 등
-    models/      // DB 모델
-      DB 테이블 구조(SQLAlchemy) 정의
-    schemas/     // 요청/응답 DTO
-      요청/응답 데이터 형식(Pydantic) 정의
-      “클라이언트가 보내는 JSON”과 “서버가 돌려주는 JSON”
-    core/        // 설정, DB 연결, 보안
-      환경설정, DB 연결, 보안 관련 코드
-    utils/       // 공용 함수
-      자주 쓰는 공용 함수
+    auth/          // 로그인, 회원가입, JWT 인증
+    users/         // 유저 관련 모델 + API
+    project_post/  // 프로젝트/스터디 생성, 승인, 게시판
+    profile/       // 프로필 관련 API
+    notify/        // 알림 관련 API
+    core/          // DB 연결, 보안, 설정
+    models/        // Base + 모델 모음 (__init__)
+    test/          // DB 연결 테스트 등
+    main.py        // FastAPI 진입점
 ```
 
 ---

@@ -1,20 +1,17 @@
+-- 기존 DB 삭제
+DROP DATABASE IF EXISTS team_project;
+
 -- 프로젝트 생성
 CREATE DATABASE team_project CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
--- 기존 db 삭제
-DROP DATABASE IF EXISTS team_project;
 
 -- 프로젝트 선택
 USE team_project;
 
--- 공통 아이디 비밀번호 생성
--- 학원 컴퓨터 ip 192.168.55.92 
--- 집에서 db 따로 만들때는 로컬이니깐 127.0.0.1인가 그거쓰면될지도
+-- 공통 아이디/비밀번호 생성
 CREATE USER 'team_user'@'%' IDENTIFIED BY '1234';
 
--- 권한 부여 (모든 테이블에 SELECT, INSERT, UPDATE, DELETE 가능)
+-- 권한 부여
 GRANT ALL PRIVILEGES ON team_project.* TO 'team_user'@'%';
-
--- 권한 적용
 FLUSH PRIVILEGES;
 
 -- USERS
@@ -25,12 +22,15 @@ CREATE TABLE `users` (
   `email` VARCHAR(255) NOT NULL COMMENT '이메일',
   `user_id` VARCHAR(255) NULL COMMENT '로컬 로그인 ID (소셜 로그인은 NULL 가능)',
   `password_hash` VARCHAR(255) NULL COMMENT '로컬 로그인 시 해시 비밀번호',
-  `auth_provider` ENUM('LOCAL', 'GOOGLE', 'KAKAO', 'NAVER', 'GITHUB') NOT NULL DEFAULT 'LOCAL' COMMENT '인증 제공자',
+  `auth_provider` ENUM('LOCAL', 'GOOGLE', 'KAKAO', 'NAVER', 'GITHUB') 
+      NOT NULL DEFAULT 'LOCAL' COMMENT '인증 제공자',
   `social_id` VARCHAR(255) NULL COMMENT '소셜 로그인 고유 식별자',
   `name` VARCHAR(50) NOT NULL COMMENT '실제 이름',
   `phone_number` VARCHAR(20) NULL COMMENT '전화번호',
-  `role` ENUM('MEMBER', 'ADMIN', 'GUEST', 'LEADER') NOT NULL DEFAULT 'MEMBER' COMMENT '권한 구분',
-  `status` ENUM('ACTIVE', 'BANNED', 'DELETED') NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태',
+  `role` ENUM('MEMBER', 'ADMIN', 'GUEST', 'LEADER') 
+      NOT NULL DEFAULT 'MEMBER' COMMENT '권한 구분',
+  `status` ENUM('ACTIVE', 'BANNED', 'DELETED') 
+      NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태',
   `last_login_at` DATETIME NULL COMMENT '마지막 로그인 시각',
   `deleted_at` DATETIME NULL COMMENT '삭제 시각',
   `reset_token` VARCHAR(255) NULL COMMENT '비밀번호 재설정 토큰 (LOCAL 전용)',
@@ -70,6 +70,7 @@ CREATE TABLE `skills` (
   PRIMARY KEY (`id`),
   CONSTRAINT `uq_skills_name` UNIQUE (`name`)
 );
+
 -- SKILLS Seed Data
 INSERT INTO `skills` (name) VALUES
 ('C'), ('C++'), ('Rust'), ('Go'), ('Zig'),
@@ -349,7 +350,7 @@ CREATE TABLE `messages` (
   CONSTRAINT `FK_messages_receiver` FOREIGN KEY (`receiver_id`) REFERENCES `users` (`id`)
 );
 
--- 권장: 신고 처리 이력 로그
+-- REPORT_ACTIONS
 CREATE TABLE report_actions (
   id BIGINT NOT NULL AUTO_INCREMENT,
   report_id BIGINT NOT NULL,
@@ -362,7 +363,7 @@ CREATE TABLE report_actions (
   CONSTRAINT fk_ra_admin  FOREIGN KEY (admin_id)  REFERENCES users(id)
 );
 
--- 쪽지 사용자별 상태 (읽음/삭제)
+-- MESSAGE_USER_STATUS
 CREATE TABLE message_user_status (
   message_id BIGINT NOT NULL,
   user_id    BIGINT NOT NULL,
@@ -375,6 +376,7 @@ CREATE TABLE message_user_status (
   CONSTRAINT fk_mus_user FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE CASCADE
 );
 
+-- USER_WARNINGS
 CREATE TABLE user_warnings (
   id BIGINT NOT NULL AUTO_INCREMENT,
   user_id BIGINT NOT NULL COMMENT '경고 대상 사용자',
@@ -386,7 +388,7 @@ CREATE TABLE user_warnings (
   CONSTRAINT fk_uw_admin FOREIGN KEY (admin_id) REFERENCES users(id)
 );
 
--- 카테고리 시드 추가
+-- CATEGORIES 시드 추가
 INSERT INTO `categories` (`name`) VALUES
 ('잡담'),
 ('홍보'),
