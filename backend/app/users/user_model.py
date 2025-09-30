@@ -1,4 +1,5 @@
 # app/users/user_model.py
+# app/users/user_model.py
 from sqlalchemy import Column, BigInteger, String, Enum, Boolean, DateTime, Integer
 from sqlalchemy.sql import func
 from app.core.base import Base
@@ -27,7 +28,8 @@ class User(Base):
     email = Column(String(255), nullable=False, unique=True)
     user_id = Column(String(255), nullable=True, unique=True)
     password_hash = Column(String(255), nullable=True)
-    auth_provider = Column(Enum("LOCAL", "GOOGLE", "KAKAO", "NAVER", "GITHUB", name="auth_provider_enum"), nullable=False, default="LOCAL")
+    auth_provider = Column(Enum("LOCAL", "GOOGLE", "KAKAO", "NAVER", name="auth_provider_enum"),
+                           nullable=False, default="LOCAL")
     social_id = Column(String(255), nullable=True, unique=True)
     name = Column(String(50), nullable=False)
     phone_number = Column(String(20), nullable=True)
@@ -40,5 +42,6 @@ class User(Base):
     login_fail_count = Column(Integer, nullable=False, default=0)
     last_fail_time = Column(DateTime, nullable=True)
     account_locked = Column(Boolean, nullable=False, default=False)
+    banned_until = Column(DateTime, nullable=True)
 
     joined_posts = relationship("PostMember", back_populates="user", cascade="all, delete-orphan")
