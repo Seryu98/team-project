@@ -1,6 +1,7 @@
+// src/features/auth/Login.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { login, getCurrentUser } from "./api";
+import { login, getCurrentUser, clearTokens } from "./api";
 
 function Login() {
   const navigate = useNavigate();
@@ -11,13 +12,11 @@ function Login() {
   // 이미 로그인된 상태면 메인으로
   useEffect(() => {
     (async () => {
-      const token = localStorage.getItem("token");
-      if (!token) return;
       try {
         await getCurrentUser();
         navigate("/", { replace: true });
       } catch {
-        localStorage.removeItem("token"); // ✅ 토큰 무효 → 삭제
+        clearTokens(); // 토큰 무효 → 삭제
       }
     })();
   }, [navigate]);
@@ -27,7 +26,8 @@ function Login() {
     setMsg("");
     try {
       const res = await login(userId, password);
-      localStorage.setItem("token", res.access_token);
+      console.log("✅ 로그인 성공", res);
+
       const user = await getCurrentUser();
       setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);
       navigate("/", { replace: true });
@@ -97,7 +97,9 @@ function Login() {
             style={inputStyle}
             autoComplete="current-password"
           />
-          <button type="submit" style={buttonStyle}>로그인</button>
+          <button type="submit" style={buttonStyle}>
+            로그인
+          </button>
         </form>
 
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px" }}>

@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { FaBell, FaEnvelope } from "react-icons/fa";
+import { getCurrentUser, clearTokens } from "../features/auth/api";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -16,22 +16,26 @@ export default function Navbar() {
   useEffect(() => {
     async function fetchUser() {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-        const res = await axios.get("http://localhost:8000/auth/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setCurrentUser(res.data);
-      } catch (err) {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
+      } catch {
         console.warn("⚠ 로그인 사용자 없음 또는 토큰 만료");
-        localStorage.removeItem("token"); // ✅ 토큰 삭제
-        setCurrentUser(null);              // ✅ 상태 초기화
+        clearTokens();
+        setCurrentUser(null);
       }
     }
     fetchUser();
   }, []);
 
-  // 아이콘 버튼 컴포넌트
+  // 로그아웃
+  const handleLogout = () => {
+    clearTokens();
+    setCurrentUser(null);
+    setMenuOpen(false);
+    navigate("/login");
+  };
+
+  // 아이콘 버튼
   const IconButton = ({ icon, count, onClick, label }) => (
     <div style={{ position: "relative" }}>
       <button
@@ -66,14 +70,6 @@ export default function Navbar() {
       )}
     </div>
   );
-
-  // 로그아웃 핸들러
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    setCurrentUser(null);
-    setMenuOpen(false);
-    navigate("/login");
-  };
 
   return (
     <nav
