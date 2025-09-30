@@ -1,10 +1,10 @@
-// src/App.jsx
 import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import RecipeCreate from "./features/project_post/RecipeCreate";
 import ProjectPostList from "./features/project_post/ProjectPostList";
 import ProjectPostDetail from "./features/project_post/ProjectPostDetail";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // pages
 import Register from "./features/auth/Register";
@@ -39,9 +39,6 @@ function Home() {
   );
 }
 
-function Posts() {
-  return <div style={{ padding: 24 }}>프로젝트/스터디 게시판 (준비중)</div>;
-}
 function Board() {
   return <div style={{ padding: 24 }}>유저게시판 (준비중)</div>;
 }
@@ -52,7 +49,7 @@ function Profile() {
   return <div style={{ padding: 24 }}>내 프로필 (준비중)</div>;
 }
 
-// ✅ 레이아웃 1: Navbar 포함(일반 화면)
+// ✅ 레이아웃 1: Navbar 포함
 function MainLayout() {
   return (
     <>
@@ -62,7 +59,7 @@ function MainLayout() {
   );
 }
 
-// ✅ 레이아웃 2: Navbar 없음(로그인/회원가입 등)
+// ✅ 레이아웃 2: Navbar 없음
 function AuthLayout() {
   return <Outlet />;
 }
@@ -86,7 +83,14 @@ export default function App() {
           <Route path="/profile" element={<Profile />} />
 
           {/* 모집공고 관련 */}
-          <Route path="/recipe/create" element={<RecipeCreate />} />
+          <Route
+            path="/recipe/create"
+            element={
+              <ProtectedRoute>
+                <RecipeCreate />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/recipe/:postId" element={<ProjectPostDetail />} />
         </Route>
       </Routes>

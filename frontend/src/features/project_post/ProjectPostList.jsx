@@ -1,4 +1,3 @@
-// frontend/src/features/project_post/ProjectPostList.jsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -80,6 +79,17 @@ export default function ProjectPostList() {
     });
   };
 
+  // ✅ 생성 버튼 클릭 시 로그인 체크
+  const handleCreateClick = () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("로그인 후 이용 가능합니다.");
+      navigate("/login");
+      return;
+    }
+    navigate("/recipe/create");
+  };
+
   return (
     <div style={{ display: "flex" }}>
       {/* 왼쪽 필터 영역 */}
@@ -92,7 +102,7 @@ export default function ProjectPostList() {
       >
         <h3>필터</h3>
 
-        {/* ✅ 검색 (맨 위로 이동) */}
+        {/* ✅ 검색 */}
         <div style={{ marginBottom: "1rem" }}>
           <label>검색</label>
           <input
@@ -161,7 +171,7 @@ export default function ProjectPostList() {
         </div>
       </aside>
 
-      {/* 오른쪽 게시글 목록 영역 */}
+      {/* 오른쪽 게시글 목록 */}
       <main style={{ flex: 1, padding: "1rem" }}>
         <h2>프로젝트/스터디 게시판</h2>
 
@@ -176,7 +186,7 @@ export default function ProjectPostList() {
             borderRadius: "5px",
             cursor: "pointer",
           }}
-          onClick={() => navigate("/recipe/create")}
+          onClick={handleCreateClick}
         >
           모집공고 생성하기
         </button>
@@ -212,17 +222,14 @@ export default function ProjectPostList() {
                 />
               )}
 
-              {/* ✅ 제목 */}
               <h3 style={{ margin: "0 0 8px 0" }}>{post.title}</h3>
 
-              {/* ✅ 설명 */}
               <p style={{ margin: "0 0 12px 0", color: "#555" }}>
                 {post.description?.length > 50
                   ? `${post.description.substring(0, 50)}...`
                   : post.description}
               </p>
 
-              {/* ✅ 모집 인원 / 현재 인원 / 구분 / 모집 기간 */}
               <p
                 style={{
                   fontSize: "14px",

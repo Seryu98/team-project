@@ -1,4 +1,4 @@
-//  frontend/src/feature/project_post/ProjectPostDetail.jsx
+// frontend/src/features/project_post/ProjectPostDetail.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -8,7 +8,7 @@ export default function ProjectPostDetail() {
   const navigate = useNavigate();
 
   const [post, setPost] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null); // ✅ 로그인한 유저 정보 저장
+  const [currentUser, setCurrentUser] = useState(null);
 
   // ✅ 게시글 상세 불러오기
   useEffect(() => {
@@ -25,13 +25,12 @@ export default function ProjectPostDetail() {
       try {
         const token = localStorage.getItem("token");
         if (!token) return;
-
         const res = await axios.get("http://localhost:8000/auth/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setCurrentUser(res.data);
-      } catch (err) {
-        console.warn("⚠ 로그인 사용자 불러오기 실패:", err);
+      } catch {
+        console.warn("⚠ 로그인 사용자 없음");
       }
     }
 
@@ -80,7 +79,7 @@ export default function ProjectPostDetail() {
         headers: { Authorization: `Bearer ${token}` },
       });
       alert("✅ 삭제 완료");
-      navigate("/list"); // 삭제 후 게시판으로 이동
+      navigate("/posts"); // 삭제 후 게시판으로 이동
     } catch (err) {
       alert("❌ 삭제 실패: " + (err.response?.data?.detail || err.message));
     }
@@ -88,69 +87,158 @@ export default function ProjectPostDetail() {
 
   if (!post) return <p>로딩 중...</p>;
 
-  // ✅ 리더 여부 판별
   const isLeader = currentUser && currentUser.id === post.leader_id;
 
   return (
-    <div style={{ maxWidth: "800px", margin: "auto", padding: "1rem" }}>
-      <h2>{post.title}</h2>
+    <div style={{ maxWidth: "900px", margin: "auto", padding: "2rem" }}>
+      {/* 제목 */}
+      <h2 style={{ textAlign: "center", marginBottom: "2rem" }}>
+        프로젝트 / 스터디 상세
+      </h2>
 
-      {/* 대표 이미지 */}
-      {post.image_url && (
-        <img
-          src={`http://localhost:8000${post.image_url}`}
-          alt="대표 이미지"
-          style={{ width: "100%", borderRadius: "8px", marginBottom: "1rem" }}
-        />
-      )}
+      {/* 상단 대표 영역 */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          marginBottom: "1.5rem",
+        }}
+      >
+        {/* 왼쪽: 이미지 + 제목/인원/기간 */}
+        <div style={{ display: "flex", alignItems: "flex-start" }}>
+          {post.image_url && (
+            <img
+              src={`http://localhost:8000${post.image_url}`}
+              alt="대표 이미지"
+              style={{
+                width: "200px",
+                height: "200px",
+                objectFit: "cover",
+                borderRadius: "8px",
+                marginRight: "20px",
+              }}
+            />
+          )}
 
-      <p>{post.description}</p>
-      <p>
-        모집인원 {post.current_members}/{post.capacity}명 | {post.type}
-      </p>
-      <p>
-        모집기간 {post.start_date} ~ {post.end_date}
-      </p>
+          <div>
+            <h2 style={{ margin: "0 0 10px 0" }}>{post.title}</h2>
+            <p style={{ margin: "0 0 8px 0", color: "#555" }}>
+              모집 인원 {post.current_members}/{post.capacity}명 | {post.type}
+            </p>
+            <p style={{ margin: 0, fontSize: "14px", color: "#777" }}>
+              모집 기간 {post.start_date} ~ {post.end_date}
+            </p>
+          </div>
+        </div>
 
-      {/* ✅ 사용 언어 */}
-      <div style={{ marginTop: "0.5rem" }}>
-        {post.skills?.map((s) => (
-          <span
-            key={s.id}
-            style={{
-              display: "inline-block",
-              margin: "2px",
-              padding: "3px 8px",
-              border: "1px solid #333",
-              borderRadius: "5px",
-              background: "#f0f0f0",
-              fontSize: "12px",
-            }}
-          >
-            {s.name}
-          </span>
-        ))}
+        {/* 오른쪽: 프로젝트 리더 */}
+        <div style={{ textAlign: "right" }}>
+          <h4>프로젝트 리더</h4>
+          <div>
+            <strong>리더 ID: {post.leader_id}</strong>
+          </div>
+
+          {/* ✅ 리더만 보이는 수정/삭제 버튼 */}
+          {isLeader && (
+            <div style={{ marginTop: "1rem" }}>
+              <button
+                onClick={() => navigate(`/recipe/${post.id}/edit`)}
+                style={{ marginRight: "10px" }}
+              >
+                수정하기
+              </button>
+              <button onClick={handleDelete}>삭제하기</button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ✅ 버튼 영역 */}
-      <div style={{ marginTop: "1rem" }}>
-        {isLeader ? (
-          <>
-            <button
-              onClick={() => navigate(`/recipe/${post.id}/edit`)}
-              style={{ marginRight: "10px" }}
+      <hr style={{ margin: "2rem 0" }} />
+
+      {/* 기술 스택 */}
+      <div>
+        <h4>언어 / 기술</h4>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {post.skills?.map((s) => (
+            <span
+              key={s.id}
+              style={{
+                background: "#f0f0f0",
+                padding: "6px 12px",
+                borderRadius: "20px",
+                fontSize: "13px",
+              }}
             >
-              수정하기
+              {s.name}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* 설명 */}
+      <div style={{ marginTop: "2rem" }}>
+        <h4>프로젝트 / 스터디 설명</h4>
+        <p>{post.description}</p>
+      </div>
+
+      {/* 필수 입력값 + 신청 버튼 */}
+      <div
+        style={{
+          marginTop: "2rem",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <div>
+          <h4>지원자 필수 입력값</h4>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            {post.application_fields?.map((f) => (
+              <span
+                key={f.id}
+                style={{
+                  background: "#ddd",
+                  padding: "5px 10px",
+                  borderRadius: "12px",
+                  fontSize: "12px",
+                }}
+              >
+                {f.name}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* ✅ 신청/탈퇴 버튼 (리더 제외) */}
+        {!isLeader && currentUser && (
+          <div>
+            <button
+              onClick={handleJoin}
+              style={{
+                marginRight: "10px",
+                padding: "10px 20px",
+                background: "#333",
+                color: "#fff",
+                border: "none",
+                borderRadius: "5px",
+                cursor: "pointer",
+              }}
+            >
+              신청하기
             </button>
-            <button onClick={handleDelete}>삭제하기</button>
-          </>
-        ) : (
-          <>
-            <button onClick={handleJoin} style={{ marginRight: "10px" }}>
-              참여하기
+            <button
+              onClick={handleLeave}
+              style={{
+                padding: "10px 20px",
+                border: "1px solid #333",
+                borderRadius: "5px",
+                cursor: "pointer",
+              }}
+            >
+              탈퇴하기
             </button>
-            <button onClick={handleLeave}>탈퇴하기</button>
-          </>
+          </div>
         )}
       </div>
     </div>

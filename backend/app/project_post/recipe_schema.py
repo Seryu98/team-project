@@ -1,13 +1,20 @@
-#app/project_post/recipe_schema.py
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import date, datetime
 
-# ✅ 스킬 응답 스키마
+
+# ✅ 스킬 응답 DTO
 class SkillResponse(BaseModel):
     id: int
     name: str
+    class Config:
+        from_attributes = True
 
+
+# ✅ 필수 입력값 응답 DTO
+class ApplicationFieldResponse(BaseModel):
+    id: int
+    name: str
     class Config:
         from_attributes = True
 
@@ -21,9 +28,9 @@ class RecipePostCreate(BaseModel):
     field: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
-    skills: List[int] = []             # skill_id 목록
-    required_fields: List[int] = []    # field_id 목록
-    image_url: Optional[str] = None    # ✅ 대표 이미지 (업로드 후 URL 저장)
+    skills: List[int] = []                   # skill_id 배열
+    application_fields: List[int] = []       # field_id 배열
+    image_url: Optional[str] = None
 
 
 # ✅ 게시글 응답 DTO
@@ -32,16 +39,17 @@ class RecipePostResponse(BaseModel):
     title: str
     description: Optional[str]
     capacity: int
-    current_members: int                # ✅ 현재 인원
+    current_members: int
     type: str
     field: Optional[str]
     start_date: Optional[date]
     end_date: Optional[date]
     status: str
     created_at: datetime
-    image_url: Optional[str] = None     # ✅ 대표 이미지
-    skills: List[SkillResponse] = []    # ✅ 스킬 태그
-    leader_id: int                      # ✅ 리더(작성자) ID 추가
+    image_url: Optional[str] = None
+    skills: List[SkillResponse] = []
+    application_fields: List[ApplicationFieldResponse] = []   # ✅ 필수 입력값 DTO 포함
+    leader_id: int
 
     class Config:
         from_attributes = True

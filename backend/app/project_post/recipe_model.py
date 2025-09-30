@@ -1,4 +1,3 @@
-#app/project_post/recipe_model.py
 from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -7,7 +6,7 @@ from app.core.base import Base
 
 # ✅ 게시글 테이블
 class RecipePost(Base):
-    __tablename__ = "posts"   # 실제 DB 테이블 이름
+    __tablename__ = "posts"
 
     id = Column(Integer, primary_key=True, index=True)
     leader_id = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -16,17 +15,18 @@ class RecipePost(Base):
     field = Column(String(100))
     image_url = Column(String(255))
     capacity = Column(Integer, nullable=False)
-    current_members = Column(Integer, default=0)  # ✅ 현재 인원
+    current_members = Column(Integer, default=0)
     description = Column(Text)
     start_date = Column(Date)
     end_date = Column(Date)
-    status = Column(Enum("APPROVED", "REJECTED", name="post_status"), default="APPROVED")  # ✅ 승인된 게시글만 노출
+    status = Column(Enum("APPROVED", "REJECTED", name="post_status"), default="APPROVED")
     created_at = Column(DateTime, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)   # ✅ 소프트 삭제 컬럼 추가
 
     # 관계 설정
     skills = relationship("RecipePostSkill", back_populates="post")
     files = relationship("RecipeFile", back_populates="post")
-    required_fields = relationship("RecipePostRequiredField", back_populates="post")
+    application_fields = relationship("RecipePostRequiredField", back_populates="post")
     members = relationship("PostMember", back_populates="post", cascade="all, delete-orphan")
 
 
@@ -38,7 +38,7 @@ class RecipePostSkill(Base):
     skill_id = Column(Integer, ForeignKey("skills.id"), primary_key=True)
 
     post = relationship("RecipePost", back_populates="skills")
-    skill = relationship("Skill")   # ✅ Skill 테이블 직접 연결
+    skill = relationship("Skill")
 
 
 # ✅ 파일 첨부 테이블
@@ -55,11 +55,12 @@ class RecipeFile(Base):
     post = relationship("RecipePost", back_populates="files")
 
 
-# ✅ 필수 질문 연결 테이블
+# ✅ 게시글-필수입력값 연결 테이블
 class RecipePostRequiredField(Base):
-    __tablename__ = "post_required_fields"
+    __tablename__ = "post_required_fields"   # ✅ DB 실제 테이블명
 
     post_id = Column(Integer, ForeignKey("posts.id"), primary_key=True)
     field_id = Column(Integer, ForeignKey("application_fields.id"), primary_key=True)
 
-    post = relationship("RecipePost", back_populates="required_fields")
+    post = relationship("RecipePost", back_populates="application_fields")
+    field = relationship("ApplicationField")
