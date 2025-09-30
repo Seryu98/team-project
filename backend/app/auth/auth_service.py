@@ -1,5 +1,3 @@
-# app/services/auth_service.py
-
 from sqlalchemy.orm import Session
 from app.users.user_model import User
 from app.auth.auth_schema import UserRegister, UserLogin
