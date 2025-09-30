@@ -26,11 +26,19 @@ def unfollow_target(target_id: int, db: Session = Depends(get_db), current_user=
 
 # ✅ 특정 유저의 팔로워 목록
 @router.get("/{user_id}/followers")
-def get_user_followers(user_id: int, db: Session = Depends(get_db)):
-    return get_followers(db, user_id)
+def get_user_followers(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    return get_followers(db, user_id, current_user.id)
 
 
 # ✅ 특정 유저의 팔로잉 목록
 @router.get("/{user_id}/followings")
-def get_user_followings(user_id: int, db: Session = Depends(get_db)):
-    return get_followings(db, user_id)
+def get_user_followings(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    return get_followings(db, user_id, current_user.id)

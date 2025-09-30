@@ -5,6 +5,8 @@ from app.profile.profile_model import Profile
 from app.profile.skill_model import Skill
 from app.profile.user_skill_model import UserSkill
 from app.profile.profile_schemas import ProfileUpdate
+from app.profile.follow_model import Follow  # ✅ 팔로우 모델
+
 
 def get_or_create_profile(db: Session, user_id: int) -> Profile:
     """
@@ -13,12 +15,10 @@ def get_or_create_profile(db: Session, user_id: int) -> Profile:
     """
     profile = db.query(Profile).filter(Profile.id == user_id).first()
     if not profile:
-        # 유저 존재 여부 확인
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # 기본 프로필 생성
         profile = Profile(id=user_id)
         db.add(profile)
         db.commit()
@@ -27,16 +27,14 @@ def get_or_create_profile(db: Session, user_id: int) -> Profile:
     return profile
 
 
-def get_profile_detail(db: Session, user_id: int):
+def get_profile_detail(db: Session, user_id: int, current_user_id: int = None):
     """
-    유저 상세 프로필 조회 (유저 기본정보 + 프로필 + 스킬 목록 + 프로젝트)
+    유저 상세 프로필 조회 (유저 기본정보 + 프로필 + 스킬 목록 + 팔로우 여부 + 팔로워/팔로잉 카운트)
     """
-    # 유저 확인
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
-    # 프로필 확인 (없으면 자동 생성)
     profile = get_or_create_profile(db, user_id)
 
     # 스킬 목록
@@ -51,22 +49,36 @@ def get_profile_detail(db: Session, user_id: int):
             "id": skill.id,
             "name": skill.name,
             "level": user_skill.level,
-            "icon": f"/assets/skills/{skill.name.lower()}.png"  # 프론트 자산
+            "icon": f"/assets/skills/{skill.name.lower()}.png",
         }
         for user_skill, skill in user_skills
     ]
 
-    # 진행 중인 프로젝트/스터디
-    # projects = (
-    #     db.query(Post)
-    #     .join(PostMember, Post.id == PostMember.post_id)
-    #     .filter(PostMember.user_id == user_id, Post.deleted_at == None)
-    #     .all()
-    # )
-    # projects_out = [
-    #     {"id": p.id, "title": p.title, "type": p.type}
-    #     for p in projects
-    # ]
+    # ✅ 현재 로그인 유저가 팔로우했는지 여부
+    is_following = False
+    if current_user_id and current_user_id != user_id:
+        follow = (
+            db.query(Follow)
+            .filter(
+                Follow.follower_id == current_user_id,
+                Follow.following_id == user_id,
+                Follow.deleted_at.is_(None)   # ✅ 수정됨 (IS NULL 체크)
+            )
+            .first()
+        )
+        is_following = follow is not None
+
+    # ✅ 팔로워/팔로잉 카운트 (실시간 계산)
+    follower_count = (
+        db.query(Follow)
+        .filter(Follow.following_id == user_id, Follow.deleted_at.is_(None))
+        .count()
+    )
+    following_count = (
+        db.query(Follow)
+        .filter(Follow.follower_id == user_id, Follow.deleted_at.is_(None))
+        .count()
+    )
 
     return {
         "id": user.id,
@@ -78,10 +90,10 @@ def get_profile_detail(db: Session, user_id: int):
         "certifications": profile.certifications,
         "birth_date": profile.birth_date,
         "gender": profile.gender,
-        "follower_count": profile.follower_count,
-        "following_count": profile.following_count,
+        "follower_count": follower_count,     # ✅ DB 집계값
+        "following_count": following_count,   # ✅ DB 집계값
         "skills": skills_out,
-        # "projects": projects_out,
+        "is_following": is_following,         # ✅ 로그인 유저 기준
     }
 
 
@@ -103,7 +115,4 @@ def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
 
     db.commit()
     db.refresh(profile)
-
-    # ✅ 여기서 DTO 변환 함수 호출
-    return get_profile_detail(db, user_id)
-
+    return get_profile_detail(db, user_id, user_id)

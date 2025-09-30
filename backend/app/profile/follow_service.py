@@ -39,8 +39,12 @@ def follow_user(db: Session, follower_id: int, following_id: int):
         db.add(follow)
 
     db.commit()
-    db.refresh(follow)
-    return follow
+    return {
+        "success": True,
+        "message": "팔로우 성공",
+        "is_following": True,
+        "target_id": following_id
+    }
 
 
 # ✅ 언팔로우 하기
@@ -60,8 +64,12 @@ def unfollow_user(db: Session, follower_id: int, following_id: int):
     # ✅ deleted_at 한국시간 기록
     follow.deleted_at = datetime.now(KST)
     db.commit()
-    db.refresh(follow)
-    return {"success": True, "message": "언팔로우 성공"}
+    return {
+        "success": True,
+        "message": "언팔로우 성공",
+        "is_following": False,
+        "target_id": following_id
+    }
 
 
 # ✅ 팔로워 목록 (나를 팔로우하는 사람들)
@@ -76,7 +84,6 @@ def get_followers(db: Session, user_id: int, current_user_id: int = None):
 
     result = []
     for _, user, profile in followers:
-        # 현재 로그인 유저가 이 유저를 팔로우 중인지 체크
         is_following = False
         if current_user_id:
             check = (
@@ -112,7 +119,6 @@ def get_followings(db: Session, user_id: int, current_user_id: int = None):
 
     result = []
     for _, user, profile in followings:
-        # 현재 로그인 유저가 이 유저를 팔로우 중인지 체크
         is_following = False
         if current_user_id:
             check = (
