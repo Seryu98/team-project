@@ -1,7 +1,7 @@
-// frontend/src/features/project_post/ProjectPostDetail.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import ApplicationModal from "./ApplicationModal";
 
 export default function ProjectPostDetail() {
   const { postId } = useParams();
@@ -9,6 +9,7 @@ export default function ProjectPostDetail() {
 
   const [post, setPost] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   // ✅ 게시글 상세 불러오기
   useEffect(() => {
@@ -38,22 +39,6 @@ export default function ProjectPostDetail() {
     fetchUser();
   }, [postId]);
 
-  // ✅ 참여하기
-  const handleJoin = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      await axios.post(
-        `http://localhost:8000/recipe/${postId}/join`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      alert("✅ 참여 완료");
-      window.location.reload();
-    } catch (err) {
-      alert("❌ 참여 실패: " + (err.response?.data?.detail || err.message));
-    }
-  };
-
   // ✅ 탈퇴하기
   const handleLeave = async () => {
     try {
@@ -79,7 +64,7 @@ export default function ProjectPostDetail() {
         headers: { Authorization: `Bearer ${token}` },
       });
       alert("✅ 삭제 완료");
-      navigate("/posts"); // 삭제 후 게시판으로 이동
+      navigate("/posts");
     } catch (err) {
       alert("❌ 삭제 실패: " + (err.response?.data?.detail || err.message));
     }
@@ -88,6 +73,8 @@ export default function ProjectPostDetail() {
   if (!post) return <p>로딩 중...</p>;
 
   const isLeader = currentUser && currentUser.id === post.leader_id;
+  const isMember =
+    currentUser && post.members?.some((m) => m.user_id === currentUser.id);
 
   return (
     <div style={{ maxWidth: "900px", margin: "auto", padding: "2rem" }}>
@@ -213,34 +200,46 @@ export default function ProjectPostDetail() {
         {/* ✅ 신청/탈퇴 버튼 (리더 제외) */}
         {!isLeader && currentUser && (
           <div>
-            <button
-              onClick={handleJoin}
-              style={{
-                marginRight: "10px",
-                padding: "10px 20px",
-                background: "#333",
-                color: "#fff",
-                border: "none",
-                borderRadius: "5px",
-                cursor: "pointer",
-              }}
-            >
-              신청하기
-            </button>
-            <button
-              onClick={handleLeave}
-              style={{
-                padding: "10px 20px",
-                border: "1px solid #333",
-                borderRadius: "5px",
-                cursor: "pointer",
-              }}
-            >
-              탈퇴하기
-            </button>
+            {!isMember ? (
+              <button
+                onClick={() => setShowModal(true)} // ✅ 신청하기 → 모달 열기
+                style={{
+                  marginRight: "10px",
+                  padding: "10px 20px",
+                  background: "#333",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                }}
+              >
+                신청하기
+              </button>
+            ) : (
+              <button
+                onClick={handleLeave} // ✅ 이미 멤버면 탈퇴하기
+                style={{
+                  padding: "10px 20px",
+                  border: "1px solid #333",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                }}
+              >
+                탈퇴하기
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {/* ✅ 지원서 모달 */}
+      {showModal && (
+        <ApplicationModal
+          postId={post.id}
+          fields={post.application_fields}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   );
 }

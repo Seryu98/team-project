@@ -21,16 +21,17 @@ class RecipePost(Base):
     end_date = Column(Date)
     status = Column(Enum("APPROVED", "REJECTED", name="post_status"), default="APPROVED")
     created_at = Column(DateTime, default=datetime.utcnow)
-    deleted_at = Column(DateTime, nullable=True)   # ✅ 소프트 삭제 컬럼 추가
+    deleted_at = Column(DateTime, nullable=True)   # ✅ 소프트 삭제
 
     # 관계 설정
     skills = relationship("RecipePostSkill", back_populates="post")
     files = relationship("RecipeFile", back_populates="post")
     application_fields = relationship("RecipePostRequiredField", back_populates="post")
     members = relationship("PostMember", back_populates="post", cascade="all, delete-orphan")
+    applications = relationship("Application", back_populates="post", cascade="all, delete-orphan")
 
 
-# ✅ 게시글-스킬 연결 테이블
+# ✅ 게시글-스킬 연결
 class RecipePostSkill(Base):
     __tablename__ = "post_skills"
 
@@ -41,7 +42,7 @@ class RecipePostSkill(Base):
     skill = relationship("Skill")
 
 
-# ✅ 파일 첨부 테이블
+# ✅ 파일 첨부
 class RecipeFile(Base):
     __tablename__ = "files"
 
@@ -55,12 +56,41 @@ class RecipeFile(Base):
     post = relationship("RecipePost", back_populates="files")
 
 
-# ✅ 게시글-필수입력값 연결 테이블
+# ✅ 게시글-필수입력값 연결
 class RecipePostRequiredField(Base):
-    __tablename__ = "post_required_fields"   # ✅ DB 실제 테이블명
+    __tablename__ = "post_required_fields"
 
     post_id = Column(Integer, ForeignKey("posts.id"), primary_key=True)
     field_id = Column(Integer, ForeignKey("application_fields.id"), primary_key=True)
 
     post = relationship("RecipePost", back_populates="application_fields")
+    field = relationship("ApplicationField")
+
+
+# ✅ 지원서 테이블
+class Application(Base):
+    __tablename__ = "applications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("posts.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(Enum("PENDING", "APPROVED", "REJECTED", name="application_status"), default="PENDING")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
+
+    post = relationship("RecipePost", back_populates="applications")
+    answers = relationship("ApplicationAnswer", back_populates="application", cascade="all, delete-orphan")
+
+
+# ✅ 지원서 답변
+class ApplicationAnswer(Base):
+    __tablename__ = "application_answers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=False)
+    field_id = Column(Integer, ForeignKey("application_fields.id"), nullable=False)
+    answer_text = Column(Text, nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
+
+    application = relationship("Application", back_populates="answers")
     field = relationship("ApplicationField")

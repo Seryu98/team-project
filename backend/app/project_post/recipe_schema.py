@@ -7,6 +7,7 @@ from datetime import date, datetime
 class SkillResponse(BaseModel):
     id: int
     name: str
+
     class Config:
         from_attributes = True
 
@@ -15,6 +16,16 @@ class SkillResponse(BaseModel):
 class ApplicationFieldResponse(BaseModel):
     id: int
     name: str
+
+    class Config:
+        from_attributes = True
+
+
+# ✅ 멤버 응답 DTO
+class PostMemberResponse(BaseModel):
+    user_id: int
+    role: str
+
     class Config:
         from_attributes = True
 
@@ -47,9 +58,10 @@ class RecipePostResponse(BaseModel):
     status: str
     created_at: datetime
     image_url: Optional[str] = None
-    skills: List[SkillResponse] = []
-    application_fields: List[ApplicationFieldResponse] = []   # ✅ 필수 입력값 DTO 포함
     leader_id: int
+    skills: List[SkillResponse] = []
+    application_fields: List[ApplicationFieldResponse] = []
+    members: List[PostMemberResponse] = []   # ✅ 추가됨
 
     class Config:
         from_attributes = True

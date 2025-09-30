@@ -1,24 +1,22 @@
 // src/components/Modal.jsx
 import React, { useEffect, useRef } from "react";
 
-function Modal({ title, children, confirmText = "확인", onConfirm }) {
+function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) {
   const panelRef = useRef(null);
 
   // 바디 스크롤 잠금 + 최초 포커스
   useEffect(() => {
     const origOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    // 패널에 포커스
     setTimeout(() => {
       try {
         panelRef.current?.focus();
       } catch {}
     }, 0);
 
-    // ESC 금지: 리스너는 등록하되, 동작은 막는다.
+    // ESC 금지
     const onKeyDown = (e) => {
       if (e.key === "Escape") {
-        // ESC로 닫히는 것을 막음
         e.preventDefault();
         e.stopPropagation();
       }
@@ -33,7 +31,6 @@ function Modal({ title, children, confirmText = "확인", onConfirm }) {
 
   // 배경 클릭 금지
   const handleBackdropClick = (e) => {
-    // 아무 것도 하지 않음 (닫히지 않도록)
     e.preventDefault();
     e.stopPropagation();
   };
@@ -50,7 +47,7 @@ function Modal({ title, children, confirmText = "확인", onConfirm }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 9999
+        zIndex: 9999,
       }}
       onClick={handleBackdropClick}
     >
@@ -63,11 +60,30 @@ function Modal({ title, children, confirmText = "확인", onConfirm }) {
           borderRadius: "12px",
           padding: "20px",
           boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-          outline: "none"
+          outline: "none",
+          position: "relative", // ✅ X버튼 위치 잡으려면 relative 필요
         }}
-        // 안쪽 클릭은 그대로 통과 (닫힘 방지)
         onClick={(e) => e.stopPropagation()}
       >
+        {/* 🔴 닫기 X 버튼 */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              position: "absolute",
+              top: "10px",
+              right: "10px",
+              background: "transparent",
+              border: "none",
+              fontSize: "20px",
+              cursor: "pointer",
+              lineHeight: "1",
+            }}
+          >
+            ×
+          </button>
+        )}
+
         <h3 id="modal-title" style={{ margin: "0 0 12px", fontSize: "18px" }}>
           {title}
         </h3>
@@ -83,7 +99,7 @@ function Modal({ title, children, confirmText = "확인", onConfirm }) {
               border: "none",
               background: "#2563eb",
               color: "#fff",
-              cursor: "pointer"
+              cursor: "pointer",
             }}
           >
             {confirmText}
