@@ -12,9 +12,12 @@ export default function Navbar() {
   const [unreadNotifications] = useState(3);
   const [unreadMessages] = useState(5);
 
-  // 로그인 상태 확인
+  // 로그인 상태 확인 (토큰이 있을 때만 호출)
   useEffect(() => {
     async function fetchUser() {
+      const token = localStorage.getItem("access_token");
+      if (!token) return; // ✅ 토큰 없으면 /auth/me 호출 안 함
+
       try {
         const user = await getCurrentUser();
         setCurrentUser(user);
@@ -102,46 +105,13 @@ export default function Navbar() {
           flex: 1,
         }}
       >
-        <Link
-          to="/posts"
-          style={{
-            textDecoration: "none",
-            color: "black",
-            padding: "8px 12px",
-            borderRadius: "6px",
-            transition: "0.2s",
-          }}
-          onMouseOver={(e) => (e.target.style.background = "#f0f0f0")}
-          onMouseOut={(e) => (e.target.style.background = "transparent")}
-        >
+        <Link to="/posts" style={linkStyle}>
           프로젝트/스터디 게시판
         </Link>
-        <Link
-          to="/board"
-          style={{
-            textDecoration: "none",
-            color: "black",
-            padding: "8px 12px",
-            borderRadius: "6px",
-            transition: "0.2s",
-          }}
-          onMouseOver={(e) => (e.target.style.background = "#f0f0f0")}
-          onMouseOut={(e) => (e.target.style.background = "transparent")}
-        >
+        <Link to="/board" style={linkStyle}>
           유저게시판
         </Link>
-        <Link
-          to="/ranking"
-          style={{
-            textDecoration: "none",
-            color: "black",
-            padding: "8px 12px",
-            borderRadius: "6px",
-            transition: "0.2s",
-          }}
-          onMouseOver={(e) => (e.target.style.background = "#f0f0f0")}
-          onMouseOut={(e) => (e.target.style.background = "transparent")}
-        >
+        <Link to="/ranking" style={linkStyle}>
           랭킹게시판
         </Link>
       </div>
@@ -175,43 +145,11 @@ export default function Navbar() {
                 onClick={() => setMenuOpen(!menuOpen)}
               />
               {menuOpen && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "40px",
-                    right: 0,
-                    background: "#fff",
-                    border: "1px solid #ddd",
-                    borderRadius: "6px",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                    zIndex: 2000,
-                    minWidth: "120px",
-                  }}
-                >
-                  <button
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "none",
-                      background: "none",
-                      textAlign: "left",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => navigate("/profile")}
-                  >
+                <div style={dropdownStyle}>
+                  <button style={menuButtonStyle} onClick={() => navigate("/profile")}>
                     내 프로필
                   </button>
-                  <button
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "none",
-                      background: "none",
-                      textAlign: "left",
-                      cursor: "pointer",
-                    }}
-                    onClick={handleLogout}
-                  >
+                  <button style={menuButtonStyle} onClick={handleLogout}>
                     로그아웃
                   </button>
                 </div>
@@ -225,3 +163,31 @@ export default function Navbar() {
     </nav>
   );
 }
+
+// 스타일 모듈화
+const linkStyle = {
+  textDecoration: "none",
+  color: "black",
+  padding: "8px 12px",
+  borderRadius: "6px",
+  transition: "0.2s",
+};
+const dropdownStyle = {
+  position: "absolute",
+  top: "40px",
+  right: 0,
+  background: "#fff",
+  border: "1px solid #ddd",
+  borderRadius: "6px",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+  zIndex: 2000,
+  minWidth: "120px",
+};
+const menuButtonStyle = {
+  width: "100%",
+  padding: "8px 12px",
+  border: "none",
+  background: "none",
+  textAlign: "left",
+  cursor: "pointer",
+};

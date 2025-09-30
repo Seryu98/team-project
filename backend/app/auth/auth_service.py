@@ -12,11 +12,9 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     verify_token,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS,
 )
-
-# Access Token 만료시간 (분 단위) → 개발 1분, 배포 30분 정도로 조정
-ACCESS_TOKEN_EXPIRE_MINUTES = 1
-# Refresh Token 만료시간은 app/core/security.py 안에서 관리됨
 
 # 로그인 실패/잠금 정책
 MAX_LOGIN_FAILS = 5
@@ -25,14 +23,14 @@ LOCK_TIME_MINUTES = 15
 logger = logging.getLogger(__name__)
 
 
+# ===============================
 # 회원가입 처리
+# ===============================
 def register_user(db: Session, user: UserRegister) -> User:
     if db.query(User).filter(User.email == user.email).first():
         raise ValueError("이미 존재하는 이메일입니다.")
-
     if db.query(User).filter(User.user_id == user.user_id).first():
         raise ValueError("이미 존재하는 아이디입니다.")
-
     if db.query(User).filter(User.nickname == user.nickname).first():
         raise ValueError("이미 존재하는 닉네임입니다.")
 
@@ -51,7 +49,9 @@ def register_user(db: Session, user: UserRegister) -> User:
     return new_user
 
 
-# 계정 잠금 여부 체크
+# ===============================
+# 계정 잠금 관련
+# ===============================
 def _is_locked(u: User) -> bool:
     if not u:
         return False
@@ -59,13 +59,13 @@ def _is_locked(u: User) -> bool:
     if u.account_locked and u.banned_until and u.banned_until > now:
         return True
     if u.account_locked and u.banned_until and u.banned_until <= now:
+        # 잠금 해제
         u.account_locked = False
         u.login_fail_count = 0
         u.banned_until = None
     return False
 
 
-# 로그인 실패 처리
 def _on_login_fail(u: User) -> None:
     if not u:
         return
@@ -77,7 +77,6 @@ def _on_login_fail(u: User) -> None:
         logger.warning("계정 잠금 user_id=%s until=%s", u.user_id, u.banned_until)
 
 
-# 로그인 성공 처리
 def _on_login_success(u: User) -> None:
     u.login_fail_count = 0
     u.account_locked = False
@@ -85,7 +84,9 @@ def _on_login_success(u: User) -> None:
     u.last_login_at = datetime.utcnow()
 
 
-# 사용자 인증 (아이디 기반)
+# ===============================
+# 사용자 인증
+# ===============================
 def authenticate_user(db: Session, user_id: str, password: str):
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
@@ -95,16 +96,17 @@ def authenticate_user(db: Session, user_id: str, password: str):
     return user
 
 
-# 로그인 처리 및 Access + Refresh Token 발급
+# ===============================
+# 로그인 처리 (Access + Refresh 발급)
+# ===============================
 def login_user(db: Session, form_data: OAuth2PasswordRequestForm):
-    login_id = form_data.username  # username에 user_id가 들어있음
+    login_id = form_data.username  # username = user_id
 
     user = db.query(User).filter(User.user_id == login_id).first()
-    if user:
-        if _is_locked(user):
-            db.commit()
-            logger.warning("잠금 상태 로그인 시도 user_id=%s", login_id)
-            return None
+    if user and _is_locked(user):
+        db.commit()
+        logger.warning("잠금 상태 로그인 시도 user_id=%s", login_id)
+        return None
 
     db_user = authenticate_user(db, login_id, form_data.password)
     if not db_user:
@@ -130,21 +132,33 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # 초 단위
     }
 
 
+# ===============================
 # Refresh Token → 새 Access Token 발급
+# ===============================
 def refresh_access_token(refresh_token: str):
-    payload = verify_token(refresh_token)
-    if not payload or payload.get("type") != "refresh":
+    payload = verify_token(refresh_token, expected_type="refresh")
+    if not payload:
+        logger.warning("잘못된 리프레시 토큰 사용")
         return None
 
     user_id = payload.get("sub")
     if not user_id:
+        logger.warning("리프레시 토큰에 사용자 ID 없음")
         return None
 
     new_access_token = create_access_token(
         data={"sub": user_id},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
-    return {"access_token": new_access_token, "token_type": "bearer"}
+    new_refresh_token = create_refresh_token(data={"sub": user_id})
+
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }

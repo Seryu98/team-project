@@ -28,10 +28,28 @@ function Login() {
       const res = await login(userId, password);
       console.log("✅ 로그인 성공", res);
 
+      // 🔍 토큰 저장 상태 확인
+      const access = localStorage.getItem("access_token");
+      const refresh = localStorage.getItem("refresh_token");
+      console.log("localStorage access_token:", access);
+      console.log("localStorage refresh_token:", refresh);
+
+      // 🔍 access_token payload 디코딩
+      if (access) {
+        try {
+          const payload = JSON.parse(atob(access.split(".")[1]));
+          console.log("access_token payload:", payload);
+        } catch (err) {
+          console.error("❌ access_token 디코딩 실패", err);
+        }
+      }
+
+      // /auth/me 호출
       const user = await getCurrentUser();
       setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);
       navigate("/", { replace: true });
     } catch (err) {
+      console.error("❌ 로그인 후 에러:", err);
       if (String(err?.message || "").includes("423")) {
         setMsg("⏳ 계정이 잠겼습니다. 잠시 후 다시 시도하세요.");
       } else {

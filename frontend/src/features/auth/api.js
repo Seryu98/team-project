@@ -1,5 +1,11 @@
 // src/features/auth/api.js
+
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
+// --- 토큰/세션 타이머 관리 ---
+let logoutTimer = null;
+let lastActivityTime = Date.now();
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30분 (서버와 동일하게 설정)
 
 // --- 토큰 헬퍼 ---
 function getAccessToken() {
@@ -8,13 +14,56 @@ function getAccessToken() {
 function getRefreshToken() {
   return localStorage.getItem("refresh_token");
 }
-function setTokens({ access_token, refresh_token }) {
+function setTokens({ access_token, refresh_token, expires_in }) {
   if (access_token) localStorage.setItem("access_token", access_token);
   if (refresh_token) localStorage.setItem("refresh_token", refresh_token);
+
+  if (expires_in) {
+    // Access Token 만료 기반 타이머
+    startLogoutTimer(expires_in * 1000);
+  }
 }
+
+// ✅ redirect 헬퍼 (무한 루프 방지)
+function redirectToLogin() {
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
+  }
+}
+
 export function clearTokens() {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
+  stopLogoutTimer();
+  redirectToLogin(); // ✅ 이미 /login 이면 또 리다이렉트하지 않음
+}
+
+// --- 자동 로그아웃 타이머 ---
+function startLogoutTimer(durationMs) {
+  stopLogoutTimer(); // 기존 타이머 초기화
+  logoutTimer = setTimeout(() => {
+    console.log("⏰ 세션 만료로 자동 로그아웃 실행");
+    clearTokens();
+  }, durationMs);
+
+  // 사용자 활동 감지 (키보드/마우스)
+  window.onmousemove = resetActivityTimer;
+  window.onkeydown = resetActivityTimer;
+}
+function stopLogoutTimer() {
+  if (logoutTimer) {
+    clearTimeout(logoutTimer);
+    logoutTimer = null;
+  }
+}
+function resetActivityTimer() {
+  const now = Date.now();
+  if (now - lastActivityTime > 1000) {
+    lastActivityTime = now;
+    stopLogoutTimer();
+    // 매번 새로 시작할 때는 기본 30분 유지
+    startLogoutTimer(SESSION_TIMEOUT_MS);
+  }
 }
 
 // --- 회원가입 ---
@@ -24,11 +73,7 @@ export async function register(data) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`회원가입 실패: ${err}`);
-  }
+  if (!res.ok) throw new Error("회원가입 실패");
   return res.json();
 }
 
@@ -44,12 +89,9 @@ export async function login(loginId, password) {
     body: params,
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`로그인 실패: ${res.status} ${err}`);
-  }
+  if (!res.ok) throw new Error(String(res.status));
   const data = await res.json();
-  setTokens(data); // ✅ 토큰 저장
+  setTokens(data); // ✅ 토큰 + 자동 로그아웃 타이머
   return data;
 }
 
@@ -70,7 +112,7 @@ export async function refreshAccessToken() {
   }
 
   const data = await res.json();
-  setTokens(data); // ✅ 새 access/refresh 토큰 저장
+  setTokens(data); // ✅ 새 토큰 저장 + 타이머 갱신
   return data.access_token;
 }
 
@@ -81,7 +123,6 @@ export async function authFetch(url, options = {}) {
   let res = await fetch(`${API_URL}${url}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
       ...(options.headers || {}),
       Authorization: token ? `Bearer ${token}` : "",
     },
@@ -93,22 +134,17 @@ export async function authFetch(url, options = {}) {
       res = await fetch(`${API_URL}${url}`, {
         ...options,
         headers: {
-          "Content-Type": "application/json",
           ...(options.headers || {}),
           Authorization: `Bearer ${token}`,
         },
       });
-    } catch (err) {
+    } catch {
       clearTokens();
       throw new Error("세션 만료");
     }
   }
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`API 요청 실패: ${res.status} ${err}`);
-  }
-
+  if (!res.ok) throw new Error("API 요청 실패");
   return res.json();
 }
 

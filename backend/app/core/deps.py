@@ -24,7 +24,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     
     # 토큰에서 얻은 id로 DB 조회
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
     if not user:
         raise credentials_exception
     return user
