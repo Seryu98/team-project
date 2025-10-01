@@ -20,7 +20,7 @@ const starGlob2 = import.meta.glob("../../app/shared/assets/star/*.png", { eager
 export default function ProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
-  
+
   const [profile, setProfile] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -101,7 +101,7 @@ export default function ProfilePage() {
       const token = localStorage.getItem("token");
       const targetUserId = userId || currentUser?.id;
       if (!targetUserId) return;
-      
+
       const res = await api.get(`/portfolios/user/${targetUserId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -116,7 +116,7 @@ export default function ProfilePage() {
       const token = localStorage.getItem("token");
       const targetUserId = userId || currentUser?.id;
       if (!targetUserId) return;
-      
+
       const res = await api.get(`/comments/user/${targetUserId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -214,7 +214,7 @@ export default function ProfilePage() {
   return (
     <div style={{ minHeight: "100vh", background: "#fff", padding: "40px 20px" }}>
       <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-        
+
         {/* 헤더 - ProfileCreate와 동일한 위치 */}
         <h1 style={{ fontSize: "24px", fontWeight: "bold", textAlign: "center", marginBottom: "40px" }}>
           {isMyProfile ? "내 프로필" : `${profile.nickname}님의 프로필`}
@@ -244,7 +244,7 @@ export default function ProfilePage() {
             <h2 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "4px" }}>
               {profile.nickname}
             </h2>
-            
+
             {/* 한 줄 자기소개 (읽기 전용) */}
             <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "8px" }}>
               {profile.headline || "자기소개가 없습니다."}
@@ -265,7 +265,7 @@ export default function ProfilePage() {
                 팔로잉 <strong>{profile.following_count}</strong>
               </span>
             </div>
-            
+
             {/* 버튼 영역 */}
             <div style={{ display: "flex", gap: "8px" }}>
               {isMyProfile ? (
@@ -320,77 +320,74 @@ export default function ProfilePage() {
         </div>
 
         {/* 자기소개 (읽기 전용) */}
-        {profile.bio && (
-          <div style={{ marginBottom: "24px" }}>
-            <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-              자기소개
-            </label>
-            <div
-              style={{
-                padding: "12px",
-                fontSize: "14px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                background: "#f9fafb",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {profile.bio}
-            </div>
+        <div style={{ marginBottom: "24px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+            자기소개
+          </label>
+          <div style={{
+            padding: "16px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            minHeight: "100px",
+            background: "#fafafa",
+            fontSize: "14px",
+            whiteSpace: "pre-wrap"
+          }}>
+            {profile.bio ? profile.bio : (
+              <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 자기소개가 없습니다</p>
+            )}
           </div>
-        )}
+        </div>
 
         {/* 이력 */}
-        {profile.experience && (
-          <div style={{ marginBottom: "24px" }}>
-            <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-              이력
-            </label>
-            <div
-              style={{
-                padding: "12px",
-                fontSize: "14px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                background: "#f9fafb",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {profile.experience}
-            </div>
+        <div style={{ marginBottom: "24px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+            이력
+          </label>
+          <div style={{
+            padding: "16px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            minHeight: "100px",
+            background: "#fafafa",
+            fontSize: "14px",
+            whiteSpace: "pre-wrap"
+          }}>
+            {profile.experience ? profile.experience : (
+              <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 이력이 없습니다</p>
+            )}
           </div>
-        )}
+        </div>
 
         {/* 자격증 */}
-        {profile.certifications && (
-          <div style={{ marginBottom: "24px" }}>
-            <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-              자격증
-            </label>
-            <div
-              style={{
-                padding: "12px",
-                fontSize: "14px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                background: "#f9fafb",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {profile.certifications}
-            </div>
+        <div style={{ marginBottom: "24px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+            자격증
+          </label>
+          <div style={{
+            padding: "16px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            minHeight: "100px",
+            background: "#fafafa",
+            fontSize: "14px",
+            whiteSpace: "pre-wrap"
+          }}>
+            {profile.certifications ? profile.certifications : (
+              <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 자격증이 없습니다</p>
+            )}
           </div>
-        )}
+        </div>
 
         {/* 사용 가능한 언어 (스킬) */}
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             사용 가능한 언어
           </label>
-          
-          <div style={{ 
-            display: "flex", 
-            flexWrap: "wrap", 
+
+          <div style={{
+            display: "flex",
+            flexWrap: "wrap",
             gap: "16px",
             padding: "16px",
             border: "1px solid #d1d5db",
@@ -483,7 +480,7 @@ export default function ProfilePage() {
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             함께한 사람들이 남긴 말
           </label>
-          
+
           <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
             <button style={{ padding: "6px 12px", fontSize: "12px", background: "#ef4444", color: "#fff", borderRadius: "16px", border: "none" }}>
               😊 커뮤션 0
