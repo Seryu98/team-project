@@ -11,12 +11,16 @@ export default function RecipeCreate() {
   const [filteredSkills, setFilteredSkills] = useState([]);
   const navigate = useNavigate();
 
+  const today = new Date().toISOString().split("T")[0]; // ✅ 오늘 날짜 문자열
+
   const [form, setForm] = useState({
     title: "",
     description: "",
-    capacity: 2, // ✅ 기본값도 2명부터
+    capacity: 2, // ✅ 기본값 2명
     start_date: "",
     end_date: "",
+    project_start: "",
+    project_end: "",
     skills: [],
     application_fields: [], // ✅ 지원자 필수 입력값
     image_url: "",
@@ -131,8 +135,13 @@ export default function RecipeCreate() {
         capacity: form.capacity,
         type: type,
         field: form.field,
-        start_date: form.start_date,
-        end_date: form.end_date,
+
+        // ✅ 빈 문자열이면 null 로 변환
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+        project_start: form.project_start || null,
+        project_end: form.project_end || null,
+
         skills: form.skills,
         application_fields: form.application_fields,
         image_url: form.image_url,
@@ -212,16 +221,20 @@ export default function RecipeCreate() {
             type="number"
             value={form.capacity}
             onChange={handleChange}
-            min={2}  // ✅ 최소 2명
+            min={2} // ✅ 최소 2명
+            max={50} // ✅ 최대 50명
+            step={1} // ✅ 정수만
             required
           />
 
+          {/* 모집 기간 */}
           <FormInput
             label="모집 시작일"
             name="start_date"
             type="date"
             value={form.start_date}
             onChange={handleChange}
+            min={today} // ✅ 오늘 이전 선택 불가
           />
           <FormInput
             label="모집 종료일"
@@ -229,6 +242,25 @@ export default function RecipeCreate() {
             type="date"
             value={form.end_date}
             onChange={handleChange}
+            min={form.start_date || today} // ✅ 시작일 이후만 선택 가능
+          />
+
+          {/* 프로젝트 기간 */}
+          <FormInput
+            label="프로젝트 시작일"
+            name="project_start"
+            type="date"
+            value={form.project_start}
+            onChange={handleChange}
+            min={form.start_date || today} // ✅ 모집 시작일 이후부터 가능
+          />
+          <FormInput
+            label="프로젝트 종료일"
+            name="project_end"
+            type="date"
+            value={form.project_end}
+            onChange={handleChange}
+            min={form.project_start || today} // ✅ 프로젝트 시작일 이후만
           />
 
           {type === "PROJECT" && (

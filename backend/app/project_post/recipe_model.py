@@ -1,9 +1,9 @@
+# app/project_post/recipe_model.py
 from sqlalchemy import Column, BigInteger, String, Text, Date, DateTime, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.base import Base
 from app.project_post.post_member_model import PostMember
-
 
 # ✅ 게시글 테이블
 class RecipePost(Base):
@@ -18,8 +18,15 @@ class RecipePost(Base):
     capacity = Column(BigInteger, nullable=False)
     current_members = Column(BigInteger, default=0)
     description = Column(Text)
+
+    # 모집 기간
     start_date = Column(Date)
     end_date = Column(Date)
+
+    # ✅ 프로젝트 상태 & 기간 (DB에 맞춰 추가)
+    project_status = Column(Enum("ONGOING", "ENDED", name="project_status"), default="ONGOING", nullable=False)
+    project_start = Column(Date, nullable=True)
+    project_end = Column(Date, nullable=True)
 
     # ✅ 공고 상태 (관리자 승인)
     status = Column(Enum("PENDING", "APPROVED", "REJECTED", name="post_status"), default="PENDING")

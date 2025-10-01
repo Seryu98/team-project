@@ -24,10 +24,10 @@ export default function ProjectPostDetail() {
 
     async function fetchUser() {
       try {
-        const res = await getCurrentUser({ skipRedirect: true }); // 로그인 안 되어 있으면 null
+        const res = await getCurrentUser({ skipRedirect: true });
         setCurrentUser(res);
       } catch {
-        setCurrentUser(null); // 비로그인 시 null
+        setCurrentUser(null);
       }
     }
 
@@ -58,6 +58,32 @@ export default function ProjectPostDetail() {
       navigate("/posts");
     } catch (err) {
       alert("❌ 삭제 실패: " + err.message);
+    }
+  };
+
+  // ✅ 모집 상태 변경
+  const updateRecruitStatus = async (status) => {
+    try {
+      await authFetch(`/recipe/${postId}/recruit-status`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      });
+      alert(`✅ 모집 상태가 ${status}로 변경되었습니다.`);
+      window.location.reload();
+    } catch (err) {
+      alert("❌ 상태 변경 실패: " + err.message);
+    }
+  };
+
+  // ✅ 프로젝트 종료
+  const endProject = async () => {
+    if (!window.confirm("정말 프로젝트를 종료하시겠습니까?")) return;
+    try {
+      await authFetch(`/recipe/${postId}/end`, { method: "POST" });
+      alert("✅ 프로젝트가 종료되었습니다.");
+      window.location.reload();
+    } catch (err) {
+      alert("❌ 종료 실패: " + err.message);
     }
   };
 
@@ -107,6 +133,11 @@ export default function ProjectPostDetail() {
             <p style={{ margin: 0, fontSize: "14px", color: "#777" }}>
               모집 기간 {post.start_date} ~ {post.end_date}
             </p>
+            {post.project_start && post.project_end && (
+              <p style={{ margin: 0, fontSize: "14px", color: "#777" }}>
+                프로젝트 기간 {post.project_start} ~ {post.project_end}
+              </p>
+            )}
           </div>
         </div>
 
@@ -117,16 +148,37 @@ export default function ProjectPostDetail() {
             <strong>리더 ID: {post.leader_id}</strong>
           </div>
 
-          {/* ✅ 리더만 보이는 수정/삭제 버튼 */}
+          {/* ✅ 리더만 보이는 버튼 */}
           {isLeader && (
             <div style={{ marginTop: "1rem" }}>
+              {/* 수정/삭제 */}
               <button
                 onClick={() => navigate(`/recipe/${post.id}/edit`)}
                 style={{ marginRight: "10px" }}
               >
                 수정하기
               </button>
-              <button onClick={handleDelete}>삭제하기</button>
+              <button onClick={handleDelete} style={{ marginRight: "10px" }}>
+                삭제하기
+              </button>
+
+              {/* 상태 제어 */}
+              {post.recruit_status === "OPEN" && (
+                <button onClick={() => updateRecruitStatus("CLOSED")}>
+                  모집 종료
+                </button>
+              )}
+              {post.recruit_status === "CLOSED" && (
+                <>
+                  <button
+                    onClick={() => updateRecruitStatus("OPEN")}
+                    style={{ marginRight: "10px" }}
+                  >
+                    모집 재개
+                  </button>
+                  <button onClick={endProject}>프로젝트 종료</button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -188,12 +240,12 @@ export default function ProjectPostDetail() {
           </div>
         </div>
 
-        {/* ✅ 신청/탈퇴 버튼 (리더 제외, 로그인한 경우에만 보임) */}
+        {/* ✅ 신청/탈퇴 버튼 */}
         {!isLeader && currentUser && (
           <div>
             {!isMember ? (
               <button
-                onClick={() => setShowModal(true)} // ✅ 신청하기 → 모달 열기
+                onClick={() => setShowModal(true)}
                 style={{
                   marginRight: "10px",
                   padding: "10px 20px",
@@ -208,7 +260,7 @@ export default function ProjectPostDetail() {
               </button>
             ) : (
               <button
-                onClick={handleLeave} // ✅ 이미 멤버면 탈퇴하기
+                onClick={handleLeave}
                 style={{
                   padding: "10px 20px",
                   border: "1px solid #333",

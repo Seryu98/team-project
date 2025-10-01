@@ -34,11 +34,18 @@ class PostMemberResponse(BaseModel):
 class RecipePostCreate(BaseModel):
     title: str = Field(..., max_length=200)
     description: Optional[str] = None
-    capacity: int = Field(..., gt=1)   # ✅ 최소 2명 이상
+    capacity: int = Field(..., gt=1)   # ✅ 최소 2명부터
     type: str = Field(..., pattern="^(PROJECT|STUDY)$")
     field: Optional[str] = None
+
+    # 모집 기간
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+
+    # 프로젝트 기간
+    project_start: Optional[date] = None
+    project_end: Optional[date] = None
+
     skills: List[int] = []                   # skill_id 배열
     application_fields: List[int] = []       # field_id 배열
     image_url: Optional[str] = None
@@ -53,11 +60,21 @@ class RecipePostResponse(BaseModel):
     current_members: int
     type: str
     field: Optional[str]
+
+    # 모집 기간
     start_date: Optional[date]
     end_date: Optional[date]
 
-    status: str                # ✅ 관리자 승인 상태
-    recruit_status: str        # ✅ 모집 상태
+    # 프로젝트 기간
+    project_start: Optional[date] = None
+    project_end: Optional[date] = None
+
+    # ✅ 프로젝트 상태 (DB: project_status)
+    project_status: Optional[str] = None   # 예: ONGOING / ENDED
+
+    # 모집/승인 상태
+    status: str                # 관리자 승인 상태 (APPROVED/PENDING/REJECTED 등)
+    recruit_status: str        # 모집 상태 (OPEN/CLOSED)
 
     created_at: datetime
     image_url: Optional[str] = None
