@@ -310,8 +310,8 @@ export default function ProjectPostDetail() {
           </div>
         </div>
 
-        {/* ✅ 신청/탈퇴 버튼 (종료/승인전 숨김) */}
-        {!isLeader && currentUser && approved && !ended && (
+        {/* ✅ 신청/탈퇴 버튼 (종료/승인전/모집종료 시 숨김) */}
+        {!isLeader && currentUser && approved && !ended && post.recruit_status === "OPEN" && (
           <div>
             {!isMember ? (
               <button
@@ -344,6 +344,7 @@ export default function ProjectPostDetail() {
             )}
           </div>
         )}
+
       </div>
 
       {/* ✅ 지원서 모달 */}
