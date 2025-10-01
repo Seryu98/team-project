@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from app import models
 
+
 def create_recipe_post(
     db: Session,
     leader_id: int,

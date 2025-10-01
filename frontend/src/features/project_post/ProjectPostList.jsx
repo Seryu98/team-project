@@ -8,12 +8,14 @@ export default function ProjectPostList() {
   const navigate = useNavigate();
 
   const [filters, setFilters] = useState({
-    type: "ALL",
-    status: "APPROVED",
+    type: "ALL",              // 구분 (ALL, PROJECT, STUDY)
+    status: "APPROVED",       // 관리자 승인 여부
+    recruit_status: "OPEN",   // 모집 상태
     search: "",
     start_date: "",
     end_date: "",
-    skill_ids: [],
+    skill_ids: [],            // 사용 언어
+    match_mode: "OR",         // OR 기본값, AND(정확 매칭) 옵션
     page: 1,
     page_size: 10,
   });
@@ -65,18 +67,45 @@ export default function ProjectPostList() {
     fetchSkills();
   }, []);
 
-  // ✅ 언어 선택 토글
+  // ✅ 구분 선택 시 → 언어/정확매칭 해제
+  const handleTypeChange = (t) => {
+    setFilters((prev) => ({
+      ...prev,
+      type: t,
+      skill_ids: [],     // 언어 초기화
+      match_mode: "OR",  // 정확매칭 초기화
+    }));
+  };
+
+  // ✅ 언어 선택 시 → 구분 해제
   const toggleSkill = (id) => {
     setFilters((prev) => {
       const already = prev.skill_ids.includes(id);
       return {
         ...prev,
-        type: "",
+        type: null, // 구분 해제
         skill_ids: already
           ? prev.skill_ids.filter((s) => s !== id)
           : [...prev.skill_ids, id],
       };
     });
+  };
+
+  // ✅ 정확 매칭 시 → 구분 해제
+  const toggleMatchMode = (checked) => {
+    setFilters((prev) => ({
+      ...prev,
+      type: null,                 // 구분 해제
+      match_mode: checked ? "AND" : "OR",
+    }));
+  };
+
+  // ✅ 모집 상태 (라디오)
+  const toggleRecruitStatus = (status) => {
+    setFilters((prev) => ({
+      ...prev,
+      recruit_status: status,
+    }));
   };
 
   // ✅ 생성 버튼 클릭 시 로그인 체크
@@ -116,25 +145,42 @@ export default function ProjectPostList() {
         </div>
 
         {/* ✅ 모집 구분 */}
-        <div>
+        <div style={{ marginBottom: "1rem" }}>
+          <label>▶구분</label>
           {["ALL", "PROJECT", "STUDY"].map((t) => (
             <label key={t} style={{ display: "block" }}>
               <input
                 type="radio"
                 name="type"
                 checked={filters.type === t}
-                onChange={() =>
-                  setFilters((prev) => ({ ...prev, type: t, skill_ids: [] }))
-                }
+                onChange={() => handleTypeChange(t)}
               />
               {t === "ALL" ? "모두보기" : t === "PROJECT" ? "프로젝트" : "스터디"}
             </label>
           ))}
         </div>
 
+        {/* ✅ 모집 상태 */}
+        <div style={{ marginBottom: "1rem" }}>
+          <label>▶모집 상태</label>
+          <div>
+            {["OPEN", "CLOSED"].map((s) => (
+              <label key={s} style={{ display: "block" }}>
+                <input
+                  type="radio"
+                  name="recruit_status"
+                  checked={filters.recruit_status === s}
+                  onChange={() => toggleRecruitStatus(s)}
+                />
+                {s === "OPEN" ? "모집중" : "모집완료"}
+              </label>
+            ))}
+          </div>
+        </div>
+
         {/* ✅ 모집 기간 */}
-        <div style={{ marginTop: "1rem" }}>
-          <label>모집 기간</label>
+        <div style={{ marginBottom: "1rem" }}>
+          <label>▶모집 기간</label>
           <br />
           <input
             type="date"
@@ -153,9 +199,21 @@ export default function ProjectPostList() {
           />
         </div>
 
+        {/* ✅ 정확 매칭 */}
+        <div style={{ marginBottom: "1rem" }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={filters.match_mode === "AND"}
+              onChange={(e) => toggleMatchMode(e.target.checked)}
+            />
+            정확 매칭 (모두포함)
+          </label>
+        </div>
+
         {/* ✅ 사용 언어 */}
-        <div style={{ marginTop: "1rem" }}>
-          <label>사용 언어</label>
+        <div>
+          <label>▶사용 언어(다중 체크 가능)</label>
           <div>
             {skills.map((skill) => (
               <label key={skill.id} style={{ display: "block" }}>
@@ -175,7 +233,7 @@ export default function ProjectPostList() {
       <main style={{ flex: 1, padding: "1rem" }}>
         <h2>프로젝트/스터디 게시판</h2>
 
-        {/* ✅ 프로젝트/스터디 생성 버튼 */}
+        {/* 생성 버튼 */}
         <button
           style={{
             marginBottom: "1rem",
@@ -207,7 +265,6 @@ export default function ProjectPostList() {
               }}
               onClick={() => navigate(`/recipe/${post.id}`)}
             >
-              {/* ✅ 대표 이미지 */}
               {post.image_url && (
                 <img
                   src={`http://localhost:8000${post.image_url}`}
@@ -221,15 +278,12 @@ export default function ProjectPostList() {
                   }}
                 />
               )}
-
               <h3 style={{ margin: "0 0 8px 0" }}>{post.title}</h3>
-
               <p style={{ margin: "0 0 12px 0", color: "#555" }}>
                 {post.description?.length > 50
                   ? `${post.description.substring(0, 50)}...`
                   : post.description}
               </p>
-
               <p
                 style={{
                   fontSize: "14px",
@@ -240,8 +294,6 @@ export default function ProjectPostList() {
                 모집인원 {post.current_members}/{post.capacity}명 | {post.type} | 모집기간{" "}
                 {post.start_date} ~ {post.end_date}
               </p>
-
-              {/* ✅ 사용 언어 태그 */}
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 {post.skills?.map((skill) => (
                   <span

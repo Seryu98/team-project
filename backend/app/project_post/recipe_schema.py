@@ -55,13 +55,16 @@ class RecipePostResponse(BaseModel):
     field: Optional[str]
     start_date: Optional[date]
     end_date: Optional[date]
-    status: str
+
+    status: str                # ✅ 관리자 승인 상태
+    recruit_status: str        # ✅ 모집 상태
+
     created_at: datetime
     image_url: Optional[str] = None
     leader_id: int
     skills: List[SkillResponse] = []
     application_fields: List[ApplicationFieldResponse] = []
-    members: List[PostMemberResponse] = []   # ✅ 추가됨
+    members: List[PostMemberResponse] = []
 
     class Config:
         from_attributes = True

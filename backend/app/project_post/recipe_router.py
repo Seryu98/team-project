@@ -1,8 +1,8 @@
-# app/project_post/recipe_router.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import date, datetime
+from sqlalchemy import func
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -30,6 +30,7 @@ def to_dto(post: models.RecipePost) -> RecipePostResponse:
         start_date=post.start_date,
         end_date=post.end_date,
         status=post.status,
+        recruit_status=post.recruit_status,
         created_at=post.created_at,
         current_members=len(post.members),
         image_url=post.image_url,
@@ -45,7 +46,7 @@ def to_dto(post: models.RecipePost) -> RecipePostResponse:
     )
 
 
-# 모집공고 생성
+# ✅ 모집공고 생성
 @router.post("/", response_model=RecipePostResponse)
 async def create_post(
     payload: RecipePostCreate,
@@ -67,7 +68,9 @@ async def get_posts(
     db: Session = Depends(get_db),
     type: Optional[str] = Query(None),
     status: Optional[str] = Query("APPROVED"),
+    recruit_status: Optional[str] = Query("OPEN"),
     skill_ids: Optional[List[int]] = Query(None),
+    match_mode: Optional[str] = Query("OR"),  # ✅ AND / OR 옵션
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     search: Optional[str] = None,
@@ -82,14 +85,26 @@ async def get_posts(
             joinedload(models.RecipePost.members),
         )
         .filter(models.RecipePost.status == status)
+        .filter(models.RecipePost.recruit_status == recruit_status)
         .filter(models.RecipePost.deleted_at.is_(None))
     )
 
     if type:
         query = query.filter(models.RecipePost.type == type)
 
+    # ✅ 언어 필터 (AND / OR)
     if skill_ids:
-        query = query.join(models.RecipePostSkill).filter(models.RecipePostSkill.skill_id.in_(skill_ids))
+        if match_mode == "AND":
+            query = (
+                query.join(models.RecipePostSkill)
+                .filter(models.RecipePostSkill.skill_id.in_(skill_ids))
+                .group_by(models.RecipePost.id)
+                .having(func.count(models.RecipePostSkill.skill_id) == len(skill_ids))
+            )
+        else:
+            query = query.join(models.RecipePostSkill).filter(
+                models.RecipePostSkill.skill_id.in_(skill_ids)
+            )
 
     if start_date and end_date:
         query = query.filter(
@@ -152,7 +167,7 @@ async def delete_post(
 @router.post("/{post_id}/apply")
 async def apply_post(
     post_id: int,
-    answers: List[dict],   # {field_id: int, answer_text: str}
+    answers: List[dict],
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -233,14 +248,14 @@ async def reject_application(
     db.commit()
     return {"message": "🚫 거절 처리 완료"}
 
-    # ✅ 탈퇴하기
+
+# ✅ 탈퇴하기
 @router.post("/{post_id}/leave")
 async def leave_post(
     post_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # 게시글 찾기
     post = db.query(models.RecipePost).filter(
         models.RecipePost.id == post_id,
         models.RecipePost.deleted_at.is_(None)
@@ -248,11 +263,9 @@ async def leave_post(
     if not post:
         raise HTTPException(status_code=404, detail="게시글 없음")
 
-    # 리더는 탈퇴 불가
     if current_user.id == post.leader_id:
         raise HTTPException(status_code=400, detail="리더는 탈퇴할 수 없습니다")
 
-    # 멤버 관계 찾기
     membership = db.query(models.PostMember).filter(
         models.PostMember.post_id == post_id,
         models.PostMember.user_id == current_user.id
@@ -261,7 +274,6 @@ async def leave_post(
     if not membership:
         raise HTTPException(status_code=400, detail="참여중인 멤버가 아닙니다")
 
-    # 삭제 처리
     db.delete(membership)
     db.commit()
 
