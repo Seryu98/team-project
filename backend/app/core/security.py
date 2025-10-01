@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 import os
+import uuid   # 🚩 추가: 서버 재시작 시마다 UUID 변경
 
 # === 환경설정 ===
 SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key")
@@ -11,8 +12,8 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 1
 
-# 🚩 테스트/개발용: 서버 재시작해도 토큰 유지
-SERVER_SESSION_VERSION = "v1"
+# 🚩 서버 재시작 시마다 새로운 UUID 발급 → 기존 토큰 무효화
+SERVER_SESSION_VERSION = str(uuid.uuid4())
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -30,8 +31,8 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({
         "exp": expire,
         "type": "access",
-        "ver": SERVER_SESSION_VERSION,  # 서버 버전 고정
-        "sub": str(data.get("sub"))     # 사용자 ID 명시적으로 추가
+        "ver": SERVER_SESSION_VERSION,   # 🚩 서버 버전 추가
+        "sub": str(data.get("sub"))      # 사용자 ID
     })
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -41,23 +42,21 @@ def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({
         "exp": expire,
         "type": "refresh",
-        "ver": SERVER_SESSION_VERSION,  # 서버 버전 고정
-        "sub": str(data.get("sub"))     # 사용자 ID 명시적으로 추가
+        "ver": SERVER_SESSION_VERSION,   # 🚩 서버 버전 추가
+        "sub": str(data.get("sub"))      # 사용자 ID
     })
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # === 토큰 검증 ===
 def verify_token(token: str, expected_type: str | None = None):
     try:
-        # ✅ 디버깅 로그 추가
-        print(f"[verify_token] SECRET_KEY loaded? {bool(SECRET_KEY)}")
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print("[verify_token] payload:", payload)
+        print("[verify_token] payload:", payload)  # ✅ 디버깅 로그
     except JWTError as e:
         print("[verify_token] ❌ JWTError:", repr(e))
         return None
 
-    # 서버 버전 검증
+    # 🚩 서버 재시작 시 무효화
     if payload.get("ver") != SERVER_SESSION_VERSION:
         print("[verify_token] ❌ version mismatch:", payload.get("ver"), "≠", SERVER_SESSION_VERSION)
         return None

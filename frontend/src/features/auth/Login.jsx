@@ -20,8 +20,10 @@ function Login() {
         if (user) {
           navigate("/", { replace: true });
         }
-      } catch {
-        clearTokens(); // 토큰 무효 → 삭제
+      } catch (err) {
+        console.warn("❌ 자동 로그인 실패:", err);
+        clearTokens();
+        setMsg("⏰ 세션이 만료되었습니다. 다시 로그인 해주세요."); // ✅ 401 처리
       }
     })();
   }, [navigate]);
@@ -57,8 +59,13 @@ function Login() {
       navigate("/", { replace: true });
     } catch (err) {
       console.error("❌ 로그인 후 에러:", err);
-      if (String(err?.message || "").includes("423")) {
+      const message = String(err?.message || "");
+
+      if (message.includes("423")) {
         setMsg("⏳ 계정이 잠겼습니다. 잠시 후 다시 시도하세요.");
+      } else if (message.includes("세션 만료")) {
+        setMsg("⏰ 세션이 만료되었습니다. 다시 로그인 해주세요."); // ✅ 401 → 메시지
+        clearTokens();
       } else {
         setMsg("❌ 로그인 실패");
       }
