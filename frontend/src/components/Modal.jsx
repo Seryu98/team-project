@@ -14,7 +14,7 @@ function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) 
       } catch {}
     }, 0);
 
-    // ✅ ESC로 닫기 허용
+    // ESC로 닫기
     const onKeyDown = (e) => {
       if (e.key === "Escape" && onClose) {
         e.preventDefault();
@@ -29,7 +29,7 @@ function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) 
     };
   }, [onClose]);
 
-  // ✅ 배경 클릭으로 닫기 허용
+  // 배경 클릭으로 닫기
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget && onClose) {
       onClose();
@@ -48,7 +48,7 @@ function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) 
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 9999
+        zIndex: 9999,
       }}
       onClick={handleBackdropClick}
     >
@@ -61,10 +61,30 @@ function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) 
           borderRadius: "12px",
           padding: "20px",
           boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-          outline: "none"
+          outline: "none",
+          position: "relative",
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* 닫기 X 버튼 */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              position: "absolute",
+              top: "10px",
+              right: "10px",
+              background: "transparent",
+              border: "none",
+              fontSize: "20px",
+              cursor: "pointer",
+              lineHeight: "1",
+            }}
+          >
+            ×
+          </button>
+        )}
+
         <h3 id="modal-title" style={{ margin: "0 0 12px", fontSize: "18px" }}>
           {title}
         </h3>
@@ -80,7 +100,7 @@ function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) 
               border: "none",
               background: "#2563eb",
               color: "#fff",
-              cursor: "pointer"
+              cursor: "pointer",
             }}
           >
             {confirmText}

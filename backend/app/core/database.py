@@ -1,8 +1,10 @@
+# app/core/database.py
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from app.core.base import Base  # Base는 따로 분리
+
 
 load_dotenv()
 
