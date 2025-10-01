@@ -4,7 +4,9 @@ import { authFetch } from "../auth/api";
 import FormInput from "./RecipeFormInput";
 
 export default function RecipeCreate() {
+  // ✅ 타입은 버튼으로 설정: PROJECT / STUDY
   const [type, setType] = useState(""); // PROJECT or STUDY
+
   const [applicationFields, setApplicationFields] = useState([]);
   const [skills, setSkills] = useState([]);
   const [skillSearch, setSkillSearch] = useState("");
@@ -82,7 +84,8 @@ export default function RecipeCreate() {
   // 타입 선택 핸들러
   const handleTypeSelect = (selectedType) => {
     setType(selectedType);
-    setForm({ ...form, type: selectedType });
+    // 폼에도 type을 포함해서 백엔드로 전송
+    setForm((prev) => ({ ...prev, type: selectedType }));
   };
 
   // 📌 application_fields 버튼 토글
@@ -133,7 +136,10 @@ export default function RecipeCreate() {
         title: form.title,
         description: form.description,
         capacity: form.capacity,
-        type: type,
+
+        // 🔥 type은 버튼에서 선택된 state 사용
+        type: type, // <- 중요
+
         field: form.field,
 
         // ✅ 빈 문자열이면 null 로 변환
@@ -153,7 +159,6 @@ export default function RecipeCreate() {
       });
 
       alert("✅ 등록 완료!\nID: " + res.id);
-
       // ✅ 등록 후 상세페이지로 이동
       navigate(`/recipe/${res.id}`);
     } catch (err) {
@@ -161,6 +166,9 @@ export default function RecipeCreate() {
       alert("❌ 오류 발생: " + err.message);
     }
   };
+
+  // ✅ 라벨 프리픽스: 프로젝트/스터디에 따라 변경
+  const workLabelPrefix = type === "STUDY" ? "스터디" : "프로젝트";
 
   return (
     <div style={{ maxWidth: "700px", margin: "auto" }}>
@@ -245,22 +253,22 @@ export default function RecipeCreate() {
             min={form.start_date || today} // ✅ 시작일 이후만 선택 가능
           />
 
-          {/* 프로젝트 기간 */}
+          {/* 프로젝트/스터디 기간 → 라벨 동적 변경 */}
           <FormInput
-            label="프로젝트 시작일"
+            label={`${workLabelPrefix} 시작일`}
             name="project_start"
             type="date"
             value={form.project_start}
             onChange={handleChange}
-            min={form.start_date || today} // ✅ 모집 시작일 이후부터 가능
+            min={form.start_date || today} // ✅ 모집 "시작일" 이후부터 가능
           />
           <FormInput
-            label="프로젝트 종료일"
+            label={`${workLabelPrefix} 종료일`}
             name="project_end"
             type="date"
             value={form.project_end}
             onChange={handleChange}
-            min={form.project_start || today} // ✅ 프로젝트 시작일 이후만
+            min={form.project_start || today} // ✅ (프로젝트/스터디) 시작일 이후만
           />
 
           {type === "PROJECT" && (
