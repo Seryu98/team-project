@@ -11,8 +11,8 @@ from app.users.user_model import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# Swagger Authorize 등에 쓰이는 스키마
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+# 🚩 tokenUrl 앞에 / 제거 (중요!)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 # === Request Schemas ===

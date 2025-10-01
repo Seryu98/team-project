@@ -1,5 +1,3 @@
-// src/features/auth/api.js
-
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
 // --- 토큰/세션 타이머 관리 ---
@@ -35,7 +33,7 @@ export function clearTokens() {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
   stopLogoutTimer();
-  redirectToLogin(); // ✅ 이미 /login 이면 또 리다이렉트하지 않음
+  redirectToLogin();
 }
 
 // --- 자동 로그아웃 타이머 ---
@@ -61,7 +59,6 @@ function resetActivityTimer() {
   if (now - lastActivityTime > 1000) {
     lastActivityTime = now;
     stopLogoutTimer();
-    // 매번 새로 시작할 때는 기본 30분 유지
     startLogoutTimer(SESSION_TIMEOUT_MS);
   }
 }
@@ -91,7 +88,7 @@ export async function login(loginId, password) {
 
   if (!res.ok) throw new Error(String(res.status));
   const data = await res.json();
-  setTokens(data); // ✅ 토큰 + 자동 로그아웃 타이머
+  setTokens(data);
   return data;
 }
 
@@ -112,19 +109,20 @@ export async function refreshAccessToken() {
   }
 
   const data = await res.json();
-  setTokens(data); // ✅ 새 토큰 저장 + 타이머 갱신
+  setTokens(data);
   return data.access_token;
 }
 
-// --- API 요청 wrapper (자동 갱신) ---
+// --- API 요청 wrapper ---
 export async function authFetch(url, options = {}) {
   let token = getAccessToken();
 
   let res = await fetch(`${API_URL}${url}`, {
     ...options,
     headers: {
+      "Content-Type": "application/json",
       ...(options.headers || {}),
-      Authorization: token ? `Bearer ${token}` : "",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 
@@ -134,6 +132,7 @@ export async function authFetch(url, options = {}) {
       res = await fetch(`${API_URL}${url}`, {
         ...options,
         headers: {
+          "Content-Type": "application/json",
           ...(options.headers || {}),
           Authorization: `Bearer ${token}`,
         },
@@ -151,4 +150,11 @@ export async function authFetch(url, options = {}) {
 // --- 현재 로그인된 사용자 ---
 export async function getCurrentUser() {
   return authFetch("/auth/me", { method: "GET" });
+}
+
+// --- 로그인 + 사용자 정보까지 한 번에 ---
+export async function loginAndFetchUser(loginId, password) {
+  const tokens = await login(loginId, password);
+  const user = await getCurrentUser();
+  return { tokens, user };
 }

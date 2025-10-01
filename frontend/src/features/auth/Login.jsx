@@ -1,7 +1,7 @@
 // src/features/auth/Login.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { login, getCurrentUser, clearTokens } from "./api";
+import { loginAndFetchUser, getCurrentUser, clearTokens } from "./api";
 
 function Login() {
   const navigate = useNavigate();
@@ -12,9 +12,14 @@ function Login() {
   // 이미 로그인된 상태면 메인으로
   useEffect(() => {
     (async () => {
+      const token = localStorage.getItem("access_token");
+      if (!token) return; // ✅ 토큰 없으면 /auth/me 호출 안 함
+
       try {
-        await getCurrentUser();
-        navigate("/", { replace: true });
+        const user = await getCurrentUser(); // ✅ 토큰 있으면 자동 로그인
+        if (user) {
+          navigate("/", { replace: true });
+        }
       } catch {
         clearTokens(); // 토큰 무효 → 삭제
       }
@@ -25,16 +30,16 @@ function Login() {
     e.preventDefault();
     setMsg("");
     try {
-      const res = await login(userId, password);
-      console.log("✅ 로그인 성공", res);
+      // ✅ 로그인 및 토큰 발급
+      const { tokens } = await loginAndFetchUser(userId, password);
+      console.log("✅ 로그인 성공", tokens);
 
-      // 🔍 토큰 저장 상태 확인
+      // 🔍 토큰 저장 확인
       const access = localStorage.getItem("access_token");
       const refresh = localStorage.getItem("refresh_token");
       console.log("localStorage access_token:", access);
       console.log("localStorage refresh_token:", refresh);
 
-      // 🔍 access_token payload 디코딩
       if (access) {
         try {
           const payload = JSON.parse(atob(access.split(".")[1]));
@@ -44,9 +49,11 @@ function Login() {
         }
       }
 
-      // /auth/me 호출
+      // ✅ 여기서 토큰 저장된 후에 /auth/me 호출
       const user = await getCurrentUser();
       setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);
+
+      // 🔄 유저 정보까지 확인된 후 메인으로 이동
       navigate("/", { replace: true });
     } catch (err) {
       console.error("❌ 로그인 후 에러:", err);

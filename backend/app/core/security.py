@@ -16,15 +16,12 @@ SERVER_SESSION_VERSION = "v1"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
 # === 비밀번호 해싱/검증 ===
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
-
 
 # === 토큰 생성 ===
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
@@ -38,7 +35,6 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     })
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-
 def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
     expire = datetime.utcnow() + (expires_delta or timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS))
     to_encode = data.copy()
@@ -50,20 +46,25 @@ def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
     })
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-
 # === 토큰 검증 ===
 def verify_token(token: str, expected_type: str | None = None):
     try:
+        # ✅ 디버깅 로그 추가
+        print(f"[verify_token] SECRET_KEY loaded? {bool(SECRET_KEY)}")
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-
-        # 서버 버전 검증
-        if payload.get("ver") != SERVER_SESSION_VERSION:
-            return None
-
-        # 타입(access/refresh) 검증
-        if expected_type and payload.get("type") != expected_type:
-            return None
-
-        return payload
-    except JWTError:
+        print("[verify_token] payload:", payload)
+    except JWTError as e:
+        print("[verify_token] ❌ JWTError:", repr(e))
         return None
+
+    # 서버 버전 검증
+    if payload.get("ver") != SERVER_SESSION_VERSION:
+        print("[verify_token] ❌ version mismatch:", payload.get("ver"), "≠", SERVER_SESSION_VERSION)
+        return None
+
+    # 타입(access/refresh) 검증
+    if expected_type and payload.get("type") != expected_type:
+        print("[verify_token] ❌ type mismatch:", payload.get("type"), "≠", expected_type)
+        return None
+
+    return payload
