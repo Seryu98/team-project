@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "./api";
 
-/** 정적 에셋 자동 로딩 */
 function buildIconMap(globs) {
   const map = {};
   for (const [path, url] of Object.entries(globs)) {
@@ -12,6 +11,7 @@ function buildIconMap(globs) {
   }
   return map;
 }
+
 const skillGlob1 = import.meta.glob("../../shared/assets/skills/*.png", { eager: true, as: "url" });
 const skillGlob2 = import.meta.glob("../../app/shared/assets/skills/*.png", { eager: true, as: "url" });
 const starGlob1 = import.meta.glob("../../shared/assets/star/*.png", { eager: true, as: "url" });
@@ -20,14 +20,15 @@ const starGlob2 = import.meta.glob("../../app/shared/assets/star/*.png", { eager
 export default function ProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
-
+  
   const [profile, setProfile] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState("followers");
   const [list, setList] = useState([]);
+  const [portfolios, setPortfolios] = useState([]);
+  const [comments, setComments] = useState([]);
 
-  // 아이콘 맵
   const SKILL_ICONS = useMemo(
     () => ({ ...buildIconMap(skillGlob1), ...buildIconMap(skillGlob2) }),
     []
@@ -36,10 +37,10 @@ export default function ProfilePage() {
     () => ({ ...buildIconMap(starGlob1), ...buildIconMap(starGlob2) }),
     []
   );
+
   const oneStarUrl = STAR_ICONS["onestar"] || "/assets/star/onestar.png";
   const zeroStarUrl = STAR_ICONS["zerostar"] || "/assets/star/zerostar.png";
 
-  // 스킬 아이콘 경로 보정
   const resolveSkillIconUrl = (rawName) => {
     if (!rawName) return "";
     let norm = String(rawName).trim().toLowerCase().replace(/\s+/g, "_");
@@ -48,13 +49,7 @@ export default function ProfilePage() {
       "c++": "cplus",
       "f#": "fsharp",
       "react native": "react_native",
-      "react-native": "react_native",
-      reactnative: "react_native",
       objectivec: "objective",
-      "objective-c": "objective",
-      "objective c": "objective",
-      "postgre_sql": "postgresql",
-      "ms_sql_server": "mssqlserver",
     };
     norm = aliases[norm] || norm;
     if (SKILL_ICONS[norm]) return SKILL_ICONS[norm];
@@ -81,6 +76,7 @@ export default function ProfilePage() {
         alert("로그인이 필요합니다.");
         return;
       }
+
       let endpoint;
       if (userId) {
         endpoint = `/profiles/${userId}`;
@@ -90,6 +86,7 @@ export default function ProfilePage() {
         });
         endpoint = `/profiles/${me.data.id}`;
       }
+
       const res = await api.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -99,46 +96,79 @@ export default function ProfilePage() {
     }
   };
 
+  const fetchPortfolios = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const targetUserId = userId || currentUser?.id;
+      if (!targetUserId) return;
+      
+      const res = await api.get(`/portfolios/user/${targetUserId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPortfolios(res.data);
+    } catch {
+      setPortfolios([]);
+    }
+  };
+
+  const fetchComments = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const targetUserId = userId || currentUser?.id;
+      if (!targetUserId) return;
+      
+      const res = await api.get(`/comments/user/${targetUserId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setComments(res.data);
+    } catch {
+      setComments([]);
+    }
+  };
+
   useEffect(() => {
     fetchCurrentUser();
     fetchProfile();
   }, [userId]);
 
- const handleFollowToggle = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      alert("로그인이 필요합니다.");
-      return;
+  useEffect(() => {
+    if (profile) {
+      fetchPortfolios();
+      fetchComments();
     }
+  }, [profile]);
 
-    if (profile.is_following) {
-      // 언팔로우 요청
-      await api.delete(`/follows/${profile.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      // 상태 즉시 반영 (fetchProfile() 호출 X)
-      setProfile((prev) => ({
-        ...prev,
-        is_following: false,
-        follower_count: prev.follower_count - 1, // 팔로워 수 줄여줌
-      }));
-    } else {
-      // 팔로우 요청
-      await api.post(`/follows/${profile.id}`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      // 상태 즉시 반영
-      setProfile((prev) => ({
-        ...prev,
-        is_following: true,
-        follower_count: prev.follower_count + 1, // 팔로워 수 늘려줌
-      }));
+  const handleFollowToggle = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("로그인이 필요합니다.");
+        return;
+      }
+
+      if (profile.is_following) {
+        await api.delete(`/follows/${profile.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setProfile((prev) => ({
+          ...prev,
+          is_following: false,
+          follower_count: prev.follower_count - 1,
+        }));
+      } else {
+        await api.post(`/follows/${profile.id}`, {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setProfile((prev) => ({
+          ...prev,
+          is_following: true,
+          follower_count: prev.follower_count + 1,
+        }));
+      }
+    } catch {
+      alert("팔로우/언팔로우 실패");
     }
-  } catch {
-    alert("팔로우/언팔로우 실패");
-  }
-};
+  };
 
   const fetchFollowList = async (type) => {
     try {
@@ -171,143 +201,421 @@ export default function ProfilePage() {
     }
   };
 
-  if (!profile) return <div className="text-center mt-10">로딩 중...</div>;
+  const handleSendMessage = () => {
+    alert("메시지 기능은 준비 중입니다.");
+    // 추후 메시지 페이지로 이동
+    // navigate(`/messages/${profile.id}`);
+  };
+
+  if (!profile) return <div style={{ textAlign: "center", marginTop: "40px" }}>로딩 중...</div>;
+
+  const isMyProfile = currentUser && currentUser.id === profile.id;
 
   return (
-    <div className="flex justify-center mt-10">
-      <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-3xl relative">
-        {/* 상단 */}
-        <div className="flex items-center gap-6 border-b pb-6">
-          <img
-            src={
-              profile.profile_image
-                ? `http://localhost:8000${profile.profile_image}`
-                : "/assets/default_profile.png"
-            }
-            alt="프로필 이미지"
-            className="w-24 h-24 rounded-full border object-cover"
-          />
-          <div>
-            <h2 className="text-2xl font-bold">{profile.nickname}</h2>
-            <p className="text-gray-500">{profile.email}</p>
-            {currentUser && currentUser.id === profile.id && (
-              <button
-                onClick={() => navigate("/profile/create")}
-                className="mt-2 px-4 py-1 rounded bg-green-500 text-white"
-              >
-                프로필 수정
-              </button>
-            )}
-            {currentUser && currentUser.id !== profile.id && (
-              <button
-                onClick={handleFollowToggle}
-                className={`mt-2 px-4 py-1 rounded text-white ${profile.is_following ? "bg-red-500" : "bg-blue-500"
-                  }`}
-              >
-                {profile.is_following ? "언팔로우" : "팔로우"}
-              </button>
-            )}
-            <div className="flex gap-4 mt-2 text-sm text-gray-600">
+    <div style={{ minHeight: "100vh", background: "#fff", padding: "40px 20px" }}>
+      <div style={{ maxWidth: "600px", margin: "0 auto" }}>
+        
+        {/* 헤더 - ProfileCreate와 동일한 위치 */}
+        <h1 style={{ fontSize: "24px", fontWeight: "bold", textAlign: "center", marginBottom: "40px" }}>
+          {isMyProfile ? "내 프로필" : `${profile.nickname}님의 프로필`}
+        </h1>
+
+        {/* 프로필 영역 */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "20px", marginBottom: "30px" }}>
+          <div style={{ position: "relative" }}>
+            <img
+              src={
+                profile.profile_image
+                  ? `http://localhost:8000${profile.profile_image}`
+                  : "/assets/default_profile.png"
+              }
+              alt="프로필"
+              style={{
+                width: "100px",
+                height: "100px",
+                borderRadius: "50%",
+                objectFit: "cover",
+                background: "#e5e7eb",
+              }}
+            />
+          </div>
+
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "4px" }}>
+              {profile.nickname}
+            </h2>
+            
+            {/* 한 줄 자기소개 (읽기 전용) */}
+            <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "8px" }}>
+              {profile.headline || "자기소개가 없습니다."}
+            </p>
+
+            {/* 팔로워/팔로잉 숫자 */}
+            <div style={{ display: "flex", gap: "12px", marginBottom: "12px", fontSize: "13px" }}>
               <span
-                className="cursor-pointer hover:underline"
                 onClick={() => fetchFollowList("followers")}
+                style={{ cursor: "pointer", color: "#6b7280" }}
               >
-                팔로워 {profile.follower_count}
+                팔로워 <strong>{profile.follower_count}</strong>
               </span>
               <span
-                className="cursor-pointer hover:underline"
                 onClick={() => fetchFollowList("followings")}
+                style={{ cursor: "pointer", color: "#6b7280" }}
               >
-                팔로잉 {profile.following_count}
+                팔로잉 <strong>{profile.following_count}</strong>
               </span>
+            </div>
+            
+            {/* 버튼 영역 */}
+            <div style={{ display: "flex", gap: "8px" }}>
+              {isMyProfile ? (
+                // 내 페이지: 프로필 수정 버튼만
+                <button
+                  onClick={() => navigate("/profile/create")}
+                  style={{
+                    padding: "6px 16px",
+                    fontSize: "13px",
+                    border: "1px solid #d1d5db",
+                    background: "#fff",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  프로필 수정
+                </button>
+              ) : (
+                // 다른 사람 페이지: 팔로우 + 메시지 버튼
+                <>
+                  <button
+                    onClick={handleFollowToggle}
+                    style={{
+                      padding: "6px 16px",
+                      fontSize: "13px",
+                      border: "none",
+                      background: profile.is_following ? "#ef4444" : "#3b82f6",
+                      color: "#fff",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {profile.is_following ? "언팔로우" : "팔로우"}
+                  </button>
+                  <button
+                    onClick={handleSendMessage}
+                    style={{
+                      padding: "6px 16px",
+                      fontSize: "13px",
+                      border: "1px solid #d1d5db",
+                      background: "#fff",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    메시지
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        {/* 보유 스킬 */}
-        <div className="mt-6">
-          <h3 className="text-lg font-semibold mb-2">보유 스킬</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {profile.skills.length > 0 ? (
-              profile.skills.map((skill) => (
-                <div key={skill.id} className="flex items-center gap-3 p-2 border rounded">
+        {/* 자기소개 (읽기 전용) */}
+        {profile.bio && (
+          <div style={{ marginBottom: "24px" }}>
+            <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+              자기소개
+            </label>
+            <div
+              style={{
+                padding: "12px",
+                fontSize: "14px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                background: "#f9fafb",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {profile.bio}
+            </div>
+          </div>
+        )}
+
+        {/* 이력 */}
+        {profile.experience && (
+          <div style={{ marginBottom: "24px" }}>
+            <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+              이력
+            </label>
+            <div
+              style={{
+                padding: "12px",
+                fontSize: "14px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                background: "#f9fafb",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {profile.experience}
+            </div>
+          </div>
+        )}
+
+        {/* 자격증 */}
+        {profile.certifications && (
+          <div style={{ marginBottom: "24px" }}>
+            <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+              자격증
+            </label>
+            <div
+              style={{
+                padding: "12px",
+                fontSize: "14px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                background: "#f9fafb",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {profile.certifications}
+            </div>
+          </div>
+        )}
+
+        {/* 사용 가능한 언어 (스킬) */}
+        <div style={{ marginBottom: "24px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+            사용 가능한 언어
+          </label>
+          
+          <div style={{ 
+            display: "flex", 
+            flexWrap: "wrap", 
+            gap: "16px",
+            padding: "16px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            minHeight: "100px",
+            background: "#fafafa"
+          }}>
+            {(profile.skills || []).length > 0 ? (
+              (profile.skills || []).map((skill) => (
+                <div
+                  key={skill.id}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    width: "60px",
+                  }}
+                >
                   <img
                     src={resolveSkillIconUrl(skill.name)}
                     alt={skill.name}
-                    className="w-5 h-5"
+                    style={{ width: "40px", height: "40px", objectFit: "contain" }}
                   />
-                  <div>
-                    <p className="font-medium">{skill.name}</p>
-                    <div className="flex gap-1">
-                      {[1, 2, 3].map((star) => (
-                        <img
-                          key={star}
-                          src={star <= skill.level ? oneStarUrl : zeroStarUrl}
-                          alt="별점"
-                          className="w-5 h-5"
-                        />
-                      ))}
+                  <span style={{ fontSize: "11px", marginTop: "4px", textAlign: "center" }}>
+                    {skill.name}
+                  </span>
+                  <div style={{ display: "flex", gap: "2px", marginTop: "2px" }}>
+                    {[1, 2, 3].map((i) => (
+                      <img
+                        key={i}
+                        src={i <= skill.level ? oneStarUrl : zeroStarUrl}
+                        alt="star"
+                        style={{ width: "10px", height: "10px" }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 스킬이 없습니다</p>
+            )}
+          </div>
+        </div>
+
+        {/* 포트폴리오 */}
+        <div style={{ marginBottom: "24px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+            포트폴리오
+          </label>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {portfolios.length > 0 ? (
+              portfolios.map((portfolio) => (
+                <div
+                  key={portfolio.id}
+                  onClick={() => navigate(`/portfolio/${portfolio.id}`)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "12px",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    background: "#fff",
+                  }}
+                >
+                  {portfolio.thumbnail && (
+                    <img
+                      src={`http://localhost:8000${portfolio.thumbnail}`}
+                      alt={portfolio.title}
+                      style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "6px" }}
+                    />
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: "14px", fontWeight: "500" }}>{portfolio.title}</p>
+                    <p style={{ fontSize: "12px", color: "#6b7280" }}>{portfolio.description}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div style={{ textAlign: "center", padding: "24px", background: "#f9fafb", borderRadius: "8px", color: "#9ca3af" }}>
+                아직 연동 정보가 없습니다
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 함께한 사람들이 남긴 말 */}
+        <div style={{ marginBottom: "40px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+            함께한 사람들이 남긴 말
+          </label>
+          
+          <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
+            <button style={{ padding: "6px 12px", fontSize: "12px", background: "#ef4444", color: "#fff", borderRadius: "16px", border: "none" }}>
+              😊 커뮤션 0
+            </button>
+            <button style={{ padding: "6px 12px", fontSize: "12px", background: "#e5e7eb", color: "#374151", borderRadius: "16px", border: "none" }}>
+              👍 포트폴리오 0
+            </button>
+            <button style={{ padding: "6px 12px", fontSize: "12px", background: "#e5e7eb", color: "#374151", borderRadius: "16px", border: "none" }}>
+              💡 프로젝트 0
+            </button>
+          </div>
+
+          <div>
+            {comments.length > 0 ? (
+              comments.map((comment) => (
+                <div key={comment.id} style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: "12px", marginBottom: "12px" }}>
+                  <div style={{ display: "flex", gap: "12px" }}>
+                    <img
+                      src={comment.author_profile_image ? `http://localhost:8000${comment.author_profile_image}` : "/assets/default_profile.png"}
+                      alt={comment.author_name}
+                      style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                        <span style={{ fontSize: "13px", fontWeight: "500" }}>{comment.author_name}</span>
+                        <span style={{ fontSize: "11px", color: "#9ca3af" }}>{comment.created_at}</span>
+                      </div>
+                      <p style={{ fontSize: "13px", color: "#374151" }}>{comment.content}</p>
                     </div>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-gray-500">등록된 스킬이 없습니다.</p>
+              <div style={{ textAlign: "center", padding: "24px", background: "#f9fafb", borderRadius: "8px", color: "#9ca3af" }}>
+                아직 후기가 등록되지 않았습니다
+              </div>
             )}
           </div>
         </div>
 
         {/* 팔로워/팔로잉 모달 */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-            <div className="bg-white p-6 rounded-xl w-96 max-h-[80vh] overflow-y-auto">
-              <h2 className="text-lg font-bold mb-4">
+          <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+            padding: "20px"
+          }}>
+            <div style={{
+              background: "#fff",
+              padding: "24px",
+              borderRadius: "12px",
+              width: "100%",
+              maxWidth: "400px",
+              maxHeight: "80vh",
+              overflowY: "auto"
+            }}>
+              <h2 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "16px" }}>
                 {modalType === "followers" ? "팔로워 목록" : "팔로잉 목록"}
               </h2>
-              <ul>
+              <div>
                 {list.length > 0 ? (
                   list.map((user) => (
-                    <li key={user.id} className="flex items-center justify-between p-2 hover:bg-gray-100">
+                    <div
+                      key={user.id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "8px",
+                        borderRadius: "8px",
+                        marginBottom: "4px",
+                      }}
+                    >
                       <div
-                        className="flex items-center gap-3 cursor-pointer"
                         onClick={() => {
                           setShowModal(false);
                           navigate(`/profile/${user.id}`);
                         }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          flex: 1,
+                          cursor: "pointer",
+                        }}
                       >
                         <img
-                          src={
-                            user.profile_image
-                              ? `http://localhost:8000${user.profile_image}`
-                              : "/assets/default_profile.png"
-                          }
+                          src={user.profile_image ? `http://localhost:8000${user.profile_image}` : "/assets/default_profile.png"}
                           alt={user.nickname}
-                          className="w-10 h-10 rounded-full border object-cover"
+                          style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }}
                         />
                         <div>
-                          <p className="font-medium">{user.nickname}</p>
-                          <p className="text-sm text-gray-500">
-                            {user.headline || "자기소개 없음"}
-                          </p>
+                          <p style={{ fontSize: "14px", fontWeight: "500" }}>{user.nickname}</p>
+                          <p style={{ fontSize: "12px", color: "#6b7280" }}>{user.headline || "자기소개 없음"}</p>
                         </div>
                       </div>
                       {user.is_following && (
                         <button
                           onClick={() => handleUnfollowInModal(user.id)}
-                          className="text-red-500 text-sm ml-2"
+                          style={{
+                            fontSize: "12px",
+                            color: "#ef4444",
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                          }}
                         >
                           취소
                         </button>
                       )}
-                    </li>
+                    </div>
                   ))
                 ) : (
-                  <p className="text-gray-500">아직 아무도 없습니다.</p>
+                  <p style={{ textAlign: "center", color: "#9ca3af", padding: "16px" }}>아직 아무도 없습니다.</p>
                 )}
-              </ul>
+              </div>
               <button
                 onClick={() => setShowModal(false)}
-                className="mt-4 w-full bg-gray-200 py-2 rounded"
+                style={{
+                  width: "100%",
+                  marginTop: "16px",
+                  padding: "10px",
+                  background: "#e5e7eb",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                }}
               >
                 닫기
               </button>
