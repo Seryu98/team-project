@@ -10,7 +10,7 @@ export default function ProjectPostDetail() {
   const [post, setPost] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [busy, setBusy] = useState(false); // ✅ 중복 클릭 방지
+  const [busy, setBusy] = useState(false);
 
   // ✅ 게시글 상세 + 로그인 사용자 정보 불러오기
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function ProjectPostDetail() {
         body: JSON.stringify({}),
       });
       alert("✅ 탈퇴 완료");
-      navigate("/posts"); // 탈퇴 후 목록으로
+      navigate("/posts");
     } catch (err) {
       alert("❌ 탈퇴 실패: " + err.message);
     } finally {
@@ -84,7 +84,6 @@ export default function ProjectPostDetail() {
         body: JSON.stringify({ status }),
       });
       alert(`✅ 모집 상태가 ${status}로 변경되었습니다.`);
-      // 상태 갱신
       const refreshed = await authFetch(`/recipe/${postId}`, { method: "GET" });
       setPost(refreshed);
     } catch (err) {
@@ -102,7 +101,7 @@ export default function ProjectPostDetail() {
     try {
       await authFetch(`/recipe/${postId}/end`, { method: "POST" });
       alert("✅ 프로젝트가 종료되었습니다.");
-      navigate("/posts"); // 종료 후 상세페이지가 아니라 게시판으로 이동
+      navigate("/posts");
     } catch (err) {
       alert("❌ 종료 실패: " + err.message);
     } finally {
@@ -118,6 +117,7 @@ export default function ProjectPostDetail() {
 
   const workLabelPrefix = post.type === "STUDY" ? "스터디" : "프로젝트";
   const ended = post.project_status === "ENDED";
+  const approved = post.status === "APPROVED";
 
   return (
     <div style={{ maxWidth: "900px", margin: "auto", padding: "2rem" }}>
@@ -168,6 +168,20 @@ export default function ProjectPostDetail() {
                   종료됨
                 </span>
               )}
+              {!approved && (
+                <span
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 12,
+                    padding: "2px 8px",
+                    borderRadius: 12,
+                    background: "#ffeeba",
+                    border: "1px solid #f0ad4e",
+                  }}
+                >
+                  승인 대기중
+                </span>
+              )}
             </h2>
             <p style={{ margin: "0 0 8px 0", color: "#555" }}>
               모집 인원 {post.current_members}/{post.capacity}명 | {post.type}
@@ -190,10 +204,9 @@ export default function ProjectPostDetail() {
             <strong>리더 ID: {post.leader_id}</strong>
           </div>
 
-          {/* ✅ 리더만 보이는 버튼 (종료된 경우 숨김) */}
+          {/* ✅ 리더만 보이는 버튼 (승인 전엔 모집/종료 버튼 숨김, 종료된 경우 전부 숨김) */}
           {isLeader && !ended && (
             <div style={{ marginTop: "1rem" }}>
-              {/* 수정/삭제 */}
               <button
                 onClick={() => navigate(`/recipe/${post.id}/edit`)}
                 style={{ marginRight: "10px" }}
@@ -201,28 +214,39 @@ export default function ProjectPostDetail() {
               >
                 수정하기
               </button>
-              <button onClick={handleDelete} style={{ marginRight: "10px" }} disabled={busy}>
+              <button
+                onClick={handleDelete}
+                style={{ marginRight: "10px" }}
+                disabled={busy}
+              >
                 삭제하기
               </button>
 
-              {/* 상태 제어 */}
-              {post.recruit_status === "OPEN" && (
-                <button onClick={() => updateRecruitStatus("CLOSED")} disabled={busy}>
-                  모집 종료
-                </button>
-              )}
-              {post.recruit_status === "CLOSED" && (
+              {/* 승인된 경우에만 모집/종료 제어 가능 */}
+              {approved && (
                 <>
-                  <button
-                    onClick={() => updateRecruitStatus("OPEN")}
-                    style={{ marginRight: "10px" }}
-                    disabled={busy}
-                  >
-                    모집 재개
-                  </button>
-                  <button onClick={endProject} disabled={busy}>
-                    프로젝트 종료
-                  </button>
+                  {post.recruit_status === "OPEN" && (
+                    <button
+                      onClick={() => updateRecruitStatus("CLOSED")}
+                      disabled={busy}
+                    >
+                      모집 종료
+                    </button>
+                  )}
+                  {post.recruit_status === "CLOSED" && (
+                    <>
+                      <button
+                        onClick={() => updateRecruitStatus("OPEN")}
+                        style={{ marginRight: "10px" }}
+                        disabled={busy}
+                      >
+                        모집 재개
+                      </button>
+                      <button onClick={endProject} disabled={busy}>
+                        프로젝트 종료
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -286,8 +310,8 @@ export default function ProjectPostDetail() {
           </div>
         </div>
 
-        {/* ✅ 신청/탈퇴 버튼 (종료된 경우 숨김) */}
-        {!isLeader && currentUser && !ended && (
+        {/* ✅ 신청/탈퇴 버튼 (종료/승인전 숨김) */}
+        {!isLeader && currentUser && approved && !ended && (
           <div>
             {!isMember ? (
               <button
