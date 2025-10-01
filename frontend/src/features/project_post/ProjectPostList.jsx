@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { authFetch } from "../auth/api"; // ✅ 경로 맞게 수정
 
 export default function ProjectPostList() {
   const [posts, setPosts] = useState([]);
@@ -31,22 +31,28 @@ export default function ProjectPostList() {
           }).filter(([_, v]) => v !== "" && v !== null && v !== undefined)
         );
 
-        const res = await axios.get("http://localhost:8000/recipe/list", {
-          params: queryParams,
-          paramsSerializer: (params) => {
-            const searchParams = new URLSearchParams();
-            Object.keys(params).forEach((key) => {
-              if (Array.isArray(params[key])) {
-                params[key].forEach((val) => searchParams.append(key, val));
-              } else {
-                searchParams.append(key, params[key]);
-              }
-            });
-            return searchParams.toString();
-          },
+        // ✅ skill_ids 빈 배열일 경우 제외
+        if (Array.isArray(queryParams.skill_ids) && queryParams.skill_ids.length === 0) {
+          delete queryParams.skill_ids;
+        }
+
+        // ✅ fetch용 query string 변환
+        const searchParams = new URLSearchParams();
+        Object.keys(queryParams).forEach((key) => {
+          if (Array.isArray(queryParams[key])) {
+            queryParams[key].forEach((val) => searchParams.append(key, val));
+          } else {
+            searchParams.append(key, queryParams[key]);
+          }
         });
 
-        setPosts(res.data);
+        const queryString = searchParams.toString();
+
+        const res = await authFetch(`/recipe/list?${queryString}`, {
+          method: "GET",
+        });
+
+        setPosts(res);
       } catch (err) {
         console.error("❌ 게시판 불러오기 실패:", err);
       }
@@ -58,8 +64,8 @@ export default function ProjectPostList() {
   useEffect(() => {
     async function fetchSkills() {
       try {
-        const res = await axios.get("http://localhost:8000/meta/skills");
-        setSkills(res.data);
+        const res = await authFetch("/meta/skills", { method: "GET" });
+        setSkills(res);
       } catch (err) {
         console.error("❌ 스킬 목록 불러오기 실패:", err);
       }
@@ -110,7 +116,7 @@ export default function ProjectPostList() {
 
   // ✅ 생성 버튼 클릭 시 로그인 체크
   const handleCreateClick = () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("access_token");
     if (!token) {
       alert("로그인 후 이용 가능합니다.");
       navigate("/login");

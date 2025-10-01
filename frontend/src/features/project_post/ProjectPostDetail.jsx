@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { authFetch, getCurrentUser } from "../auth/api";
 import ApplicationModal from "./ApplicationModal";
 
 export default function ProjectPostDetail() {
@@ -11,12 +11,12 @@ export default function ProjectPostDetail() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  // ✅ 게시글 상세 불러오기
+  // ✅ 게시글 상세 + 로그인 사용자 정보 불러오기
   useEffect(() => {
     async function fetchPost() {
       try {
-        const res = await axios.get(`http://localhost:8000/recipe/${postId}`);
-        setPost(res.data);
+        const res = await authFetch(`/recipe/${postId}`, { method: "GET" }, { skipRedirect: true });
+        setPost(res);
       } catch (err) {
         console.error("❌ 상세 불러오기 실패:", err);
       }
@@ -24,14 +24,10 @@ export default function ProjectPostDetail() {
 
     async function fetchUser() {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-        const res = await axios.get("http://localhost:8000/auth/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setCurrentUser(res.data);
+        const res = await getCurrentUser({ skipRedirect: true }); // 로그인 안 되어 있으면 null
+        setCurrentUser(res);
       } catch {
-        console.warn("⚠ 로그인 사용자 없음");
+        setCurrentUser(null); // 비로그인 시 null
       }
     }
 
@@ -42,16 +38,14 @@ export default function ProjectPostDetail() {
   // ✅ 탈퇴하기
   const handleLeave = async () => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.post(
-        `http://localhost:8000/recipe/${postId}/leave`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await authFetch(`/recipe/${postId}/leave`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
       alert("✅ 탈퇴 완료");
       window.location.reload();
     } catch (err) {
-      alert("❌ 탈퇴 실패: " + (err.response?.data?.detail || err.message));
+      alert("❌ 탈퇴 실패: " + err.message);
     }
   };
 
@@ -59,14 +53,11 @@ export default function ProjectPostDetail() {
   const handleDelete = async () => {
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(`http://localhost:8000/recipe/${postId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await authFetch(`/recipe/${postId}`, { method: "DELETE" });
       alert("✅ 삭제 완료");
       navigate("/posts");
     } catch (err) {
-      alert("❌ 삭제 실패: " + (err.response?.data?.detail || err.message));
+      alert("❌ 삭제 실패: " + err.message);
     }
   };
 
@@ -197,7 +188,7 @@ export default function ProjectPostDetail() {
           </div>
         </div>
 
-        {/* ✅ 신청/탈퇴 버튼 (리더 제외) */}
+        {/* ✅ 신청/탈퇴 버튼 (리더 제외, 로그인한 경우에만 보임) */}
         {!isLeader && currentUser && (
           <div>
             {!isMember ? (

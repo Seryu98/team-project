@@ -1,8 +1,7 @@
-// frontend/src/features/project_post/RecipeCreate.jsx
 import { useState, useEffect } from "react";
-import axios from "axios";
-import FormInput from "./RecipeFormInput";
 import { useNavigate } from "react-router-dom";
+import { authFetch } from "../auth/api";
+import FormInput from "./RecipeFormInput";
 
 export default function RecipeCreate() {
   const [type, setType] = useState(""); // PROJECT or STUDY
@@ -19,7 +18,7 @@ export default function RecipeCreate() {
     start_date: "",
     end_date: "",
     skills: [],
-    application_fields: [], // ✅ 통일
+    application_fields: [], // ✅ 지원자 필수 입력값
     image_url: "",
     field: "",
   });
@@ -28,12 +27,12 @@ export default function RecipeCreate() {
   useEffect(() => {
     async function fetchMeta() {
       try {
-        const resFields = await axios.get(
-          "http://localhost:8000/meta/required-fields"
-        );
-        const resSkills = await axios.get("http://localhost:8000/meta/skills");
-        setApplicationFields(resFields.data);
-        setSkills(resSkills.data);
+        const resFields = await authFetch("/meta/required-fields", {
+          method: "GET",
+        });
+        const resSkills = await authFetch("/meta/skills", { method: "GET" });
+        setApplicationFields(resFields);
+        setSkills(resSkills);
       } catch (err) {
         console.error("❌ 메타데이터 불러오기 실패:", err);
       }
@@ -59,12 +58,17 @@ export default function RecipeCreate() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await axios.post("http://localhost:8000/upload/", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      // authFetch는 JSON 전용이라 파일 업로드는 fetch 직접 사용
+      const res = await fetch("http://localhost:8000/upload/", {
+        method: "POST",
+        body: formData,
       });
 
-      setForm((prev) => ({ ...prev, image_url: res.data.url }));
-      console.log("✅ 업로드 성공:", res.data.url);
+      if (!res.ok) throw new Error("업로드 실패");
+      const data = await res.json();
+
+      setForm((prev) => ({ ...prev, image_url: data.url }));
+      console.log("✅ 업로드 성공:", data.url);
     } catch (err) {
       console.error("❌ 파일 업로드 실패:", err);
       alert("파일 업로드 실패");
@@ -121,8 +125,6 @@ export default function RecipeCreate() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem("token");
-
       const payload = {
         title: form.title,
         description: form.description,
@@ -132,21 +134,22 @@ export default function RecipeCreate() {
         start_date: form.start_date,
         end_date: form.end_date,
         skills: form.skills,
-        application_fields: form.application_fields, // ✅ 수정
+        application_fields: form.application_fields,
         image_url: form.image_url,
       };
 
-      const res = await axios.post("http://localhost:8000/recipe/", payload, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await authFetch("/recipe/", {
+        method: "POST",
+        body: JSON.stringify(payload),
       });
 
-      alert("✅ 등록 완료!\nID: " + res.data.id);
+      alert("✅ 등록 완료!\nID: " + res.id);
 
       // ✅ 등록 후 상세페이지로 이동
-      navigate(`/recipe/${res.data.id}`);
+      navigate(`/recipe/${res.id}`);
     } catch (err) {
       console.error(err);
-      alert("❌ 오류 발생: " + (err.response?.data?.detail || err.message));
+      alert("❌ 오류 발생: " + err.message);
     }
   };
 

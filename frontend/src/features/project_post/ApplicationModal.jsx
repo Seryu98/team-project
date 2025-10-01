@@ -1,6 +1,5 @@
-// frontend/src/features/project_post/ApplicationModal.jsx
 import { useState } from "react";
-import axios from "axios";
+import { authFetch } from "../auth/api";
 import Modal from "../../components/Modal";
 
 export default function ApplicationModal({ postId, fields, onClose }) {
@@ -12,19 +11,20 @@ export default function ApplicationModal({ postId, fields, onClose }) {
 
   const handleSubmit = async () => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.post(
-        `http://localhost:8000/recipe/${postId}/apply`,
-        Object.entries(answers).map(([fieldId, answer_text]) => ({
-          field_id: Number(fieldId),
-          answer_text,
-        })),
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await authFetch(`/recipe/${postId}/apply`, {
+        method: "POST",
+        body: JSON.stringify(
+          Object.entries(answers).map(([fieldId, answer_text]) => ({
+            field_id: Number(fieldId),
+            answer_text,
+          }))
+        ),
+      });
+
       alert("✅ 지원 완료!");
       onClose(); // ✅ 제출 후 모달 닫기
     } catch (err) {
-      alert("❌ 지원 실패: " + (err.response?.data?.detail || err.message));
+      alert("❌ 지원 실패: " + err.message);
     }
   };
 

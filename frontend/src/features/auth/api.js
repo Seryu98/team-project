@@ -131,7 +131,7 @@ export async function refreshAccessToken() {
 }
 
 // --- API 요청 wrapper ---
-export async function authFetch(url, options = {}) {
+export async function authFetch(url, options = {}, { skipRedirect = false } = {}) {
   let token = getAccessToken();
 
   let res = await fetch(`${API_URL}${url}`, {
@@ -155,7 +155,7 @@ export async function authFetch(url, options = {}) {
         },
       });
     } catch {
-      clearTokens();
+      if (!skipRedirect) clearTokens(); // 🚩 skipRedirect일 때는 로그인창 강제 이동 방지
       throw new Error("세션 만료");
     }
   }
@@ -165,8 +165,8 @@ export async function authFetch(url, options = {}) {
 }
 
 // --- 현재 로그인된 사용자 ---
-export async function getCurrentUser() {
-  return authFetch("/auth/me", { method: "GET" });
+export async function getCurrentUser({ skipRedirect = false } = {}) {
+  return authFetch("/auth/me", { method: "GET" }, { skipRedirect });
 }
 
 // --- 로그인 + 사용자 정보까지 한 번에 ---
