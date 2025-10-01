@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "./api";
 
+/** Vite 정적 에셋 맵 */
 function buildIconMap(globs) {
   const map = {};
   for (const [path, url] of Object.entries(globs)) {
@@ -19,13 +20,17 @@ const starGlob2 = import.meta.glob("../../app/shared/assets/star/*.png", { eager
 
 export default function ProfileCreate() {
   const navigate = useNavigate();
+
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(false);
+
+  // 이미지 미리보기 (선택 직후 보여주고, 업로드 성공 후 서버 경로로 교체)
   const [previewImage, setPreviewImage] = useState(null);
+
+  // 스킬 검색 상태
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const [headline, setHeadline] = useState(""); // 한 줄 자기소개
 
   const SKILL_ICONS = useMemo(
     () => ({ ...buildIconMap(skillGlob1), ...buildIconMap(skillGlob2) }),
@@ -39,20 +44,33 @@ export default function ProfileCreate() {
   const oneStarUrl = STAR_ICONS["onestar"] || "/assets/star/onestar.png";
   const zeroStarUrl = STAR_ICONS["zerostar"] || "/assets/star/zerostar.png";
 
+  // ✅ 스킬 아이콘 파일명 보정 (DB 표기 ↔ 파일명 차이 흡수)
   const resolveSkillIconUrl = (rawName) => {
     if (!rawName) return "";
     let norm = String(rawName).trim().toLowerCase().replace(/\s+/g, "_");
+
     const aliases = {
       "react native": "react_native",
+      "react-native": "react_native",
+      reactnative: "react_native",
       "c#": "csharp",
       "c++": "cplus",
-      "objectivec": "objectivec",
+      "f#": "fsharp",
+      // ⬇⬇ 여기 핵심: toLowerCase 했으니 키도 소문자여야 함!
+      objectivec: "objective",
+      "objective-c": "objective",
+      "objective c": "objective",
+      "postgre_sql": "postgresql",
+      "ms_sql_server": "mssqlserver",
     };
     norm = aliases[norm] || norm;
+
     if (SKILL_ICONS[norm]) return SKILL_ICONS[norm];
+    // 마지막 안전장치 (public 경로)
     return `/assets/skills/${rawName.replace(/\s+/g, "_")}.png`;
   };
 
+  // ✅ 내 프로필 불러오기
   const fetchMyProfile = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -65,7 +83,7 @@ export default function ProfileCreate() {
       });
       setProfile(res.data);
       setForm(res.data);
-      setHeadline(res.data.headline || ""); // 한 줄 자기소개 로드
+      // 서버에 저장된 기존 이미지가 있으면 기본 프리뷰로 세팅
       setPreviewImage(res.data.profile_image || null);
     } catch {
       alert("내 프로필 불러오기 실패");
@@ -76,44 +94,41 @@ export default function ProfileCreate() {
     fetchMyProfile();
   }, []);
 
+  // ✅ 입력 변경
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // ✅ 프로필 저장 (저장 후 내 프로필로 이동)
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("token");
-
-      const updatedForm = {
-        ...form,
-        nickname: form.nickname,   // ✅ 닉네임 포함
-        headline                    // ✅ 한 줄 자기소개 포함
-      };
-
-      await api.put("/profiles/me", updatedForm, {
+      await api.put("/profiles/me", form, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
 
       const meRes = await api.get("/auth/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       alert("프로필이 저장되었습니다.");
-      navigate(`/profile/${meRes.data.id}`, { replace: true });  // ✅ replace로 이동
-      window.location.reload();  // ✅ 강제 새로고침
+      navigate(`/profile/${meRes.data.id}`);
     } catch {
       alert("프로필 저장 실패");
     }
   };
 
+  // ✅ 프로필 이미지 업로드(선택 즉시 미리보기 → 업로드 성공 시 서버 경로로 교체)
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // 1) 로컬 미리보기 먼저 보여줌
     const localUrl = URL.createObjectURL(file);
     setPreviewImage(localUrl);
+
     const formData = new FormData();
     formData.append("file", file);
+
     try {
       const token = localStorage.getItem("token");
       const res = await api.post("/profiles/me/image", formData, {
@@ -122,15 +137,19 @@ export default function ProfileCreate() {
           "Content-Type": "multipart/form-data",
         },
       });
+
+      // 2) 서버 응답의 이미지 URL로 즉시 교체 (깜빡임/사라짐 방지)
       setProfile(res.data);
       if (res.data?.profile_image) setPreviewImage(res.data.profile_image);
+
+      // 3) 로컬 URL 해제 (메모리 누수 방지)
       URL.revokeObjectURL(localUrl);
-      alert("프로필 이미지가 변경되었습니다.");
     } catch {
       alert("이미지 업로드 실패");
     }
   };
 
+  // ✅ 스킬 검색
   const handleSearch = async (query) => {
     setSearchQuery(query);
     if (!query.trim()) {
@@ -139,7 +158,8 @@ export default function ProfileCreate() {
     }
     try {
       const token = localStorage.getItem("token");
-      const res = await api.get(`/skills/search?q=${query.trim()}&limit=10`, {
+      const normalizedQuery = query.trim().replace(/\s+/g, "_");
+      const res = await api.get(`/skills/search?q=${normalizedQuery}&limit=5`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const filtered = res.data.filter(
@@ -151,6 +171,7 @@ export default function ProfileCreate() {
     }
   };
 
+  // ✅ 스킬 추가
   const handleAddSkill = async (skillId, level) => {
     try {
       setLoading(true);
@@ -173,6 +194,7 @@ export default function ProfileCreate() {
     }
   };
 
+  // ✅ 스킬 삭제
   const handleDeleteSkill = async (skillId) => {
     try {
       const token = localStorage.getItem("token");
@@ -188,6 +210,7 @@ export default function ProfileCreate() {
     }
   };
 
+  // ✅ 스킬 숙련도 수정
   const handleUpdateSkillLevel = async (skillId, newLevel) => {
     try {
       setLoading(true);
@@ -208,364 +231,133 @@ export default function ProfileCreate() {
     }
   };
 
-  if (!profile) return <div style={{ textAlign: "center", marginTop: "40px" }}>로딩 중...</div>;
+  if (!profile) return <div className="text-center mt-10">로딩 중...</div>;
+
+  // ⭐ 별(3점) 표시/수정 — 20px
+  const StarRating = ({ level, onSelect }) => (
+    <div className="flex gap-1">
+      {[1, 2, 3].map((i) => (
+        <img
+          key={i}
+          src={i <= level ? oneStarUrl : zeroStarUrl}
+          alt={i <= level ? "onestar" : "zerostar"}
+          className={`w-5 h-5 ${onSelect ? "cursor-pointer" : ""} ${loading ? "opacity-50 pointer-events-none" : ""
+            }`}
+          onClick={onSelect ? () => onSelect(i) : undefined}
+        />
+      ))}
+    </div>
+  );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fff", padding: "40px 20px" }}>
-      <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-
-        {/* 헤더 */}
-        <h1 style={{ fontSize: "24px", fontWeight: "bold", textAlign: "center", marginBottom: "40px" }}>
-          프로필 수정
-        </h1>
-
-        {/* 프로필 영역 */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "20px", marginBottom: "30px" }}>
-          <div style={{ position: "relative" }}>
-            <img
-              src={
-                previewImage
-                  ? previewImage.startsWith("blob:")
-                    ? previewImage
-                    : `http://localhost:8000${previewImage}`
+    <div className="flex justify-center mt-10">
+      <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-2xl">
+        {/* 프로필 이미지 */}
+        <div className="flex items-center gap-6">
+          <img
+            src={
+              previewImage
+                ? previewImage
+                : profile?.profile_image
+                  ? `http://localhost:8000${profile.profile_image}`
                   : "/assets/default_profile.png"
-              }
-              alt="프로필"
-              style={{
-                width: "100px",
-                height: "100px",
-                borderRadius: "50%",
-                objectFit: "cover",
-                background: "#e5e7eb",
-              }}
-            />
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              style={{ display: "none" }}
-              id="profile-upload"
-            />
-          </div>
-
-          <div style={{ flex: 1 }}>
-            {/* 닉네임 수정 가능 */}
-            <input
-              type="text"
-              name="nickname"
-              value={form.nickname || ""}
-              onChange={handleChange}
-              placeholder="닉네임을 입력하세요"
-              style={{
-                fontSize: "18px",
-                fontWeight: "bold",
-                marginBottom: "4px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "4px",
-                padding: "4px 8px",
-                width: "100%",
-              }}
-            />
-
-
-            {/* 한 줄 자기소개 입력 필드 */}
-            <input
-              type="text"
-              value={headline}
-              onChange={(e) => setHeadline(e.target.value)}
-              placeholder="한 줄 자기소개를 입력하세요"
-              style={{
-                width: "100%",
-                fontSize: "14px",
-                color: "#6b7280",
-                marginBottom: "12px",
-                padding: "4px 8px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "4px",
-              }}
-            />
-
-            <div style={{ display: "flex", gap: "8px" }}>
-              <label
-                htmlFor="profile-upload"
-                style={{
-                  padding: "6px 16px",
-                  fontSize: "13px",
-                  border: "1px solid #d1d5db",
-                  background: "#fff",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  display: "inline-block",
-                }}
-              >
-                프로필 수정
-              </label>
-              <button
-                onClick={handleSave}
-                style={{
-                  padding: "6px 16px",
-                  fontSize: "13px",
-                  border: "none",
-                  background: "#000",
-                  color: "#fff",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                }}
-              >
-                변경사항 저장
-              </button>
-            </div>
-          </div>
+            }
+            alt="프로필 이미지"
+            className="w-24 h-24 rounded-full border object-cover"
+          />
+          <input type="file" accept="image/*" onChange={handleImageUpload} />
         </div>
 
-        {/* 성별 */}
-        <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            성별
-          </label>
-          <select
-            name="gender"
-            value={form.gender || ""}
+        {/* 프로필 수정 폼 */}
+        <div className="mt-6 space-y-4">
+          <textarea
+            name="bio"
+            value={form.bio || ""}
             onChange={handleChange}
-            style={{
-              width: "100%",
-              padding: "12px",
-              fontSize: "14px",
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
-              fontFamily: "inherit",
-              background: "#fff",
-              cursor: "pointer",
-            }}
-          >
-            <option value="">선택하지 않음</option>
-            <option value="MALE">남자</option>
-            <option value="FEMALE">여자</option>
-            <option value="PRIVATE">비공개</option>
-          </select>
-        </div>
-
-        {/* 생년월일 */}
-        <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            생년월일
-          </label>
+            placeholder="자기소개"
+            rows={6}
+            className="border p-3 w-full rounded resize-none"
+          />
+          <input
+            type="text"
+            name="experience"
+            value={form.experience || ""}
+            onChange={handleChange}
+            placeholder="경력"
+            className="border p-2 w-full rounded"
+          />
+          <input
+            type="text"
+            name="certifications"
+            value={form.certifications || ""}
+            onChange={handleChange}
+            placeholder="자격증"
+            className="border p-2 w-full rounded"
+          />
           <input
             type="date"
             name="birth_date"
             value={form.birth_date || ""}
             onChange={handleChange}
-            style={{
-              width: "100%",
-              padding: "12px",
-              fontSize: "14px",
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
-              fontFamily: "inherit",
-              cursor: "pointer",
-            }}
+            className="border p-2 w-full rounded"
           />
-        </div>
-
-        {/* 자기소개 */}
-        <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            자기소개
-          </label>
-          <textarea
-            name="bio"
-            value={form.bio || ""}
+          <select
+            name="gender"
+            value={form.gender || ""}
             onChange={handleChange}
-            placeholder="Write a brief introduction about yourself..."
-            rows={4}
-            style={{
-              width: "100%",
-              padding: "12px",
-              fontSize: "14px",
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
-              resize: "none",
-              fontFamily: "inherit",
-            }}
-          />
+            className="border p-2 w-full rounded"
+          >
+            <option value="">성별 선택</option>
+            <option value="MALE">남성</option>
+            <option value="FEMALE">여성</option>
+          </select>
         </div>
 
-        {/* 이력 */}
-        <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            이력
-          </label>
-          <textarea
-            name="experience"
-            value={form.experience || ""}
-            onChange={handleChange}
-            placeholder="Write a brief introduction about yourself..."
-            rows={4}
-            style={{
-              width: "100%",
-              padding: "12px",
-              fontSize: "14px",
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
-              resize: "none",
-              fontFamily: "inherit",
-            }}
-          />
-        </div>
-
-        {/* 자격증 */}
-        <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            자격증
-          </label>
-          <textarea
-            name="certifications"
-            value={form.certifications || ""}
-            onChange={handleChange}
-            placeholder="Write a brief introduction about yourself..."
-            rows={4}
-            style={{
-              width: "100%",
-              padding: "12px",
-              fontSize: "14px",
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
-              resize: "none",
-              fontFamily: "inherit",
-            }}
-          />
-        </div>
-
-        {/* 사용 가능한 언어 */}
-        <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            사용 가능한 언어
-          </label>
-
-          {/* 스킬 가로 배치 */}
-          <div style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "16px",
-            padding: "16px",
-            border: "1px solid #d1d5db",
-            borderRadius: "8px",
-            minHeight: "100px",
-            background: "#fafafa"
-          }}>
-            {(profile.skills || []).length > 0 ? (
-              (profile.skills || []).map((skill) => (
-                <div
-                  key={skill.id}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    width: "60px",
-                    position: "relative",
-                  }}
-                >
-                  <button
-                    onClick={() => handleDeleteSkill(skill.id)}
-                    style={{
-                      position: "absolute",
-                      top: "-6px",
-                      right: "-6px",
-                      width: "18px",
-                      height: "18px",
-                      borderRadius: "50%",
-                      background: "#ef4444",
-                      color: "#fff",
-                      border: "none",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    ×
-                  </button>
-                  <img
-                    src={resolveSkillIconUrl(skill.name)}
-                    alt={skill.name}
-                    style={{ width: "40px", height: "40px", objectFit: "contain" }}
-                  />
-                  <span style={{ fontSize: "11px", marginTop: "4px", textAlign: "center" }}>
-                    {skill.name}
-                  </span>
-                  <div style={{ display: "flex", gap: "2px", marginTop: "2px" }}>
-                    {[1, 2, 3].map((i) => (
-                      <img
-                        key={i}
-                        src={i <= skill.level ? oneStarUrl : zeroStarUrl}
-                        alt="star"
-                        style={{ width: "10px", height: "10px", cursor: "pointer" }}
-                        onClick={() => handleUpdateSkillLevel(skill.id, i)}
-                      />
-                    ))}
-                  </div>
+        {/* 내 보유 스킬 */}
+        <div className="mt-10">
+          <h3 className="text-lg font-semibold mb-2">내 보유 스킬</h3>
+          <div className="space-y-2">
+            {(profile.skills || []).map((skill) => (
+              <div key={skill.id} className="flex items-center justify-between p-2 border rounded">
+                <div className="flex items-center gap-2">
+                  <img src={resolveSkillIconUrl(skill.name)} alt={skill.name} className="w-5 h-5" />
+                  <span className="text-sm">{skill.name}</span>
                 </div>
-              ))
-            ) : (
-              <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 스킬이 없습니다</p>
-            )}
+                <div className="flex items-center gap-3">
+                  <StarRating level={skill.level} onSelect={(lv) => handleUpdateSkillLevel(skill.id, lv)} />
+                  <button onClick={() => handleDeleteSkill(skill.id)} className="text-red-500 text-sm">삭제</button>
+                </div>
+              </div>
+            ))}
           </div>
+        </div>
 
-          {/* 스킬 검색 */}
+        {/* 새 스킬 추가 */}
+        <div className="mt-10">
+          <h3 className="text-lg font-semibold mb-2">스킬 추가하기</h3>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="스킬 검색 (예: Java, Python, React...)"
-            style={{
-              width: "100%",
-              marginTop: "12px",
-              padding: "10px",
-              fontSize: "13px",
-              border: "1px solid #d1d5db",
-              borderRadius: "6px",
-            }}
+            placeholder="스킬 검색 (예: React Native, C#, C++)"
+            className="border p-2 rounded w-full"
           />
 
           {searchResults.length > 0 && (
-            <div
-              style={{
-                marginTop: "8px",
-                border: "1px solid #d1d5db",
-                borderRadius: "6px",
-                padding: "12px",
-                background: "#f9fafb",
-                maxHeight: "200px",
-                overflowY: "auto",
-              }}
-            >
+            <div className="mt-4 border rounded p-3 space-y-2 bg-gray-50">
               {searchResults.map((skill) => (
-                <div
-                  key={skill.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "8px 0",
-                    borderBottom: "1px solid #e5e7eb",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <img
-                      src={resolveSkillIconUrl(skill.name)}
-                      alt={skill.name}
-                      style={{ width: "24px", height: "24px" }}
-                    />
-                    <span style={{ fontSize: "13px" }}>{skill.name}</span>
+                <div key={skill.id} className="flex items-center justify-between border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    <img src={resolveSkillIconUrl(skill.name)} alt={skill.name} className="w-5 h-5" />
+                    <span className="text-sm">{skill.name}</span>
                   </div>
-                  <div style={{ display: "flex", gap: "4px" }}>
+                  <div className="flex gap-1">
                     {[1, 2, 3].map((star) => (
                       <img
                         key={star}
                         src={zeroStarUrl}
-                        alt="add"
-                        style={{ width: "14px", height: "14px", cursor: "pointer" }}
+                        alt="select-star"
+                        className="w-5 h-5 cursor-pointer"
                         onClick={() => handleAddSkill(skill.id, star)}
                       />
                     ))}
@@ -576,25 +368,10 @@ export default function ProfileCreate() {
           )}
         </div>
 
-        {/* 전문용어 프로젝트 */}
-        <div style={{ marginBottom: "40px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            전문용어 프로젝트
-          </label>
-          <textarea
-            placeholder="Write a brief introduction about yourself..."
-            rows={4}
-            style={{
-              width: "100%",
-              padding: "12px",
-              fontSize: "14px",
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
-              resize: "none",
-              fontFamily: "inherit",
-            }}
-          />
-        </div>
+        {/* 저장 버튼 - 맨 아래 */}
+        <button onClick={handleSave} className="mt-6 w-full bg-green-500 text-white py-2 rounded">
+          저장
+        </button>
       </div>
     </div>
   );
