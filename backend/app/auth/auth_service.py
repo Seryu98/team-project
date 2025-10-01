@@ -11,6 +11,7 @@ from app.core.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
+    create_reset_token,   # ✅ 추가
     verify_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_DAYS,
@@ -103,7 +104,7 @@ def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User
 # 로그인 처리 (Access + Refresh 발급)
 # ===============================
 def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
-    login_id = form_data.username  # username = user_id
+    login_id = form_data.username
 
     user = db.query(User).filter(User.user_id == login_id).first()
     if user and _is_locked(user):
@@ -135,7 +136,7 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # 초 단위
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
 
 
@@ -179,10 +180,7 @@ def generate_reset_token(db: Session, email: str) -> Optional[str]:
         logger.warning("비밀번호 재설정 실패: 소셜 계정 %s", email)
         return None
 
-    reset_token = create_access_token(
-        data={"sub": str(user.id), "type": "reset"},
-        expires_delta=timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES),
-    )
+    reset_token = create_reset_token(data={"sub": str(user.id)})
     logger.info("비밀번호 재설정 토큰 발급: user_id=%s", user.user_id)
     return reset_token
 
