@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
+import re
 
 from app.core.database import get_db
 from app.auth import auth_service
@@ -18,6 +19,20 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 # === Request Schemas ===
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class FindIdRequest(BaseModel):
+    name: str
+    phone_number: str
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    reset_token: str
+    new_password: str
 
 
 # === Routes ===
@@ -88,3 +103,50 @@ def get_me(token: str = Depends(oauth2_scheme),
         "nickname": user.nickname,
         "role": getattr(user, "role", "user"),
     }
+
+
+# === 아이디/비밀번호 찾기 ===
+
+@router.post("/find-id")
+def find_id(req: FindIdRequest, db: Session = Depends(get_db)):
+    """
+    아이디 찾기 (이름 + 전화번호)
+    - 전화번호 비교 시 숫자만 추출해서 비교
+    """
+    input_name = req.name.strip()
+    input_phone = re.sub(r"\D", "", req.phone_number)  # 숫자만 남기기
+
+    user = db.query(User).filter(User.name == input_name).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="등록된 정보가 없습니다.")
+
+    db_phone = re.sub(r"\D", "", user.phone_number or "")
+    if input_phone != db_phone:
+        raise HTTPException(status_code=404, detail="등록된 정보가 없습니다.")
+
+    return {"user_id": user.user_id}
+
+
+@router.post("/request-password-reset")
+def request_password_reset(req: PasswordResetRequest, db: Session = Depends(get_db)):
+    """
+    비밀번호 재설정 요청
+    - LOCAL 계정만 가능
+    - 이메일로 reset_token 발급 (이메일 전송은 추후 구현 예정)
+    """
+    token = auth_service.generate_reset_token(db, req.email)
+    if not token:
+        raise HTTPException(status_code=400, detail="계정을 찾을 수 없거나 소셜 계정입니다.")
+    return {"msg": "비밀번호 재설정 토큰 발급됨", "reset_token": token}
+
+
+@router.post("/reset-password")
+def reset_password(req: PasswordResetConfirm, db: Session = Depends(get_db)):
+    """
+    비밀번호 재설정 완료
+    - reset_token 확인 후 새 비밀번호 해시 저장
+    """
+    success = auth_service.reset_password(db, req.reset_token, req.new_password)
+    if not success:
+        raise HTTPException(status_code=400, detail="토큰이 유효하지 않거나 만료됨")
+    return {"msg": "비밀번호가 성공적으로 변경되었습니다."}
