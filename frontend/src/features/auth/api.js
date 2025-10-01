@@ -3,7 +3,7 @@ const API_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 // --- 토큰/세션 타이머 관리 ---
 let logoutTimer = null;
 let lastActivityTime = Date.now();
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30분 (서버와 동일하게 설정)
+const SESSION_TIMEOUT_MS = 1 * 60 * 1000; // 30분 → 테스트 시 1분
 
 // --- 토큰 헬퍼 ---
 function getAccessToken() {
@@ -22,27 +22,43 @@ function setTokens({ access_token, refresh_token, expires_in }) {
   }
 }
 
-// ✅ redirect 헬퍼 (무한 루프 방지)
+// ✅ redirect 헬퍼
 function redirectToLogin() {
   if (window.location.pathname !== "/login") {
     window.location.href = "/login";
   }
 }
 
-export function clearTokens() {
+// ✅ 토큰 클리어 (이제 직접 redirect 안함 → 모달/플래그에서 실행)
+export function clearTokens(redirect = true) {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
   stopLogoutTimer();
-  redirectToLogin();
+  if (redirect) redirectToLogin();
 }
 
 // --- 자동 로그아웃 타이머 ---
 function startLogoutTimer(durationMs) {
-  stopLogoutTimer(); // 기존 타이머 초기화
-  logoutTimer = setTimeout(() => {
-    console.log("⏰ 세션 만료로 자동 로그아웃 실행");
-    clearTokens();
-  }, durationMs);
+  stopLogoutTimer();
+
+  let remainingSec = Math.floor(durationMs / 1000);
+  console.log(`⏳ 세션 타이머 시작: ${remainingSec}초`);
+
+  logoutTimer = setInterval(() => {
+    remainingSec -= 1;
+    if (remainingSec > 0) {
+      console.log(`⏳ 세션 남은 시간: ${remainingSec}초`);
+    } else {
+      console.log("⏰ 세션 만료 → 모달 호출");
+      stopLogoutTimer();
+
+      // 🚩 세션 만료 플래그 기록
+      localStorage.setItem("session_expired", "true");
+
+      // 🚩 세션 만료 이벤트 발생 (App.jsx에서 모달 띄움)
+      window.dispatchEvent(new Event("sessionExpired"));
+    }
+  }, 1000);
 
   // 사용자 활동 감지 (키보드/마우스)
   window.onmousemove = resetActivityTimer;
@@ -50,7 +66,7 @@ function startLogoutTimer(durationMs) {
 }
 function stopLogoutTimer() {
   if (logoutTimer) {
-    clearTimeout(logoutTimer);
+    clearInterval(logoutTimer);
     logoutTimer = null;
   }
 }
@@ -58,6 +74,7 @@ function resetActivityTimer() {
   const now = Date.now();
   if (now - lastActivityTime > 1000) {
     lastActivityTime = now;
+    console.log("🔄 사용자 활동 감지 → 세션 연장");
     stopLogoutTimer();
     startLogoutTimer(SESSION_TIMEOUT_MS);
   }
