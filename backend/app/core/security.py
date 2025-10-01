@@ -9,7 +9,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key")
 ALGORITHM = "HS256"
 
 # 정책: Access 30분 + Refresh 1일
-ACCESS_TOKEN_EXPIRE_MINUTES = 1
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 1
 
 # 🚩 서버 재시작 시마다 새로운 UUID 발급 → 기존 토큰 무효화

@@ -3,7 +3,7 @@ const API_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 // --- 토큰/세션 타이머 관리 ---
 let logoutTimer = null;
 let lastActivityTime = Date.now();
-const SESSION_TIMEOUT_MS = 1 * 60 * 1000; // 30분 → 테스트 시 1분
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30분 → 테스트 시 1분
 
 // --- 토큰 헬퍼 ---
 function getAccessToken() {
