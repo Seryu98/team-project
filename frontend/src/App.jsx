@@ -1,6 +1,9 @@
-import React, { useState } from "react";
-import { Routes, Route, Outlet } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
 import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
+import SessionExpiredModal from "./components/SessionExpiredModal";
+import { clearTokens } from "./features/auth/api";
 
 // pages
 import Register from "./features/auth/Register";
@@ -10,34 +13,19 @@ import Login from "./features/auth/Login";
 import ProfilePage from "./features/profile/profile_pages";
 import ProfileCreate from "./features/profile/profileCreate_pages";
 
-// 임시 페이지들
 function Home() {
-  const [msg, setMsg] = useState("아직 요청 전");
-  const testApi = () => {
-    const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-    fetch(base + "/")
-      .then((res) => {
-        if (!res.ok) throw new Error("API Error");
-        return res.text();
-      })
-      .then(() => setMsg("백엔드 연결 OK"))
-      .catch(() => setMsg("API 연결 실패"));
-  };
   return (
     <div style={{ textAlign: "center", marginTop: 50 }}>
       <h1>Team Project Frontend</h1>
-      <p>React (Vite) 실행 확인용 화면</p>
-      <button onClick={testApi}>백엔드 연결 테스트</button>
-      <p>{msg}</p>
+      <p>홈 화면 (누구나 접근 가능)</p>
     </div>
   );
 }
 
-function Posts() { return <div style={{ padding: 24 }}>프로젝트/스터디 게시판 (준비중)</div>; }
-function Board() { return <div style={{ padding: 24 }}>유저게시판 (준비중)</div>; }
-function Ranking() { return <div style={{ padding: 24 }}>랭킹게시판 (준비중)</div>; }
+function Posts() { return <div style={{ padding: 24 }}>프로젝트/스터디 게시판</div>; }
+function Board() { return <div style={{ padding: 24 }}>유저게시판</div>; }
+function Ranking() { return <div style={{ padding: 24 }}>랭킹게시판</div>; }
 
-// ✅ 레이아웃 1: Navbar 포함(일반 화면)
 function MainLayout() {
   return (
     <>
@@ -47,32 +35,52 @@ function MainLayout() {
   );
 }
 
-// ✅ 레이아웃 2: Navbar 없음(로그인/회원가입 등)
 function AuthLayout() {
   return <Outlet />;
 }
 
 export default function App() {
+  const [showSessionModal, setShowSessionModal] = useState(false);
+
+  useEffect(() => {
+    // 🚩 새로고침 시 세션 만료 플래그 확인
+    if (localStorage.getItem("session_expired") === "true") {
+      localStorage.removeItem("session_expired");
+      clearTokens(true); // 토큰 제거 + 로그인으로 강제 이동
+    }
+
+    const handleExpire = () => setShowSessionModal(true);
+    window.addEventListener("sessionExpired", handleExpire);
+    return () => window.removeEventListener("sessionExpired", handleExpire);
+  }, []);
+
   return (
-    <Routes>
-      {/* Navbar 없는 그룹 */}
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-      </Route>
+    <Router>
+      <Routes>
+        {/* Navbar 없는 그룹 */}
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+        </Route>
 
-      {/* Navbar 있는 그룹 */}
-      <Route element={<MainLayout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/posts" element={<Posts />} />
-        <Route path="/board" element={<Board />} />
-        <Route path="/ranking" element={<Ranking />} />
+        {/* Navbar 있는 그룹 */}
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/posts" element={<ProtectedRoute><Posts /></ProtectedRoute>} />
+          <Route path="/board" element={<ProtectedRoute><Board /></ProtectedRoute>} />
+          <Route path="/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
 
-        {/* ✅ 프로필 관련 */}
-        <Route path="/profile" element={<ProfilePage />} />        {/* 내 프로필 */}
-        <Route path="/profile/:userId" element={<ProfilePage />} /> {/* 다른 사람 프로필 */}
-        <Route path="/profile/create" element={<ProfileCreate />} />
-      </Route>
-    </Routes>
+          {/* ✅ 프로필 관련 */}
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />        
+          <Route path="/profile/:userId" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/profile/create" element={<ProtectedRoute><ProfileCreate /></ProtectedRoute>} />
+        </Route>
+      </Routes>
+
+      {/* ✅ 세션 만료 모달 */}
+      {showSessionModal && (
+        <SessionExpiredModal onClose={() => setShowSessionModal(false)} />
+      )}
+    </Router>
   );
 }
