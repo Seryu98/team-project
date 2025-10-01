@@ -130,32 +130,46 @@ export async function refreshAccessToken() {
   return data.access_token;
 }
 
-// --- API 요청 wrapper ---
+// --- API 요청 wrapper (수정됨) ---
 export async function authFetch(url, options = {}, { skipRedirect = false } = {}) {
   let token = getAccessToken();
+  
+  // ✅ 헤더 구성 (FormData 체크)
+  const headers = {
+    ...(options.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  
+  // FormData가 아닐 때만 Content-Type 추가
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
   let res = await fetch(`${API_URL}${url}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers,
   });
 
   if (res.status === 401) {
     try {
       token = await refreshAccessToken();
+      
+      // ✅ 재시도 헤더 구성
+      const retryHeaders = {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+      };
+      
+      if (!(options.body instanceof FormData)) {
+        retryHeaders["Content-Type"] = "application/json";
+      }
+      
       res = await fetch(`${API_URL}${url}`, {
         ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...(options.headers || {}),
-          Authorization: `Bearer ${token}`,
-        },
+        headers: retryHeaders,
       });
     } catch {
-      if (!skipRedirect) clearTokens(); // 🚩 skipRedirect일 때는 로그인창 강제 이동 방지
+      if (!skipRedirect) clearTokens();
       throw new Error("세션 만료");
     }
   }

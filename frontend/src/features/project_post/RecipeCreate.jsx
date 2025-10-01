@@ -3,6 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { authFetch } from "../auth/api";
 import FormInput from "./RecipeFormInput";
 
+const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+// uploadFile 함수 내부
+const res = await fetch(`${API_URL}/upload/`, {  // ✅ 수정
+  method: "POST",
+  body: formData,
+});
+
 export default function RecipeCreate() {
   // ✅ 타입은 버튼으로 설정: PROJECT / STUDY
   const [type, setType] = useState(""); // PROJECT or STUDY
@@ -64,8 +72,8 @@ export default function RecipeCreate() {
       const formData = new FormData();
       formData.append("file", file);
 
-      // authFetch는 JSON 전용이라 파일 업로드는 fetch 직접 사용
-      const res = await fetch("http://localhost:8000/upload/", {
+      // ✅ 수정된 부분
+      const res = await fetch(`${API_URL}/upload/`, {
         method: "POST",
         body: formData,
       });
@@ -131,6 +139,10 @@ export default function RecipeCreate() {
   // 제출
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!type) {
+      alert("프로젝트 또는 스터디를 선택해주세요.");
+      return;
+    }
     try {
       const payload = {
         title: form.title,

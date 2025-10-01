@@ -90,6 +90,15 @@ export default function ProfileCreate() {
     try {
       const token = localStorage.getItem("access_token");
 
+      if (form.birth_date) {
+        const birthDate = new Date(form.birth_date);
+        const today = new Date();
+        if (birthDate > today) {
+          alert("생년월일은 오늘 이전 날짜여야 합니다.");
+          return;
+        }
+      }
+
       // ✅ nickname 포함해서 전송
       const updateData = {
         nickname: form.nickname || "",
@@ -256,7 +265,9 @@ export default function ProfileCreate() {
             <img
               src={
                 previewImage
-                  ? previewImage
+                  ? (previewImage.startsWith('blob:') || previewImage.startsWith('http'))
+                    ? previewImage
+                    : `http://localhost:8000${previewImage}`
                   : profile?.profile_image
                     ? `http://localhost:8000${profile.profile_image}`
                     : "/assets/default_profile.png"

@@ -1,12 +1,10 @@
 # app/users/user_model.py
-# app/users/user_model.py
 from sqlalchemy import Column, BigInteger, String, Enum, Boolean, DateTime, Integer
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from app.core.base import Base
 import enum
-from sqlalchemy.orm import relationship
 
-# role과 status Enum 정의
 class UserRole(str, enum.Enum):
     MEMBER = "MEMBER"
     ADMIN = "ADMIN"
@@ -18,7 +16,6 @@ class UserStatus(str, enum.Enum):
     BANNED = "BANNED"
     DELETED = "DELETED"
 
-# 실제 users 테이블에 매핑될 User 모델
 class User(Base):
     __tablename__ = "users"
 
@@ -44,4 +41,6 @@ class User(Base):
     account_locked = Column(Boolean, nullable=False, default=False)
     banned_until = Column(DateTime, nullable=True)
 
+    # ✅ Relationships
     joined_posts = relationship("PostMember", back_populates="user", cascade="all, delete-orphan")
+    led_posts = relationship("RecipePost", foreign_keys="RecipePost.leader_id", back_populates="leader")

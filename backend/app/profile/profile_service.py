@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.users.user_model import User
 from app.profile.profile_model import Profile
-from app.profile.skill_model import Skill
+from app.meta.skill_model import Skill  # ✅ meta에서 import
 from app.profile.user_skill_model import UserSkill
 from app.profile.profile_schemas import ProfileUpdate
 from app.profile.follow_model import Follow
@@ -30,7 +30,6 @@ def get_profile_detail(db: Session, user_id: int, current_user_id: int = None):
 
     profile = get_or_create_profile(db, user_id)
 
-    # 스킬 목록
     user_skills = (
         db.query(UserSkill, Skill)
         .join(Skill, UserSkill.skill_id == Skill.id)
@@ -47,7 +46,6 @@ def get_profile_detail(db: Session, user_id: int, current_user_id: int = None):
         for user_skill, skill in user_skills
     ]
 
-    # 현재 로그인 유저가 팔로우했는지 여부
     is_following = False
     if current_user_id and current_user_id != user_id:
         follow = (
@@ -61,7 +59,6 @@ def get_profile_detail(db: Session, user_id: int, current_user_id: int = None):
         )
         is_following = follow is not None
 
-    # 팔로워/팔로잉 카운트
     follower_count = (
         db.query(Follow)
         .filter(Follow.following_id == user_id, Follow.deleted_at.is_(None))
@@ -98,9 +95,7 @@ def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
     if not profile or not user:
         raise HTTPException(status_code=404, detail="프로필을 찾을 수 없습니다.")
 
-    # ✅ User 업데이트 (닉네임) - 중복 체크 추가
     if update_data.nickname is not None:
-        # 다른 사용자가 이미 사용 중인 닉네임인지 확인
         exists = db.query(User).filter(
             User.nickname == update_data.nickname, 
             User.id != user_id
@@ -109,7 +104,6 @@ def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
             raise HTTPException(status_code=400, detail="이미 사용 중인 닉네임입니다.")
         user.nickname = update_data.nickname
 
-    # ✅ Profile 업데이트
     if update_data.headline is not None:
         profile.headline = update_data.headline
     if update_data.bio is not None:

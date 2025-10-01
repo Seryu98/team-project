@@ -147,8 +147,8 @@ export default function Navbar() {
             <div style={{ position: "relative" }}>
               <img
                 src={
-                  profileImage
-                    ? profileImage.startsWith('/static')
+                  profileImage && typeof profileImage === 'string'
+                    ? (profileImage.startsWith('/static') || profileImage.startsWith('/'))
                       ? `http://localhost:8000${profileImage}`
                       : profileImage
                     : "/assets/profile/Provisionalprofile.png"

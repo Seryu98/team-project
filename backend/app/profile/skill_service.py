@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import HTTPException
 from typing import List
-from app.profile.skill_model import Skill
+from app.meta.skill_model import Skill  # ✅ meta에서 import
 from app.profile.user_skill_model import UserSkill
 import re
 
@@ -10,7 +10,6 @@ import re
 def search_skills(db: Session, q: str, limit: int = 10) -> List[dict]:
     query = db.query(Skill)
     if q:
-        # ✅ 특수문자 이스케이프 처리
         q_escaped = re.escape(q)
         like = f"%{q_escaped}%"
         query = query.filter(Skill.name.ilike(like))

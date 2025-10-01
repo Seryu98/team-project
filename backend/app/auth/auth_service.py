@@ -47,10 +47,10 @@ def register_user(db: Session, user: UserRegister) -> User:
     db.commit()
     db.refresh(new_user)
     
-    # ✅ 프로필 자동 생성 (기본 이미지 포함)
+    # ✅ uploads 경로로 통일
     new_profile = Profile(
         id=new_user.id,
-        profile_image="/static/profiles/default_profile.png"
+        profile_image="/uploads/profile_images/default_profile.png"
     )
     db.add(new_profile)
     db.commit()
