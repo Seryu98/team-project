@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # ✅ 가장 먼저 .env 로드
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth import auth_router
@@ -6,7 +9,6 @@ from app.test import db_test
 import logging
 import os
 from logging.handlers import RotatingFileHandler
-
 
 # 공통 로깅 설정
 LOG_LEVEL = logging.INFO
