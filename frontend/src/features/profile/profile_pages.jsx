@@ -49,7 +49,7 @@ export default function ProfilePage() {
       "c++": "cplus",
       "f#": "fsharp",
       "react native": "react_native",
-      objectivec: "objective",
+      "objectiveC": "objectivec",
     };
     norm = aliases[norm] || norm;
     if (SKILL_ICONS[norm]) return SKILL_ICONS[norm];

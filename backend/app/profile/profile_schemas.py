@@ -12,8 +12,10 @@ class SkillOut(BaseModel):
         orm_mode = True
 
 
-# ✅ 프로필 수정용 DTO (자기소개/경력/자격증/생년월일/성별)
+# ✅ 프로필 수정용 DTO (닉네임/한 줄 소개 추가)
 class ProfileUpdate(BaseModel):
+    nickname: Optional[str] = None       # users.nickname
+    headline: Optional[str] = None       # profiles.headline
     bio: Optional[str] = None
     experience: Optional[str] = None
     certifications: Optional[str] = None
@@ -30,6 +32,7 @@ class ProfileOut(BaseModel):
     nickname: str
     email: str
     profile_image: Optional[str] = None
+    headline: Optional[str] = None
     bio: Optional[str] = None
     experience: Optional[str] = None
     certifications: Optional[str] = None
@@ -37,8 +40,7 @@ class ProfileOut(BaseModel):
     gender: Optional[str] = None
     follower_count: int
     following_count: int
-    skills: List[SkillOut] = []  # 유저가 가진 스킬 목록
-    # projects: List[ProjectOut] = []  # 🚧 추후 Post 모델 완성되면 추가
+    skills: List[SkillOut] = []
 
     class Config:
         orm_mode = True

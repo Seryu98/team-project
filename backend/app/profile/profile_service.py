@@ -9,10 +9,6 @@ from app.profile.follow_model import Follow  # ✅ 팔로우 모델
 
 
 def get_or_create_profile(db: Session, user_id: int) -> Profile:
-    """
-    유저의 프로필을 조회하거나 없으면 새로 생성해서 반환
-    (profiles.id 는 users.id 를 참조하므로 user_id == profile.id)
-    """
     profile = db.query(Profile).filter(Profile.id == user_id).first()
     if not profile:
         user = db.query(User).filter(User.id == user_id).first()
@@ -28,9 +24,6 @@ def get_or_create_profile(db: Session, user_id: int) -> Profile:
 
 
 def get_profile_detail(db: Session, user_id: int, current_user_id: int = None):
-    """
-    유저 상세 프로필 조회 (유저 기본정보 + 프로필 + 스킬 목록 + 팔로우 여부 + 팔로워/팔로잉 카운트)
-    """
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
@@ -62,13 +55,13 @@ def get_profile_detail(db: Session, user_id: int, current_user_id: int = None):
             .filter(
                 Follow.follower_id == current_user_id,
                 Follow.following_id == user_id,
-                Follow.deleted_at.is_(None)   # ✅ 수정됨 (IS NULL 체크)
+                Follow.deleted_at.is_(None)
             )
             .first()
         )
         is_following = follow is not None
 
-    # ✅ 팔로워/팔로잉 카운트 (실시간 계산)
+    # ✅ 팔로워/팔로잉 카운트
     follower_count = (
         db.query(Follow)
         .filter(Follow.following_id == user_id, Follow.deleted_at.is_(None))
@@ -85,23 +78,29 @@ def get_profile_detail(db: Session, user_id: int, current_user_id: int = None):
         "nickname": user.nickname,
         "email": user.email,
         "profile_image": profile.profile_image,
+        "headline": profile.headline,
         "bio": profile.bio,
         "experience": profile.experience,
         "certifications": profile.certifications,
         "birth_date": profile.birth_date,
         "gender": profile.gender,
-        "follower_count": follower_count,     # ✅ DB 집계값
-        "following_count": following_count,   # ✅ DB 집계값
+        "follower_count": follower_count,
+        "following_count": following_count,
         "skills": skills_out,
-        "is_following": is_following,         # ✅ 로그인 유저 기준
+        "is_following": is_following,
     }
 
 
 def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
     profile = db.query(Profile).filter(Profile.id == user_id).first()
-    if not profile:
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not profile or not user:
         raise HTTPException(status_code=404, detail="프로필을 찾을 수 없습니다.")
 
+    # ✅ Profile 업데이트
+    if update_data.headline is not None:
+        profile.headline = update_data.headline
     if update_data.bio is not None:
         profile.bio = update_data.bio
     if update_data.experience is not None:
@@ -113,6 +112,15 @@ def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
     if update_data.gender is not None:
         profile.gender = update_data.gender
 
+    # ✅ User 업데이트 (닉네임)
+    if update_data.nickname is not None:
+        exists = db.query(User).filter(User.nickname == update_data.nickname, User.id != user_id).first()
+        if exists:
+            raise HTTPException(status_code=400, detail="이미 사용 중인 닉네임입니다.")
+        user.nickname = update_data.nickname
+
     db.commit()
     db.refresh(profile)
+    db.refresh(user)
+
     return get_profile_detail(db, user_id, user_id)

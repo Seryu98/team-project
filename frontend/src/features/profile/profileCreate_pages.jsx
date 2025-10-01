@@ -46,7 +46,7 @@ export default function ProfileCreate() {
       "react native": "react_native",
       "c#": "csharp",
       "c++": "cplus",
-      objectivec: "objective",
+      "objectivec": "objectivec",
     };
     norm = aliases[norm] || norm;
     if (SKILL_ICONS[norm]) return SKILL_ICONS[norm];
@@ -81,26 +81,31 @@ export default function ProfileCreate() {
   };
 
   const handleSave = async () => {
-  try {
-    const token = localStorage.getItem("token");
+    try {
+      const token = localStorage.getItem("token");
 
-    const updatedForm = { ...form, headline };
+      const updatedForm = {
+        ...form,
+        nickname: form.nickname,   // ✅ 닉네임 포함
+        headline                    // ✅ 한 줄 자기소개 포함
+      };
 
-    await api.put("/profiles/me", updatedForm, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+      await api.put("/profiles/me", updatedForm, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    const meRes = await api.get("/auth/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
 
-    alert("프로필이 저장되었습니다.");
-    navigate(`/profile/${meRes.data.id}`, { replace: true });  // ✅ replace로 이동
-    window.location.reload();  // ✅ 강제 새로고침
-  } catch {
-    alert("프로필 저장 실패");
-  }
-};
+      const meRes = await api.get("/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      alert("프로필이 저장되었습니다.");
+      navigate(`/profile/${meRes.data.id}`, { replace: true });  // ✅ replace로 이동
+      window.location.reload();  // ✅ 강제 새로고침
+    } catch {
+      alert("프로필 저장 실패");
+    }
+  };
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -385,10 +390,10 @@ export default function ProfileCreate() {
           />
         </div>
 
-        {/* 어학 */}
+        {/* 이력 */}
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            어학
+            이력
           </label>
           <textarea
             name="experience"
