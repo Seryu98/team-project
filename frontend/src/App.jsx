@@ -17,12 +17,6 @@ function Home() {
     <div style={{ textAlign: "center", marginTop: 50 }}>
       <h1>홈 화면</h1>
       <p>Team Project Frontend</p>
-      <button
-        style={{ padding: "10px 20px", marginTop: "20px" }}
-        onClick={() => (window.location.href = "/posts")}
-      >
-        게시판 가기
-      </button>
     </div>
   );
 }

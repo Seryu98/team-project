@@ -14,7 +14,7 @@ export default function RecipeCreate() {
   const [form, setForm] = useState({
     title: "",
     description: "",
-    capacity: 1,
+    capacity: 2, // ✅ 기본값도 2명부터
     start_date: "",
     end_date: "",
     skills: [],
@@ -212,6 +212,7 @@ export default function RecipeCreate() {
             type="number"
             value={form.capacity}
             onChange={handleChange}
+            min={2}  // ✅ 최소 2명
             required
           />
 

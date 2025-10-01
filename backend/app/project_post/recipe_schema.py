@@ -34,7 +34,7 @@ class PostMemberResponse(BaseModel):
 class RecipePostCreate(BaseModel):
     title: str = Field(..., max_length=200)
     description: Optional[str] = None
-    capacity: int = Field(..., gt=0)
+    capacity: int = Field(..., gt=1)   # ✅ 최소 2명 이상
     type: str = Field(..., pattern="^(PROJECT|STUDY)$")
     field: Optional[str] = None
     start_date: Optional[date] = None
