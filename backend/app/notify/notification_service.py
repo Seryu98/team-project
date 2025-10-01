@@ -25,20 +25,25 @@ def get_notifications_by_user(
     db: Session,
     user_id: int,
     only_unread: bool = False,
-    skip: int = 0,          # 건너뛸 개수 (offset)
-    limit: int = 10         # 가져올 개수 (page size)
-) -> List[Notification]:
+    skip: int = 0,
+    limit: int = 10
+) -> tuple[int, List[Notification]]:
     logging.info("알림 조회: user_id=%s, only_unread=%s, skip=%s, limit=%s",
                  user_id, only_unread, skip, limit)
+
     q = db.query(Notification).filter(Notification.user_id == user_id)
     if only_unread:
         q = q.filter(Notification.is_read.is_(False))
-    return (
+
+    total = q.count()  # ✅ 전체 개수
+    items = (
         q.order_by(Notification.id.desc())
          .offset(skip)
          .limit(limit)
          .all()
     )
+    return total, items
+
 
 # 알림 읽음 처리 (무조건 읽음 처리만 가능)
 def mark_notification_read(db: Session, notification_id: int) -> Optional[Notification]:

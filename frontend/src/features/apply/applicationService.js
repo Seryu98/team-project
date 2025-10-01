@@ -10,7 +10,10 @@ export async function getRequiredFields(postId) {
 export async function submitApplication(postId, answers) {
   const res = await fetch(`${API}/applications`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
     body: JSON.stringify({ post_id: postId, answers }),
   });
   if (!res.ok) throw new Error("지원서 제출에 실패했습니다.");

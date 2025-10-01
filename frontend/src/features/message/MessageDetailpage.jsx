@@ -1,8 +1,7 @@
-// src/pages/MessageDetailPage.jsx
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
-import { createReport } from "../features/reports/reportService"; // ✅ 신고 서비스 import
+import { createReport } from "../reports/reportService"; // ✅ 실제 경로 수정
 
 export default function MessageDetailPage({ currentUser }) {
   const { id } = useParams();
@@ -15,6 +14,7 @@ export default function MessageDetailPage({ currentUser }) {
 
   // ✅ 쪽지 불러오기 + 읽음 처리
   const fetchMessage = async () => {
+    if (!id || !currentUser) return; // currentUser 없으면 실행 중단
     setLoading(true);
     try {
       const res = await axios.get(`${base}/messages/${id}`, {
@@ -53,7 +53,7 @@ export default function MessageDetailPage({ currentUser }) {
 
   // ✅ 신고하기
   const handleReport = async () => {
-    if (!message) return;
+    if (!message || !currentUser) return;
     const reason = prompt("신고 사유를 입력하세요:");
     if (!reason) return;
 
@@ -72,8 +72,8 @@ export default function MessageDetailPage({ currentUser }) {
   };
 
   useEffect(() => {
-    if (id) fetchMessage();
-  }, [id]);
+    fetchMessage();
+  }, [id, currentUser]);
 
   if (!currentUser) {
     return (
@@ -97,7 +97,7 @@ export default function MessageDetailPage({ currentUser }) {
         </p>
         <p>
           <span className="font-semibold">받는 사람:</span>{" "}
-          {message.receiver_id}
+          {message.receiver_name} (ID: {message.receiver_id})
         </p>
         <p className="text-sm text-gray-500">
           {new Date(message.created_at).toLocaleString()}

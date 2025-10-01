@@ -1,8 +1,8 @@
+// src/components/Navbar.jsx
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { FaBell, FaEnvelope } from "react-icons/fa";
-// ✅ 쪽지 API
 import { getInbox } from "../features/message/MessageService";
 
 export default function Navbar({ currentUser, setCurrentUser }) {
@@ -28,49 +28,11 @@ export default function Navbar({ currentUser, setCurrentUser }) {
       const res = await axios.get(`${base}/notifications?skip=0&limit=10`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      // ✅ 응답 구조 안전 처리
       const items = res.data?.data?.items ?? res.data ?? [];
       setNotifications(items);
       setUnreadNotifications(items.filter((n) => !n.is_read).length);
     } catch (err) {
       console.error("알림 조회 실패", err);
-    }
-  };
-
-  // ✅ 알림 읽음 처리
-  const markAsRead = async (id) => {
-    try {
-      const token = localStorage.getItem("token");
-      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-      await axios.patch(`${base}/notifications/${id}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      );
-      setUnreadNotifications((prev) => Math.max(0, prev - 1));
-    } catch (err) {
-      console.error("읽음 처리 실패", err);
-    }
-  };
-
-  // ✅ 알림 클릭 시 이동
-  const handleNotificationClick = (n) => {
-    markAsRead(n.id);
-    switch (n.type) {
-      case "FOLLOW":
-        navigate(`/profile/${n.related_id}`);
-        break;
-      case "APPLICATION":
-        navigate(`/posts/${n.related_id}/applications`);
-        break;
-      case "APPROVED":
-      case "REJECTED":
-        navigate(`/applications/${n.related_id}`);
-        break;
-      default:
-        console.log("알 수 없는 알림:", n);
     }
   };
 
@@ -86,11 +48,13 @@ export default function Navbar({ currentUser, setCurrentUser }) {
     }
   };
 
-  // ✅ 유저 로그인 상태일 때 쪽지 불러오기
+  // ✅ 유저 로그인 상태일 때 자동으로 쪽지 갱신 (10초마다)
   useEffect(() => {
-    if (currentUser) {
-      fetchMessages();
-    }
+    if (!currentUser) return;
+    fetchMessages();
+
+    const interval = setInterval(fetchMessages, 10000); // 10초마다 갱신
+    return () => clearInterval(interval);
   }, [currentUser]);
 
   // ✅ 로그아웃
@@ -101,7 +65,7 @@ export default function Navbar({ currentUser, setCurrentUser }) {
     navigate("/login");
   };
 
-  // ✅ 아이콘 버튼 + 뱃지
+  // ✅ 아이콘 버튼 + 뱃지 (공용)
   const IconButton = ({ icon, count, onClick, label }) => (
     <div style={{ position: "relative" }}>
       <button
@@ -170,7 +134,7 @@ export default function Navbar({ currentUser, setCurrentUser }) {
       <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
         {currentUser ? (
           <>
-            {/* 알림 아이콘 + 드롭다운 */}
+            {/* 알림 아이콘 */}
             <div style={{ position: "relative" }}>
               <IconButton
                 icon={<FaBell />}
@@ -181,6 +145,7 @@ export default function Navbar({ currentUser, setCurrentUser }) {
                 }}
                 label="알림"
               />
+              {/* 알림 드롭다운... */}
               {notificationOpen && (
                 <div
                   style={{
@@ -192,47 +157,35 @@ export default function Navbar({ currentUser, setCurrentUser }) {
                     borderRadius: "6px",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                     zIndex: 2000,
-                    minWidth: "250px",
+                    minWidth: "240px",
+                    maxHeight: "300px",
+                    overflowY: "auto",
                   }}
                 >
                   {notifications.length === 0 ? (
-                    <div style={{ padding: "10px" }}>알림이 없습니다.</div>
+                    <div style={{ padding: "12px", textAlign: "center", color: "#777" }}>
+                      알림이 없습니다
+                    </div>
                   ) : (
                     notifications.map((n) => (
                       <div
                         key={n.id}
                         style={{
-                          padding: "10px",
-                          cursor: "pointer",
-                          background: n.is_read ? "#fff" : "#eef6ff",
+                          padding: "8px 12px",
                           borderBottom: "1px solid #eee",
+                          background: n.is_read ? "#fff" : "#f0f7ff",
+                          cursor: "pointer",
                         }}
-                        onClick={() => handleNotificationClick(n)}
                       >
-                        <div style={{ fontSize: "14px" }}>{n.message}</div>
-                        <div style={{ fontSize: "12px", color: "#666" }}>
-                          {new Date(n.created_at).toLocaleString()}
-                        </div>
+                        {n.message}
                       </div>
                     ))
                   )}
-                  <button
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      border: "none",
-                      background: "#f0f0f0",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => navigate("/notifications")}
-                  >
-                    모든 알림 보기
-                  </button>
                 </div>
               )}
             </div>
 
-            {/* 쪽지 아이콘 + 드롭다운 */}
+            {/* 쪽지 아이콘 */}
             <div style={{ position: "relative" }}>
               <IconButton
                 icon={<FaEnvelope />}
@@ -243,6 +196,7 @@ export default function Navbar({ currentUser, setCurrentUser }) {
                 }}
                 label="메시지"
               />
+              {/* 쪽지 드롭다운... */}
               {messageOpen && (
                 <div
                   style={{
@@ -254,48 +208,54 @@ export default function Navbar({ currentUser, setCurrentUser }) {
                     borderRadius: "6px",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                     zIndex: 2000,
-                    minWidth: "250px",
+                    minWidth: "240px",
+                    maxHeight: "300px",
+                    overflowY: "auto",
                   }}
                 >
                   {messages.length === 0 ? (
-                    <div style={{ padding: "10px" }}>쪽지가 없습니다.</div>
+                    <div style={{ padding: "12px", textAlign: "center", color: "#777" }}>
+                      쪽지가 없습니다
+                    </div>
                   ) : (
                     messages.map((m) => (
                       <div
                         key={m.id}
                         style={{
-                          padding: "10px",
-                          cursor: "pointer",
-                          background: m.is_read ? "#fff" : "#eef6ff",
+                          padding: "8px 12px",
                           borderBottom: "1px solid #eee",
+                          background: m.is_read ? "#fff" : "#f0f7ff",
+                          cursor: "pointer",
                         }}
                         onClick={() => navigate(`/messages/${m.id}`)}
                       >
-                        <div style={{ fontSize: "14px", fontWeight: "bold" }}>{m.sender_name}</div>
-                        <div style={{ fontSize: "13px" }}>{m.content}</div>
-                        <div style={{ fontSize: "12px", color: "#666" }}>
+                        <div style={{ fontWeight: "bold" }}>{m.sender_name}</div>
+                        <div style={{ fontSize: "12px", color: "#555" }}>
                           {new Date(m.created_at).toLocaleString()}
                         </div>
                       </div>
                     ))
                   )}
-                  <button
+
+                  {/* 📩 쪽지함 이동 버튼 */}
+                  <div
                     style={{
-                      width: "100%",
-                      padding: "8px",
-                      border: "none",
-                      background: "#f0f0f0",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => navigate("/messages")}
-                  >
-                    모든 쪽지 보기
-                  </button>
+                    padding: "12px",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    borderTop: "1px solid #eee",
+                    fontWeight: "bold",
+                    background: "#f9f9f9",
+                  }}
+                  onClick={() => navigate("/messages")}
+                >
+                  📩 쪽지함으로 이동
                 </div>
-              )}
+              </div>
+            )}
             </div>
 
-            {/* 프로필 드롭다운 */}
+            {/* 프로필 드롭다운... */}
             <div style={{ position: "relative" }}>
               <div
                 style={{

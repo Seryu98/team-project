@@ -7,13 +7,13 @@ from sqlalchemy import text
 from app.core.database import get_db
 
 # ✅ 스키마 & 서비스 불러오기
-from backend.app.apply.application_schemas import (
+from app.apply.application_schemas import (
     ApplicationOut,
     ApplicationCreate,
     ApplicationStatus as SchemaStatus,
     RequiredFieldOut,
 )
-from backend.app.apply.application_service import (
+from app.apply.application_service import (
     create_application,
     list_applications,
     update_application_status,
@@ -114,7 +114,6 @@ def submit_application(
             if getattr(ans, "deleted_at", None) is None
         ],
     )
-
 
 @router.get("/", response_model=list[ApplicationOut])
 def get_applications(

@@ -13,12 +13,15 @@ export async function createNotification(payload) {
 }
 
 // 알림 목록 조회 API (페이징 & 읽음 필터 지원)
-export async function getNotifications(userId, { unread = false, skip = 0, limit = 10 } = {}) {
-  const res = await axios.get(`${API_BASE}/notifications/${userId}`, {
-    params: { unread, skip, limit }
+export async function getNotifications({ unread = false, skip = 0, limit = 10 } = {}) {
+  const token = localStorage.getItem("token");
+  const res = await axios.get(`${API_BASE}/notifications`, {
+    params: { unread, skip, limit },
+    headers: { Authorization: `Bearer ${token}` },
   });
   return res.data;
 }
+
 
 // 알림 읽음 처리 API
 export async function markNotificationRead(notificationId) {

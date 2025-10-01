@@ -13,6 +13,7 @@ class NotificationType(str, PyEnum):
     WARNING = "WARNING"                    # 경고 알림
     BAN = "BAN"                            # 정지 알림
     UNBAN = "UNBAN"                        # 정지 해제 알림
+    MESSAGE = "MESSAGE"
 
 # SQLAlchemy 모델: notifications 테이블과 매핑
 class Notification(Base):

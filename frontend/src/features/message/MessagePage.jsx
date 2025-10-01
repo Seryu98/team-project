@@ -1,4 +1,3 @@
-// src/pages/MessagesPage.jsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -11,16 +10,19 @@ export default function MessagesPage({ currentUser }) {
 
   // ✅ 쪽지 불러오기
   const fetchMessages = async () => {
-    if (!currentUser) return;
+    if (!currentUser) return; // currentUser 없으면 실행 중단
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
       const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
+      const userId = currentUser?.id;
+      if (!userId) return;
+
       const url =
         activeTab === "inbox"
-          ? `${base}/messages/inbox/${currentUser.id}`
-          : `${base}/messages/sent/${currentUser.id}`;
+          ? `${base}/messages/inbox`
+          : `${base}/messages/sent`;
 
       const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
@@ -34,11 +36,13 @@ export default function MessagesPage({ currentUser }) {
     }
   };
 
-  // ✅ activeTab or currentUser 변경 시 다시 불러오기
+  // ✅ activeTab or currentUser 변경 시 다시 불러오기 + 10초마다 자동 갱신
   useEffect(() => {
-    if (currentUser) {
-      fetchMessages();
-    }
+    if (!currentUser) return;
+    fetchMessages();
+
+    const interval = setInterval(fetchMessages, 10000); // 10초마다 새로고침
+    return () => clearInterval(interval);
   }, [currentUser, activeTab]);
 
   if (!currentUser) {
@@ -73,6 +77,16 @@ export default function MessagesPage({ currentUser }) {
         </button>
       </div>
 
+      {/* ✅ 쪽지 작성 버튼 */}
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => navigate("/messages/compose")}
+          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+        >
+          쪽지 보내기
+        </button>
+      </div>
+
       {/* ✅ 메시지 목록 */}
       {loading ? (
         <p>불러오는 중...</p>
@@ -92,7 +106,7 @@ export default function MessagesPage({ currentUser }) {
             >
               <div className="flex justify-between items-center">
                 <span className="font-bold">
-                  {activeTab === "inbox" ? m.sender_name : `To: ${m.sender_name}`}
+                  {activeTab === "inbox" ? m.sender_name : `To: ${m.receiver_name}`}
                 </span>
                 <span className="text-sm text-gray-500">
                   {new Date(m.created_at).toLocaleString()}

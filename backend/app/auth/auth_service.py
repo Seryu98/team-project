@@ -13,13 +13,11 @@ from app.core.security import (
     hash_password,
     verify_password,
     create_access_token,
+    SECRET_KEY,
+    ALGORITHM,
 )
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
-
-# ⚠️ create_access_token 에서 쓰는 값과 동일해야 함
-SECRET_KEY = "your_secret"   # 나중에 core/security.py 값으로 바꿔도 됨
-ALGORITHM = "HS256"
 
 # 토큰을 가져올 방식 정의 (Authorization: Bearer <token>)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")

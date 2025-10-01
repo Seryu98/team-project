@@ -1,6 +1,6 @@
 // src/App.jsx
-import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Outlet, useParams } from "react-router-dom";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { BrowserRouter as Router, Routes, Route, Outlet, useParams, useLocation } from "react-router-dom";
 import axios from "axios";
 import Navbar from "./components/Navbar";
 
@@ -13,8 +13,8 @@ import ApplicationForm from "./features/apply/ApplicationForm";
 import ApplicationList from "./features/apply/ApplicationList";
 
 // ✅ 쪽지 관련 페이지 import
-import MessagesPage from "./pages/MessagesPage";
-import MessageDetailPage from "./pages/MessageDetailPage";
+import MessagePage from "./features/message/MessagePage";
+import MessageDetailPage from "./features/message/MessageDetailPage";
 import MessageComposePage from "./features/message/MessageComposePage";
 
 // ======================
@@ -23,7 +23,7 @@ import MessageComposePage from "./features/message/MessageComposePage";
 function Home() {
   const [msg, setMsg] = useState("아직 요청 전");
   const testApi = () => {
-    const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
     fetch(base + "/")
       .then((res) => {
         if (!res.ok) throw new Error("API Error");
@@ -84,6 +84,44 @@ function AuthLayout() {
 }
 
 // ======================
+// 로그인/로그아웃 동기화용 컴포넌트
+// ======================
+function AuthSync({ setCurrentUser }) {
+  const location = useLocation();
+  const lastTokenRef = useRef(localStorage.getItem("token"));
+
+  const fetchUser = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+    if (!token) {
+      setCurrentUser(null);
+      return;
+    }
+    try {
+      const res = await axios.get(`${base}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCurrentUser(res.data);
+    } catch {
+      setCurrentUser(null);
+    }
+  }, [setCurrentUser]);
+
+  // 라우트 변경될 때 토큰 변화를 감지
+  useEffect(() => {
+    const now = localStorage.getItem("token");
+    const tokenChanged = lastTokenRef.current !== now;
+    if (tokenChanged) {
+      lastTokenRef.current = now;
+      fetchUser();
+    }
+  }, [location.pathname, fetchUser]);
+
+  return null;
+}
+
+// ======================
 // App 컴포넌트
 // ======================
 export default function App() {
@@ -98,7 +136,7 @@ export default function App() {
           setCurrentUser(null);
           return;
         }
-        const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+        const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
         const res = await axios.get(`${base}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -112,6 +150,9 @@ export default function App() {
 
   return (
     <Router>
+      {/* ✅ 로그인/로그아웃 직후 상태 동기화 */}
+      <AuthSync setCurrentUser={setCurrentUser} />
+
       <Routes>
         {/* Navbar 없는 그룹 */}
         <Route element={<AuthLayout />}>
@@ -136,9 +177,9 @@ export default function App() {
           <Route path="/posts/:postId/applications" element={<PostApplicationsRoute />} />
 
           {/* ✅ 쪽지 라우트 */}
-          <Route path="/messages" element={<MessagesPage currentUser={currentUser} />} />
+          <Route path="/messages" element={<MessagePage currentUser={currentUser} />} />
           <Route path="/messages/:id" element={<MessageDetailPage currentUser={currentUser} />} />
-          <Route path="/messages/new" element={<MessageComposePage />} />
+          <Route path="/messages/compose" element={<MessageComposePage currentUser={currentUser} />} />
         </Route>
       </Routes>
     </Router>

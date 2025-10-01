@@ -13,7 +13,7 @@ from app.notify.notification_service import (
     get_notifications_by_user,
     mark_notification_read,
 )
-from backend.app.utils.response_util import ok, fail
+from app.utils.response_util import ok, fail
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
