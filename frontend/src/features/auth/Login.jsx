@@ -1,7 +1,7 @@
 // src/features/auth/Login.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { login, getCurrentUser } from "./api";
+import { loginAndFetchUser, getCurrentUser, clearTokens } from "./api";
 
 function Login() {
   const navigate = useNavigate();
@@ -9,15 +9,21 @@ function Login() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
 
+  // 이미 로그인된 상태면 메인으로
   useEffect(() => {
     (async () => {
-      const token = localStorage.getItem("token");
-      if (!token) return;
+      const token = localStorage.getItem("access_token");
+      if (!token) return; // ✅ 토큰 없으면 /auth/me 호출 안 함
+
       try {
-        await getCurrentUser();
-        navigate("/", { replace: true });
-      } catch {
-        /* ignore */
+        const user = await getCurrentUser(); // ✅ 토큰 있으면 자동 로그인
+        if (user) {
+          navigate("/", { replace: true });
+        }
+      } catch (err) {
+        console.warn("❌ 자동 로그인 실패:", err);
+        clearTokens();
+        setMsg("⏰ 세션이 만료되었습니다. 다시 로그인 해주세요."); // ✅ 401 처리
       }
     })();
   }, [navigate]);
@@ -26,14 +32,40 @@ function Login() {
     e.preventDefault();
     setMsg("");
     try {
-      const res = await login(userId, password); // <-- userId 사용
-      localStorage.setItem("token", res.access_token);
+      // ✅ 로그인 및 토큰 발급
+      const { tokens } = await loginAndFetchUser(userId, password);
+      console.log("✅ 로그인 성공", tokens);
+
+      // 🔍 토큰 저장 확인
+      const access = localStorage.getItem("access_token");
+      const refresh = localStorage.getItem("refresh_token");
+      console.log("localStorage access_token:", access);
+      console.log("localStorage refresh_token:", refresh);
+
+      if (access) {
+        try {
+          const payload = JSON.parse(atob(access.split(".")[1]));
+          console.log("access_token payload:", payload);
+        } catch (err) {
+          console.error("❌ access_token 디코딩 실패", err);
+        }
+      }
+
+      // ✅ 여기서 토큰 저장된 후에 /auth/me 호출
       const user = await getCurrentUser();
       setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);
+
+      // 🔄 유저 정보까지 확인된 후 메인으로 이동
       navigate("/", { replace: true });
     } catch (err) {
-      if (String(err?.message || "").includes("423")) {
+      console.error("❌ 로그인 후 에러:", err);
+      const message = String(err?.message || "");
+
+      if (message.includes("423")) {
         setMsg("⏳ 계정이 잠겼습니다. 잠시 후 다시 시도하세요.");
+      } else if (message.includes("세션 만료")) {
+        setMsg("⏰ 세션이 만료되었습니다. 다시 로그인 해주세요."); // ✅ 401 → 메시지
+        clearTokens();
       } else {
         setMsg("❌ 로그인 실패");
       }
@@ -97,7 +129,9 @@ function Login() {
             style={inputStyle}
             autoComplete="current-password"
           />
-          <button type="submit" style={buttonStyle}>로그인</button>
+          <button type="submit" style={buttonStyle}>
+            로그인
+          </button>
         </form>
 
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px" }}>

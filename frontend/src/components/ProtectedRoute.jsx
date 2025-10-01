@@ -1,14 +1,12 @@
 // src/components/ProtectedRoute.jsx
-// 로그인을 하지않으면 접속하지못하게
+import React from "react";
 import { Navigate } from "react-router-dom";
 
 export default function ProtectedRoute({ children }) {
-  const token = localStorage.getItem("token");
-
+  const token = localStorage.getItem("access_token");
   if (!token) {
-    alert("로그인 후 이용 가능합니다.");
+    // 로그인 안 되어 있으면 로그인 페이지로 리다이렉트
     return <Navigate to="/login" replace />;
   }
-
   return children;
 }

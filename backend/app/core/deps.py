@@ -7,7 +7,8 @@ from app import models
 from app.core.security import SECRET_KEY, ALGORITHM
 
 # 로그인된 유저만 접근 가능한 API에 사용하는 의존성
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+# 🚩 tokenUrl 앞에 / 제거
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),

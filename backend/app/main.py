@@ -1,4 +1,7 @@
 # main.py
+from dotenv import load_dotenv
+load_dotenv()  # ✅ 가장 먼저 .env 로드
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -79,3 +82,6 @@ app.include_router(upload_router.router)
 @app.get("/")
 def root():
     return {"message": "🚀 Team Project API is running!"}
+
+# 서버 실행 확인 로그
+logging.info("🚀 FastAPI 서버가 시작되었습니다.")
