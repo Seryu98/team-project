@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.users.user_model import User
+from app.profile.profile_model import Profile  # ✅ 추가
 from app.auth.auth_schema import UserRegister
 from app.core.security import (
     hash_password,
@@ -45,6 +46,16 @@ def register_user(db: Session, user: UserRegister) -> User:
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    
+    # ✅ 프로필 자동 생성 (기본 이미지 포함)
+    new_profile = Profile(
+        id=new_user.id,
+        profile_image="/static/profiles/default_profile.png"
+    )
+    db.add(new_profile)
+    db.commit()
+    db.refresh(new_profile)
+    
     logger.info("회원가입 성공 id=%s email=%s", new_user.id, new_user.email)
     return new_user
 

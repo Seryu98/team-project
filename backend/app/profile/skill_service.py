@@ -4,15 +4,16 @@ from fastapi import HTTPException
 from typing import List
 from app.profile.skill_model import Skill
 from app.profile.user_skill_model import UserSkill
+import re
 
-# ------------------------------------------
-# 검색: 우리 DB에 등록된 스킬만 노출 (자동완성/검색용)
-# ------------------------------------------
+
 def search_skills(db: Session, q: str, limit: int = 10) -> List[dict]:
     query = db.query(Skill)
     if q:
-        like = f"%{q}%"
-        query = query.filter(Skill.name.ilike(like))  # ✅ 대소문자 무시, 특수문자도 그대로 처리
+        # ✅ 특수문자 이스케이프 처리
+        q_escaped = re.escape(q)
+        like = f"%{q_escaped}%"
+        query = query.filter(Skill.name.ilike(like))
     skills = query.order_by(Skill.name.asc()).limit(limit).all()
 
     return [
@@ -25,9 +26,7 @@ def search_skills(db: Session, q: str, limit: int = 10) -> List[dict]:
         for s in skills
     ]
 
-# ------------------------------------------
-# 스킬 등록 (초기 시드/관리자용) - 필요 시 사용
-# ------------------------------------------
+
 def create_skill(db: Session, name: str) -> Skill:
     exists = db.query(Skill).filter(func.lower(Skill.name) == name.lower()).first()
     if exists:
@@ -39,14 +38,10 @@ def create_skill(db: Session, name: str) -> Skill:
     return skill
 
 
-# ------------------------------------------
-# 내 보유 스킬: 등록 / 조회 / 수정 / 삭제
-# ------------------------------------------
 def add_user_skill(db: Session, user_id: int, skill_id: int, level: int):
     if level not in (1, 2, 3):
         raise HTTPException(status_code=400, detail="숙련도는 1~3 사이여야 합니다.")
 
-    # 스킬 존재 확인
     skill = db.query(Skill).get(skill_id)
     if not skill:
         raise HTTPException(status_code=404, detail="해당 스킬이 존재하지 않습니다.")
@@ -103,7 +98,6 @@ def update_user_skill_level(db: Session, user_id: int, skill_id: int, level: int
     user_skill.level = level
     db.commit()
 
-    # 이름/아이콘 포함 응답
     skill = db.query(Skill).get(skill_id)
     return {
         "id": skill.id,

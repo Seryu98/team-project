@@ -5,7 +5,7 @@ from app.profile.profile_model import Profile
 from app.profile.skill_model import Skill
 from app.profile.user_skill_model import UserSkill
 from app.profile.profile_schemas import ProfileUpdate
-from app.profile.follow_model import Follow  # ✅ 팔로우 모델
+from app.profile.follow_model import Follow
 
 
 def get_or_create_profile(db: Session, user_id: int) -> Profile:
@@ -47,7 +47,7 @@ def get_profile_detail(db: Session, user_id: int, current_user_id: int = None):
         for user_skill, skill in user_skills
     ]
 
-    # ✅ 현재 로그인 유저가 팔로우했는지 여부
+    # 현재 로그인 유저가 팔로우했는지 여부
     is_following = False
     if current_user_id and current_user_id != user_id:
         follow = (
@@ -61,7 +61,7 @@ def get_profile_detail(db: Session, user_id: int, current_user_id: int = None):
         )
         is_following = follow is not None
 
-    # ✅ 팔로워/팔로잉 카운트
+    # 팔로워/팔로잉 카운트
     follower_count = (
         db.query(Follow)
         .filter(Follow.following_id == user_id, Follow.deleted_at.is_(None))
@@ -98,6 +98,17 @@ def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
     if not profile or not user:
         raise HTTPException(status_code=404, detail="프로필을 찾을 수 없습니다.")
 
+    # ✅ User 업데이트 (닉네임) - 중복 체크 추가
+    if update_data.nickname is not None:
+        # 다른 사용자가 이미 사용 중인 닉네임인지 확인
+        exists = db.query(User).filter(
+            User.nickname == update_data.nickname, 
+            User.id != user_id
+        ).first()
+        if exists:
+            raise HTTPException(status_code=400, detail="이미 사용 중인 닉네임입니다.")
+        user.nickname = update_data.nickname
+
     # ✅ Profile 업데이트
     if update_data.headline is not None:
         profile.headline = update_data.headline
@@ -111,13 +122,6 @@ def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
         profile.birth_date = update_data.birth_date
     if update_data.gender is not None:
         profile.gender = update_data.gender
-
-    # ✅ User 업데이트 (닉네임)
-    if update_data.nickname is not None:
-        exists = db.query(User).filter(User.nickname == update_data.nickname, User.id != user_id).first()
-        if exists:
-            raise HTTPException(status_code=400, detail="이미 사용 중인 닉네임입니다.")
-        user.nickname = update_data.nickname
 
     db.commit()
     db.refresh(profile)

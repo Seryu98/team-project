@@ -1,32 +1,35 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import date
+from enum import Enum
+
+class Gender(str, Enum):
+    MALE = "MALE"
+    FEMALE = "FEMALE"
 
 class SkillOut(BaseModel):
     id: int
     name: str
-    level: int   # 숙련도 (1~3)
-    icon: Optional[str] = None  # 프론트 assets 경로
+    level: int
+    icon: Optional[str] = None
 
     class Config:
         orm_mode = True
 
 
-# ✅ 프로필 수정용 DTO (닉네임/한 줄 소개 추가)
 class ProfileUpdate(BaseModel):
-    nickname: Optional[str] = None       # users.nickname
-    headline: Optional[str] = None       # profiles.headline
+    nickname: Optional[str] = None  # ✅ 추가
+    headline: Optional[str] = None
     bio: Optional[str] = None
     experience: Optional[str] = None
     certifications: Optional[str] = None
     birth_date: Optional[date] = None
-    gender: Optional[str] = None  # "MALE" / "FEMALE"
+    gender: Optional[str] = None
 
     class Config:
         orm_mode = True
 
 
-# ✅ 프로필 조회 응답 DTO
 class ProfileOut(BaseModel):
     id: int
     nickname: str
@@ -41,6 +44,7 @@ class ProfileOut(BaseModel):
     follower_count: int
     following_count: int
     skills: List[SkillOut] = []
+    is_following: bool = False
 
     class Config:
         orm_mode = True

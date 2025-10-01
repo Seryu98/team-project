@@ -3,3 +3,7 @@
 #만약 이 파일이 없다면, 항상 from app.models.user import User처럼 구체적으로 적어야 합니다.
 #SQLAlchemy Base 인식용
 from app.users.user_model import User
+from app.profile.profile_model import Profile
+from app.profile.follow_model import Follow
+from app.profile.skill_model import Skill
+from app.profile.user_skill_model import UserSkill

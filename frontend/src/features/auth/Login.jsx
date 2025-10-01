@@ -1,7 +1,7 @@
 // src/features/auth/Login.jsx
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { loginAndFetchUser, getCurrentUser, clearTokens } from "./api";
+import { loginAndFetchUser, getCurrentUser, clearTokens } from "./api";  // ✅ 추가
 
 function Login() {
   const navigate = useNavigate();
@@ -9,34 +9,13 @@ function Login() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
 
-  // 이미 로그인된 상태면 메인으로
-  useEffect(() => {
-    (async () => {
-      const token = localStorage.getItem("access_token");
-      if (!token) return; // ✅ 토큰 없으면 /auth/me 호출 안 함
-
-      try {
-        const user = await getCurrentUser(); // ✅ 토큰 있으면 자동 로그인
-        if (user) {
-          navigate("/", { replace: true });
-        }
-      } catch (err) {
-        console.warn("❌ 자동 로그인 실패:", err);
-        clearTokens();
-        setMsg("⏰ 세션이 만료되었습니다. 다시 로그인 해주세요."); // ✅ 401 처리
-      }
-    })();
-  }, [navigate]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMsg("");
     try {
-      // ✅ 로그인 및 토큰 발급
       const { tokens } = await loginAndFetchUser(userId, password);
       console.log("✅ 로그인 성공", tokens);
 
-      // 🔍 토큰 저장 확인
       const access = localStorage.getItem("access_token");
       const refresh = localStorage.getItem("refresh_token");
       console.log("localStorage access_token:", access);
@@ -51,11 +30,9 @@ function Login() {
         }
       }
 
-      // ✅ 여기서 토큰 저장된 후에 /auth/me 호출
       const user = await getCurrentUser();
       setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);
 
-      // 🔄 유저 정보까지 확인된 후 메인으로 이동
       navigate("/", { replace: true });
     } catch (err) {
       console.error("❌ 로그인 후 에러:", err);
@@ -64,7 +41,7 @@ function Login() {
       if (message.includes("423")) {
         setMsg("⏳ 계정이 잠겼습니다. 잠시 후 다시 시도하세요.");
       } else if (message.includes("세션 만료")) {
-        setMsg("⏰ 세션이 만료되었습니다. 다시 로그인 해주세요."); // ✅ 401 → 메시지
+        setMsg("⏰ 세션이 만료되었습니다. 다시 로그인 해주세요.");
         clearTokens();
       } else {
         setMsg("❌ 로그인 실패");

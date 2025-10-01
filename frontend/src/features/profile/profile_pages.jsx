@@ -58,7 +58,7 @@ export default function ProfilePage() {
 
   const fetchCurrentUser = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("access_token");  // ✅ 수정
       if (!token) return;
       const res = await api.get("/auth/me", {
         headers: { Authorization: `Bearer ${token}` },
@@ -71,7 +71,7 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("access_token");  // ✅ 수정
       if (!token) {
         alert("로그인이 필요합니다.");
         return;
@@ -98,7 +98,7 @@ export default function ProfilePage() {
 
   const fetchPortfolios = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("access_token");  // ✅ 수정
       const targetUserId = userId || currentUser?.id;
       if (!targetUserId) return;
 
@@ -113,7 +113,7 @@ export default function ProfilePage() {
 
   const fetchComments = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("access_token");  // ✅ 수정
       const targetUserId = userId || currentUser?.id;
       if (!targetUserId) return;
 
@@ -140,7 +140,7 @@ export default function ProfilePage() {
 
   const handleFollowToggle = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("access_token");  // ✅ 수정
       if (!token) {
         alert("로그인이 필요합니다.");
         return;
@@ -172,7 +172,7 @@ export default function ProfilePage() {
 
   const fetchFollowList = async (type) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("access_token");  // ✅ 수정
       const endpoint =
         type === "followers"
           ? `/follows/${profile.id}/followers`
@@ -190,7 +190,7 @@ export default function ProfilePage() {
 
   const handleUnfollowInModal = async (targetId) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("access_token");  // ✅ 수정
       await api.delete(`/follows/${targetId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -203,8 +203,6 @@ export default function ProfilePage() {
 
   const handleSendMessage = () => {
     alert("메시지 기능은 준비 중입니다.");
-    // 추후 메시지 페이지로 이동
-    // navigate(`/messages/${profile.id}`);
   };
 
   if (!profile) return <div style={{ textAlign: "center", marginTop: "40px" }}>로딩 중...</div>;
@@ -215,12 +213,10 @@ export default function ProfilePage() {
     <div style={{ minHeight: "100vh", background: "#fff", padding: "40px 20px" }}>
       <div style={{ maxWidth: "600px", margin: "0 auto" }}>
 
-        {/* 헤더 - ProfileCreate와 동일한 위치 */}
         <h1 style={{ fontSize: "24px", fontWeight: "bold", textAlign: "center", marginBottom: "40px" }}>
           {isMyProfile ? "내 프로필" : `${profile.nickname}님의 프로필`}
         </h1>
 
-        {/* 프로필 영역 */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: "20px", marginBottom: "30px" }}>
           <div style={{ position: "relative" }}>
             <img
@@ -245,12 +241,10 @@ export default function ProfilePage() {
               {profile.nickname}
             </h2>
 
-            {/* 한 줄 자기소개 (읽기 전용) */}
             <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "8px" }}>
               {profile.headline || "자기소개가 없습니다."}
             </p>
 
-            {/* 팔로워/팔로잉 숫자 */}
             <div style={{ display: "flex", gap: "12px", marginBottom: "12px", fontSize: "13px" }}>
               <span
                 onClick={() => fetchFollowList("followers")}
@@ -266,10 +260,8 @@ export default function ProfilePage() {
               </span>
             </div>
 
-            {/* 버튼 영역 */}
             <div style={{ display: "flex", gap: "8px" }}>
               {isMyProfile ? (
-                // 내 페이지: 프로필 수정 버튼만
                 <button
                   onClick={() => navigate("/profile/create")}
                   style={{
@@ -284,7 +276,6 @@ export default function ProfilePage() {
                   프로필 수정
                 </button>
               ) : (
-                // 다른 사람 페이지: 팔로우 + 메시지 버튼
                 <>
                   <button
                     onClick={handleFollowToggle}
@@ -319,7 +310,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 자기소개 (읽기 전용) */}
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             자기소개
@@ -339,7 +329,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 이력 */}
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             이력
@@ -359,7 +348,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 자격증 */}
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             자격증
@@ -379,7 +367,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 사용 가능한 언어 (스킬) */}
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             사용 가능한 언어
@@ -432,7 +419,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 포트폴리오 */}
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             포트폴리오
@@ -475,7 +461,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 함께한 사람들이 남긴 말 */}
         <div style={{ marginBottom: "40px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             함께한 사람들이 남긴 말
@@ -521,7 +506,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 팔로워/팔로잉 모달 */}
         {showModal && (
           <div style={{
             position: "fixed",

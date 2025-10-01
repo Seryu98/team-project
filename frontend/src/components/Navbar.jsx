@@ -2,29 +2,40 @@ import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FaBell, FaEnvelope } from "react-icons/fa";
 import { getCurrentUser, clearTokens } from "../features/auth/api";
+import axios from "axios";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
+  const [profileImage, setProfileImage] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // 더미 카운트 (추후 API 연동 예정)
   const [unreadNotifications] = useState(3);
   const [unreadMessages] = useState(5);
 
-  // 로그인 상태 확인 (토큰이 있을 때만 호출)
+  // 로그인 상태 확인 및 프로필 이미지 가져오기
   useEffect(() => {
     async function fetchUser() {
       const token = localStorage.getItem("access_token");
-      if (!token) return; // ✅ 토큰 없으면 /auth/me 호출 안 함
+      if (!token) return;
 
       try {
         const user = await getCurrentUser();
         setCurrentUser(user);
+
+        // 프로필 이미지 가져오기
+        const profileRes = await axios.get(
+          `http://localhost:8000/profiles/${user.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        setProfileImage(profileRes.data.profile_image);
       } catch {
         console.warn("⚠ 로그인 사용자 없음 또는 토큰 만료");
         clearTokens();
         setCurrentUser(null);
+        setProfileImage(null);
       }
     }
     fetchUser();
@@ -34,6 +45,7 @@ export default function Navbar() {
   const handleLogout = () => {
     clearTokens();
     setCurrentUser(null);
+    setProfileImage(null);
     setMenuOpen(false);
     navigate("/login");
   };
@@ -133,13 +145,22 @@ export default function Navbar() {
               label="메시지"
             />
             <div style={{ position: "relative" }}>
-              <div
+              <img
+                src={
+                  profileImage
+                    ? profileImage.startsWith('/static')
+                      ? `http://localhost:8000${profileImage}`
+                      : profileImage
+                    : "/assets/profile/Provisionalprofile.png"
+                }
+                alt="프로필"
                 style={{
                   width: "32px",
                   height: "32px",
                   borderRadius: "50%",
-                  background: "#ccc",
+                  objectFit: "cover",
                   cursor: "pointer",
+                  border: "1px solid #ddd",
                 }}
                 title={currentUser?.nickname}
                 onClick={() => setMenuOpen(!menuOpen)}
@@ -164,7 +185,6 @@ export default function Navbar() {
   );
 }
 
-// 스타일 모듈화
 const linkStyle = {
   textDecoration: "none",
   color: "black",
