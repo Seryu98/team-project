@@ -155,25 +155,40 @@ export async function authFetch(url, options = {}, { skipRedirect = false } = {}
 
   let token = getAccessToken();
 
+  // ✅ 헤더 구성 (FormData 체크)
+  const headers = { ...(options.headers || {}) };
+
+  // FormData가 아니고 Content-Type이 없을 때만 추가
+  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  // 토큰이 있으면 Authorization 헤더 추가
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   let res = await fetch(`${API_URL}${url}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers,
   });
 
   if (res.status === 401) {
     try {
       token = await refreshAccessToken();
+
+      // ✅ 재시도 헤더 구성
+      const retryHeaders = { ...(options.headers || {}) };
+      
+      if (!(options.body instanceof FormData) && !retryHeaders["Content-Type"]) {
+        retryHeaders["Content-Type"] = "application/json";
+      }
+      
+      retryHeaders["Authorization"] = `Bearer ${token}`;
+
       res = await fetch(`${API_URL}${url}`, {
         ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...(options.headers || {}),
-          Authorization: `Bearer ${token}`,
-        },
+        headers: retryHeaders,
       });
     } catch {
       if (!skipRedirect) clearTokens("always");

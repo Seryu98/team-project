@@ -34,10 +34,10 @@ def _apply_auto_state_updates_for_posts(db: Session, posts: List[models.RecipePo
 
         # 프로젝트 자동 종료 처리
         if (
-            getattr(post, "project_end", None)
-            and post.project_end < today
-            and getattr(post, "project_status", None) == "ONGOING"
-        ):
+    post.project_end
+    and post.project_end < today
+    and post.project_status == "ONGOING"
+):
             post.project_status = "ENDED"
             changed = True
 

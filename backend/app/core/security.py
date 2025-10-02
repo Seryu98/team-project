@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from passlib.context import CryptContext
+from typing import Optional
 import os
 import uuid   # 🚩 서버 재시작 시마다 UUID 변경
 
@@ -66,7 +67,7 @@ def create_reset_token(data: dict, expires_delta: timedelta | None = None):
 
 
 # === 토큰 검증 ===
-def verify_token(token: str, expected_type: str | None = None):
+def verify_token(token: str, expected_type: Optional[str] = None):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         print("[verify_token] payload:", payload)

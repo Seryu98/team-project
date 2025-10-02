@@ -4,21 +4,21 @@ import React, { useEffect, useRef } from "react";
 function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) {
   const panelRef = useRef(null);
 
-  // 바디 스크롤 잠금 + 최초 포커스
   useEffect(() => {
     const origOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    
     setTimeout(() => {
       try {
         panelRef.current?.focus();
       } catch {}
     }, 0);
 
-    // ESC 금지
+    // ESC로 닫기
     const onKeyDown = (e) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && onClose) {
         e.preventDefault();
-        e.stopPropagation();
+        onClose();
       }
     };
     document.addEventListener("keydown", onKeyDown);
@@ -27,12 +27,13 @@ function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) 
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = origOverflow;
     };
-  }, []);
+  }, [onClose]);
 
-  // 배경 클릭 금지
+  // 배경 클릭으로 닫기
   const handleBackdropClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    if (e.target === e.currentTarget && onClose) {
+      onClose();
+    }
   };
 
   return (
@@ -61,11 +62,11 @@ function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) 
           padding: "20px",
           boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
           outline: "none",
-          position: "relative", // ✅ X버튼 위치 잡으려면 relative 필요
+          position: "relative",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 🔴 닫기 X 버튼 */}
+        {/* 닫기 X 버튼 */}
         {onClose && (
           <button
             onClick={onClose}
