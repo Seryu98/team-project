@@ -1,0 +1,47 @@
+.msg-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr 1.2fr;
+  height: 100vh;
+  background: #f6f4ea;
+}
+
+/* 사이드바 */
+.msg-sidebar {
+  background: #fff;
+  border-right: 1px solid #ddd;
+  padding: 20px;
+}
+.msg-title { font-size: 20px; font-weight: bold; margin-bottom: 20px; }
+.msg-menu { list-style: none; padding: 0; }
+.msg-menu-item { padding: 10px; cursor: pointer; border-radius: 6px; }
+.msg-menu-item.active { background: #e6ecff; font-weight: bold; }
+.msg-admin { color: red; font-weight: bold; margin-bottom: 10px; }
+
+/* 목록 */
+.msg-list { padding: 20px; border-right: 1px solid #ddd; }
+.msg-subtitle { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+.msg-item { padding: 10px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
+.msg-item.selected { background: #eef3ff; border-color: #99bbff; }
+.msg-name { font-weight: bold; }
+.msg-preview { font-size: 14px; color: #666; }
+
+/* 상세 */
+.msg-detail { padding: 20px; }
+.msg-detail-card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; background: #fff; }
+.msg-detail-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px; }
+.msg-detail-name { font-weight: bold; }
+.msg-detail-time { font-size: 12px; color: #777; }
+.msg-detail-content { width: 100%; height: 300px; resize: none; border: 1px solid #ddd; border-radius: 6px; padding: 10px; background: #f9f9f9; }
+
+/* 버튼 */
+.btn-report { background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+.btn-report:hover { background: #c0392b; }
+.btn-cancel { background: #ccc; padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; }
+.btn-submit { background: #e74c3c; color: white; padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; }
+
+/* 모달 */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
+.modal { background: #fff; padding: 20px; border-radius: 8px; width: 400px; }
+.modal-title { font-weight: bold; margin-bottom: 10px; }
+.modal-textarea { width: 100%; height: 120px; border: 1px solid #ddd; border-radius: 6px; padding: 8px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }

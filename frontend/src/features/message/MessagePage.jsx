@@ -1,24 +1,25 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import "./MessagePage.css";  // ✅ 커스텀 CSS 임포트
 
 export default function MessagesPage({ currentUser }) {
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("inbox"); // inbox | sent
+  const [activeTab, setActiveTab] = useState("inbox");
   const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportReason, setReportReason] = useState("");
 
-  // ✅ 쪽지 불러오기
+  const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  const token = localStorage.getItem("token");
+
+  const displayName = (msg) =>
+    activeTab === "inbox"
+      ? (msg.sender_nickname ?? msg.sender_name ?? msg.sender?.nickname ?? `#${msg.sender_id}`)
+      : (msg.receiver_nickname ?? msg.receiver_name ?? msg.receiver?.nickname ?? `#${msg.receiver_id}`);
+
   const fetchMessages = async () => {
-    if (!currentUser) return; // currentUser 없으면 실행 중단
-    setLoading(true);
+    if (!currentUser) return;
     try {
-      const token = localStorage.getItem("token");
-      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-
-      const userId = currentUser?.id;
-      if (!userId) return;
-
       const url =
         activeTab === "inbox"
           ? `${base}/messages/inbox`
@@ -27,94 +28,167 @@ export default function MessagesPage({ currentUser }) {
       const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      setMessages(res.data);
+      const data = Array.isArray(res.data) ? res.data : (res.data?.items ?? []);
+      setMessages(data);
     } catch (err) {
-      console.error("쪽지 조회 실패", err);
-    } finally {
-      setLoading(false);
+      console.error("쪽지 불러오기 실패", err);
+      setMessages([]);
     }
   };
 
-  // ✅ activeTab or currentUser 변경 시 다시 불러오기 + 10초마다 자동 갱신
-  useEffect(() => {
-    if (!currentUser) return;
-    fetchMessages();
+  const fetchMessageDetail = async (id) => {
+    try {
+      const res = await axios.get(`${base}/messages/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSelectedMessage(res.data);
 
-    const interval = setInterval(fetchMessages, 10000); // 10초마다 새로고침
-    return () => clearInterval(interval);
-  }, [currentUser, activeTab]);
+      await axios.patch(
+        `${base}/messages/${id}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (err) {
+      console.error("쪽지 상세 불러오기 실패", err);
+    }
+  };
+
+  const handleReportSubmit = async () => {
+    try {
+      if (!selectedMessage) return;
+      await axios.post(
+        `${base}/reports`,
+        {
+          reported_id: selectedMessage.sender_id,
+          reason: reportReason,
+          message_id: selectedMessage.id,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert("신고가 접수되었습니다.");
+      setShowReportForm(false);
+      setReportReason("");
+    } catch (err) {
+      console.error("신고 실패", err);
+      alert("신고에 실패했습니다.");
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "inbox" || activeTab === "sent") {
+      fetchMessages();
+      setSelectedMessage(null);
+    }
+  }, [activeTab]);
 
   if (!currentUser) {
-    return (
-      <div className="p-6 text-center">
-        <p>로그인 후 이용할 수 있습니다.</p>
-      </div>
-    );
+    return <div className="msg-guest">로그인 후 이용해주세요.</div>;
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">쪽지함</h1>
+    <div className="msg-layout">
+      {/* 좌측 사이드바 */}
+      <aside className="msg-sidebar">
+        <h2 className="msg-title">쪽지함</h2>
+        <ul className="msg-menu">
+          <li className="msg-admin">관리자 (공지사항)</li>
+          <li
+            className={`msg-menu-item ${activeTab === "compose" ? "active" : ""}`}
+            onClick={() => setActiveTab("compose")}
+          >
+            메시지 보내기
+          </li>
+          <li
+            className={`msg-menu-item ${activeTab === "inbox" ? "active" : ""}`}
+            onClick={() => setActiveTab("inbox")}
+          >
+            받은 메시지
+          </li>
+          <li
+            className={`msg-menu-item ${activeTab === "sent" ? "active" : ""}`}
+            onClick={() => setActiveTab("sent")}
+          >
+            보낸 메시지
+          </li>
+        </ul>
+      </aside>
 
-      {/* ✅ 받은함/보낸함 탭 */}
-      <div className="flex gap-4 mb-4">
-        <button
-          className={`px-4 py-2 rounded ${
-            activeTab === "inbox" ? "bg-blue-500 text-white" : "bg-gray-200"
-          }`}
-          onClick={() => setActiveTab("inbox")}
-        >
-          받은 쪽지
-        </button>
-        <button
-          className={`px-4 py-2 rounded ${
-            activeTab === "sent" ? "bg-blue-500 text-white" : "bg-gray-200"
-          }`}
-          onClick={() => setActiveTab("sent")}
-        >
-          보낸 쪽지
-        </button>
-      </div>
+      {/* 중앙 메시지 목록 */}
+      <section className="msg-list">
+        <h3 className="msg-subtitle">메시지 목록</h3>
+        {messages.length === 0 ? (
+          <div className="msg-empty">쪽지가 없습니다.</div>
+        ) : (
+          <ul className="msg-list-items">
+            {messages.map((msg) => (
+              <li
+                key={msg.id}
+                className={`msg-item ${selectedMessage?.id === msg.id ? "selected" : ""}`}
+                onClick={() => fetchMessageDetail(msg.id)}
+              >
+                <p className="msg-name">{displayName(msg)}</p>
+                <p className="msg-preview">{msg.content}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-      {/* ✅ 쪽지 작성 버튼 */}
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={() => navigate("/messages/compose")}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-        >
-          쪽지 보내기
-        </button>
-      </div>
-
-      {/* ✅ 메시지 목록 */}
-      {loading ? (
-        <p>불러오는 중...</p>
-      ) : messages.length === 0 ? (
-        <p className="text-gray-500">
-          {activeTab === "inbox" ? "받은 쪽지가 없습니다." : "보낸 쪽지가 없습니다."}
-        </p>
-      ) : (
-        <div className="border rounded-lg divide-y">
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`p-4 cursor-pointer ${
-                m.is_read ? "bg-white" : "bg-blue-50"
-              } hover:bg-gray-100`}
-              onClick={() => navigate(`/messages/${m.id}`)}
-            >
-              <div className="flex justify-between items-center">
-                <span className="font-bold">
-                  {activeTab === "inbox" ? m.sender_name : `To: ${m.receiver_name}`}
-                </span>
-                <span className="text-sm text-gray-500">
-                  {new Date(m.created_at).toLocaleString()}
-                </span>
+      {/* 우측 상세보기 */}
+      <section className="msg-detail">
+        {selectedMessage ? (
+          <div className="msg-detail-card">
+            <div className="msg-detail-header">
+              <div>
+                <p className="msg-detail-name">보낸 사람: {displayName(selectedMessage)}</p>
+                <p className="msg-detail-time">
+                  {new Date(selectedMessage.created_at).toLocaleString()}
+                </p>
               </div>
-              <div className="text-gray-700 truncate">{m.content}</div>
+              <button
+                className="btn-report"
+                onClick={() => setShowReportForm(true)}
+              >
+                신고
+              </button>
             </div>
-          ))}
+            <textarea
+              value={selectedMessage.content}
+              readOnly
+              className="msg-detail-content"
+            />
+          </div>
+        ) : (
+          <div className="msg-empty">쪽지를 선택하세요</div>
+        )}
+      </section>
+
+      {/* 신고 모달 */}
+      {showReportForm && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h3 className="modal-title">신고하기</h3>
+            <textarea
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              className="modal-textarea"
+              placeholder="신고 사유를 입력하세요"
+            />
+            <div className="modal-actions">
+              <button
+                onClick={() => setShowReportForm(false)}
+                className="btn-cancel"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleReportSubmit}
+                className="btn-submit"
+              >
+                제출
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -227,7 +227,7 @@ export default function Navbar({ currentUser, setCurrentUser }) {
                           background: m.is_read ? "#fff" : "#f0f7ff",
                           cursor: "pointer",
                         }}
-                        onClick={() => navigate(`/messages/${m.id}`)}
+                        onClick={() => navigate("/messages")}
                       >
                         <div style={{ fontWeight: "bold" }}>{m.sender_name}</div>
                         <div style={{ fontSize: "12px", color: "#555" }}>
