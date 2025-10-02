@@ -30,9 +30,6 @@ function Home() {
     </div>
   );
 }
-function Board() { return <div style={{ padding: 24 }}>유저게시판</div>; }
-function Ranking() { return <div style={{ padding: 24 }}>랭킹게시판</div>; }
-
 
 // 🔹 게시판 페이지들 (준비중)
 function Board() {
