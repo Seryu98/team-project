@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from passlib.context import CryptContext
+from typing import Optional
 import os
 import uuid   # 🚩 추가: 서버 재시작 시마다 UUID 변경
 
@@ -25,7 +26,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 # === 토큰 생성 ===
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({
@@ -36,7 +37,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     })
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
+def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
     expire = datetime.utcnow() + (expires_delta or timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS))
     to_encode = data.copy()
     to_encode.update({
@@ -48,7 +49,7 @@ def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # === 토큰 검증 ===
-def verify_token(token: str, expected_type: str | None = None):
+def verify_token(token: str, expected_type: Optional[str] = None):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         print("[verify_token] payload:", payload)  # ✅ 디버깅 로그

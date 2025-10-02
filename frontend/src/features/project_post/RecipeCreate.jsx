@@ -5,12 +5,6 @@ import FormInput from "./RecipeFormInput";
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-// uploadFile 함수 내부
-const res = await fetch(`${API_URL}/upload/`, {  // ✅ 수정
-  method: "POST",
-  body: formData,
-});
-
 export default function RecipeCreate() {
   // ✅ 타입은 버튼으로 설정: PROJECT / STUDY
   const [type, setType] = useState(""); // PROJECT or STUDY
