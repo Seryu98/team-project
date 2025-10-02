@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Outlet, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import RecipeCreate from "./features/project_post/RecipeCreate";
 import RecipeEdit from "./features/project_post/RecipeEdit";  // ✅ 추가
@@ -14,8 +14,13 @@ import ProfileCreate from "./features/profile/profileCreate_pages";
 // pages
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
-import FindAccount from "./features/auth/FindAccount";
 
+import FindAccount from "./features/auth/FindAccount";
+import AccountSettings from "./features/account/AccountSettings";
+import AccountLayout from "./features/account/AccountLayout"; // ✅ 추가
+
+
+// 홈
 function Home() {
   return (
     <div style={{ textAlign: "center", marginTop: 50 }}>
@@ -27,7 +32,19 @@ function Home() {
 function Board() { return <div style={{ padding: 24 }}>유저게시판</div>; }
 function Ranking() { return <div style={{ padding: 24 }}>랭킹게시판</div>; }
 
-// 레이아웃: Navbar 포함
+
+// 🔹 게시판 페이지들 (준비중)
+function Board() {
+  return <div style={{ padding: 24 }}>유저게시판 (준비중)</div>;
+}
+function Ranking() {
+  return <div style={{ padding: 24 }}>랭킹게시판 (준비중)</div>;
+}
+function Profile() {
+  return <div style={{ padding: 24 }}>내 프로필 (준비중)</div>;
+}
+
+// ✅ 레이아웃 1: Navbar 포함
 function MainLayout() {
   return (
     <>
@@ -37,6 +54,8 @@ function MainLayout() {
   );
 }
 
+
+// ✅ 레이아웃 2: Navbar 없음 (로그인/회원가입 전용)
 function AuthLayout() {
   return <Outlet />;
 }
@@ -105,6 +124,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/recipe/:postId/edit"   // ✅ 수정 페이지 라우트 추가
             element={
@@ -113,6 +133,22 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* ✅ 계정 관리 (중첩 라우트) */}
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <AccountLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="settings" replace />} />
+            <Route path="settings" element={<AccountSettings />} />
+            {/* 필요시 확장 */}
+            {/* <Route path="password" element={<PasswordChange />} /> */}
+            {/* <Route path="notifications" element={<NotificationSettings />} /> */}
+          </Route>
         </Route>
       </Routes>
 

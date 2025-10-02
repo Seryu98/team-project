@@ -40,7 +40,7 @@ export function clearTokens(redirect = "always") {
     redirectToLogin();
   } else if (redirect === "auto") {
     const currentPath = window.location.pathname;
-    const protectedPaths = ["/board", "/ranking", "/profile", "/recipe/create"];
+    const protectedPaths = ["/board", "/ranking", "/profile", "/recipe/create", "/account"];
     if (protectedPaths.some(path => currentPath.startsWith(path))) {
       redirectToLogin();
     }
@@ -218,6 +218,7 @@ export async function loginAndFetchUser(loginId, password) {
   return { tokens, user };
 }
 
+
 // ============================
 // 아이디 / 비밀번호 찾기
 // ============================
@@ -251,4 +252,19 @@ export async function resetPassword(reset_token, new_password) {
   });
   if (!res.ok) throw new Error("비밀번호 재설정 실패");
   return res.json(); // { msg: "성공" }
+}
+
+// --- 개인정보 수정 ---
+export async function updateAccount(data) {
+  return authFetch("/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+// --- 회원 탈퇴 ---
+export async function deleteAccount() {
+  return authFetch("/auth/delete-account", {
+    method: "DELETE",
+  });
 }

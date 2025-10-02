@@ -1,0 +1,63 @@
+/* 전체 레이아웃 */
+.account-layout {
+  display: flex;
+  min-height: 80vh; /* 화면 대부분 차지 */
+  background: #f9fafb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 사이드바 */
+.account-sidebar {
+  width: 220px;
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
+  padding: 20px;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
+}
+
+.account-sidebar h3 {
+  margin-bottom: 16px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #111827;
+}
+
+/* 사이드바 메뉴 */
+.account-sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.account-sidebar li {
+  margin-bottom: 12px;
+}
+
+.account-sidebar a {
+  text-decoration: none;
+  color: #374151;
+  font-size: 14px;
+  padding: 8px 10px;
+  display: block;
+  border-radius: 6px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.account-sidebar a:hover {
+  background: #f3f4f6;
+  color: #2563eb;
+}
+
+.account-sidebar a.active {
+  background: #2563eb;
+  color: white;
+  font-weight: bold;
+}
+
+/* 메인 콘텐츠 */
+.account-content {
+  flex: 1;
+  padding: 24px;
+  background: #fff;
+}
