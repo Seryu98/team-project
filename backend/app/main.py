@@ -6,6 +6,7 @@ from app.users.user_router import router as user_router
 from app.test import db_test
 from app.notify import notifications_router
 from app.message import message_route
+from app.reports import report_router
 
 import logging
 import os
@@ -58,6 +59,7 @@ app.include_router(application_router.router)
 app.include_router(auth_router.router)
 app.include_router(db_test.router)
 app.include_router(message_route.router)
+app.include_router(report_router.router)
 
 @app.get("/")
 def root():

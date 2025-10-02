@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from fastapi import HTTPException
 from datetime import datetime
 
@@ -18,6 +18,9 @@ def send_message(db: Session, sender_id: int, receiver_nickname: str, content: s
     sender = db.query(User).filter(User.id == sender_id).first()
     if not sender:
         raise HTTPException(status_code=404, detail="발신자를 찾을 수 없습니다.")
+    
+    if sender_id == receiver.id:
+        raise HTTPException(status_code=400, detail="자기 자신에게는 쪽지를 보낼 수 없습니다.")
 
     # 쪽지 생성
     new_msg = Message(
@@ -63,10 +66,13 @@ def get_sent(db: Session, user_id: int):
 
 
 def get_message_detail(db: Session, msg_id: int, current_user_id: int):
-    msg = db.query(Message).filter(
-        Message.id == msg_id,
-        Message.deleted_at == None
-    ).first()
+
+    msg = (
+        db.query(Message)
+        .options(selectinload(Message.sender), selectinload(Message.receiver))
+        .filter(Message.id == msg_id, Message.deleted_at == None)
+        .first()
+    )
 
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found")
@@ -74,8 +80,17 @@ def get_message_detail(db: Session, msg_id: int, current_user_id: int):
     if msg.sender_id != current_user_id and msg.receiver_id != current_user_id:
         raise HTTPException(status_code=403, detail="권한이 없습니다.")
 
-    return _to_message_response(msg, db)
+    #메시지 상세 조회 시 알림도 읽음 처리
+    notif = (
+        db.query(Notification)
+        .filter(Notification.related_id == msg.id, Notification.user_id == current_user_id)
+        .first()
+    )
+    if notif and not notif.is_read:
+        notif.is_read = True
+        db.commit()
 
+    return _to_message_response(msg, db)
 
 def mark_as_read(db: Session, msg_id: int, current_user_id: int):
     msg = db.query(Message).filter(
@@ -91,6 +106,14 @@ def mark_as_read(db: Session, msg_id: int, current_user_id: int):
 
     if not msg.is_read:
         msg.is_read = True
+        notif = (
+            db.query(Notification)
+            .filter(Notification.related_id == msg.id, Notification.user_id == current_user_id)
+            .first()
+        )
+        if notif:
+            notif.is_read = True
+
         db.commit()
         db.refresh(msg)
 

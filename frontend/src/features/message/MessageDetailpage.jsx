@@ -1,20 +1,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
-import { createReport } from "../reports/reportService"; // ✅ 실제 경로 수정
+import { createReport } from "../reports/ReportService"; // ✅ ReportService 사용
 
 export default function MessageDetailPage({ currentUser }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [reportReason, setReportReason] = useState(""); // ✅ 신고 사유 입력 state
 
   const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
   const token = localStorage.getItem("token");
 
   // ✅ 쪽지 불러오기 + 읽음 처리
   const fetchMessage = async () => {
-    if (!id || !currentUser) return; // currentUser 없으면 실행 중단
+    if (!id || !currentUser) return;
     setLoading(true);
     try {
       const res = await axios.get(`${base}/messages/${id}`, {
@@ -53,20 +54,24 @@ export default function MessageDetailPage({ currentUser }) {
 
   // ✅ 신고하기
   const handleReport = async () => {
-    if (!message || !currentUser) return;
-    const reason = prompt("신고 사유를 입력하세요:");
-    if (!reason) return;
-
     try {
-      await createReport({
-        reported_user_id: message.sender_id,
-        target_type: "USER",
-        target_id: message.sender_id,
-        reason,
-      });
+      if (!reportReason.trim()) {
+        alert("신고 사유를 입력해주세요.");
+        return;
+      }
+
+      const payload = {
+        target_type: "USER",                // 신고 타입
+        target_id: message?.id,             // 메시지 ID
+        reported_user_id: message?.sender_id, // 신고 대상 유저 ID
+        reason: reportReason,               // 입력한 사유
+      };
+
+      console.log("🚨 신고 요청 payload:", payload);
+      await createReport(payload);
       alert("신고가 접수되었습니다.");
-    } catch (err) {
-      console.error("신고 실패", err);
+    } catch (error) {
+      console.error("신고 실패", error);
       alert("신고에 실패했습니다.");
     }
   };
@@ -106,6 +111,16 @@ export default function MessageDetailPage({ currentUser }) {
 
       <div className="p-4 border rounded bg-gray-50 mb-6">
         {message.content}
+      </div>
+
+      {/* ✅ 신고 사유 입력 */}
+      <div className="mb-4">
+        <textarea
+          className="w-full border rounded p-2"
+          placeholder="신고 사유를 입력하세요"
+          value={reportReason}
+          onChange={(e) => setReportReason(e.target.value)}
+        />
       </div>
 
       <div className="flex justify-between gap-2">

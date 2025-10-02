@@ -14,6 +14,9 @@ class NotificationType(str, PyEnum):
     BAN = "BAN"                            # 정지 알림
     UNBAN = "UNBAN"                        # 정지 해제 알림
     MESSAGE = "MESSAGE"
+    REPORT_RECEIVED = "REPORT_RECEIVED"              # 신고 접수됨
+    REPORT_RESOLVED = "REPORT_RESOLVED"              # 신고 처리됨(승인)
+    REPORT_REJECTED = "REPORT_REJECTED"
 
 # SQLAlchemy 모델: notifications 테이블과 매핑
 class Notification(Base):

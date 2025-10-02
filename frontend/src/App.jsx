@@ -11,6 +11,8 @@ import NotificationsPage from "./features/notify/NotificationsPage";
 import ApplicationsPage from "./features/apply/ApplicationsPage";
 import ApplicationForm from "./features/apply/ApplicationForm";
 import ApplicationList from "./features/apply/ApplicationList";
+import ReportPage from "./features/reports/ReportPage";
+import ReportAdminPage from "./features/reports/ReportAdminPage";
 
 // ✅ 쪽지 관련 페이지 import
 import MessagePage from "./features/message/MessagePage";
@@ -180,6 +182,10 @@ export default function App() {
           <Route path="/messages" element={<MessagePage currentUser={currentUser} />} />
           <Route path="/messages/:id" element={<MessageDetailPage currentUser={currentUser} />} />
           <Route path="/messages/compose" element={<MessageComposePage currentUser={currentUser} />} />
+
+          {/* ✅ 신고 기능 라우트 */}
+          <Route path="/reports" element={<ReportPage currentUser={currentUser} />} />
+          <Route path="/admin/reports" element={<ReportAdminPage currentUser={currentUser} />} />
         </Route>
       </Routes>
     </Router>

@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.auth.auth_service import get_current_user
 from app.users.user_model import User
 from app.message.message_model import Message  
-from app.notify.notification_model import Notification
+from app.notify.notification_model import Notification, NotificationType
 
 from . import message_service
 from .message_schema import MessageCreate, MessageResponse
@@ -26,6 +26,9 @@ def send_message(
     
     sender = db.query(User).filter(User.id == current_user.id).first()
 
+    if sender.id == receiver.id:
+        raise HTTPException(status_code=400, detail="자기 자신에게는 쪽지를 보낼 수 없습니다.")    
+
     new_msg = Message(
         sender_id=sender.id,
         receiver_id=receiver.id,
@@ -37,7 +40,7 @@ def send_message(
 
     notif = Notification(
         user_id=receiver.id,
-        notification_type="MESSAGE", 
+        notification_type=NotificationType.MESSAGE, 
         message=f"{sender.nickname} 님이 쪽지를 보냈습니다.",
         related_id=new_msg.id,
         is_read=False,
@@ -46,15 +49,7 @@ def send_message(
     db.add(notif)
     db.commit()
 
-    return {
-        "id": new_msg.id,
-        "sender_nickname": sender.nickname,
-        "receiver_nickname": receiver.nickname,
-        "content": new_msg.content,
-        "is_read": new_msg.is_read,
-        "created_at": new_msg.created_at,
-        "sender_name": sender.nickname,
-    }
+    return message_service._to_message_response(new_msg, db)
 
 
 @router.get("/inbox", response_model=list[MessageResponse])
@@ -74,7 +69,7 @@ def get_message_detail(msg_id: int, db: Session = Depends(get_db), current_user:
 
 @router.patch("/{msg_id}/read", response_model=MessageResponse)
 def mark_as_read(msg_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    msg = message_service.mark_as_read(db, msg_id, current_user.id)  # ✅ 수정
+    msg = message_service.mark_as_read(db, msg_id, current_user.id)
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found")
     return msg
