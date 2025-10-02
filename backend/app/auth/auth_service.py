@@ -1,6 +1,6 @@
-# app/auth/auth_service.py
 from datetime import datetime, timedelta
 import logging
+from typing import Optional
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -12,14 +12,18 @@ from app.core.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
+    create_reset_token,   # ✅ 추가
     verify_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
 
-# 로그인 실패/잠금 정책
+# ===============================
+# 정책 상수
+# ===============================
 MAX_LOGIN_FAILS = 5
 LOCK_TIME_MINUTES = 15
+RESET_TOKEN_EXPIRE_MINUTES = 30  # 비밀번호 재설정 토큰 만료시간
 
 logger = logging.getLogger(__name__)
 
@@ -46,17 +50,7 @@ def register_user(db: Session, user: UserRegister) -> User:
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
-    # ✅ uploads 경로로 통일
-    new_profile = Profile(
-        id=new_user.id,
-        profile_image="/uploads/profile_images/default_profile.png"
-    )
-    db.add(new_profile)
-    db.commit()
-    db.refresh(new_profile)
-    
-    logger.info("회원가입 성공 id=%s email=%s", new_user.id, new_user.email)
+    logger.info("회원가입 성공: id=%s email=%s", new_user.id, new_user.email)
     return new_user
 
 
@@ -85,7 +79,7 @@ def _on_login_fail(u: User) -> None:
     if u.login_fail_count >= MAX_LOGIN_FAILS:
         u.account_locked = True
         u.banned_until = datetime.utcnow() + timedelta(minutes=LOCK_TIME_MINUTES)
-        logger.warning("계정 잠금 user_id=%s until=%s", u.user_id, u.banned_until)
+        logger.warning("계정 잠금: user_id=%s until=%s", u.user_id, u.banned_until)
 
 
 def _on_login_success(u: User) -> None:
@@ -98,7 +92,7 @@ def _on_login_success(u: User) -> None:
 # ===============================
 # 사용자 인증
 # ===============================
-def authenticate_user(db: Session, user_id: str, password: str):
+def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User]:
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         return None
@@ -110,13 +104,13 @@ def authenticate_user(db: Session, user_id: str, password: str):
 # ===============================
 # 로그인 처리 (Access + Refresh 발급)
 # ===============================
-def login_user(db: Session, form_data: OAuth2PasswordRequestForm):
-    login_id = form_data.username  # username = user_id
+def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
+    login_id = form_data.username
 
     user = db.query(User).filter(User.user_id == login_id).first()
     if user and _is_locked(user):
         db.commit()
-        logger.warning("잠금 상태 로그인 시도 user_id=%s", login_id)
+        logger.warning("잠금 상태 로그인 시도: user_id=%s", login_id)
         return None
 
     db_user = authenticate_user(db, login_id, form_data.password)
@@ -124,7 +118,7 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm):
         if user:
             _on_login_fail(user)
             db.commit()
-        logger.info("로그인 실패 user_id=%s", login_id)
+        logger.info("로그인 실패: user_id=%s", login_id)
         return None
 
     _on_login_success(db_user)
@@ -137,20 +131,20 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm):
     )
     refresh_token = create_refresh_token(data={"sub": str(db_user.id)})
 
-    logger.info("로그인 성공 user_id=%s id=%s", db_user.user_id, db_user.id)
+    logger.info("로그인 성공: user_id=%s id=%s", db_user.user_id, db_user.id)
 
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # 초 단위
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
 
 
 # ===============================
 # Refresh Token → 새 Access Token 발급
 # ===============================
-def refresh_access_token(refresh_token: str):
+def refresh_access_token(refresh_token: str) -> Optional[dict]:
     payload = verify_token(refresh_token, expected_type="refresh")
     if not payload:
         logger.warning("잘못된 리프레시 토큰 사용")
@@ -173,3 +167,44 @@ def refresh_access_token(refresh_token: str):
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
+
+
+# ===============================
+# 비밀번호 재설정 토큰 발급
+# ===============================
+def generate_reset_token(db: Session, email: str) -> Optional[str]:
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        logger.warning("비밀번호 재설정 실패: 존재하지 않는 이메일 %s", email)
+        return None
+    if not user.password_hash:  # 소셜 계정은 password_hash 없음
+        logger.warning("비밀번호 재설정 실패: 소셜 계정 %s", email)
+        return None
+
+    reset_token = create_reset_token(data={"sub": str(user.id)})
+    logger.info("비밀번호 재설정 토큰 발급: user_id=%s", user.user_id)
+    return reset_token
+
+
+# ===============================
+# 비밀번호 재설정 실행
+# ===============================
+def reset_password(db: Session, reset_token: str, new_password: str) -> bool:
+    payload = verify_token(reset_token, expected_type="reset")
+    if not payload:
+        logger.warning("비밀번호 재설정 실패: 잘못된 토큰")
+        return False
+
+    user_id = payload.get("sub")
+    if not user_id:
+        return False
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user or not user.password_hash:
+        return False
+
+    user.password_hash = hash_password(new_password)
+    db.commit()
+    db.refresh(user)
+    logger.info("비밀번호 재설정 성공: user_id=%s", user.user_id)
+    return True
