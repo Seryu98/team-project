@@ -6,7 +6,7 @@ import ProjectPostList from "./features/project_post/ProjectPostList";
 import ProjectPostDetail from "./features/project_post/ProjectPostDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SessionExpiredModal from "./components/SessionExpiredModal";
-import { clearTokens } from "./features/auth/api"; // ✅ 세션 만료 대응
+import { clearTokens } from "./features/auth/api";
 
 // pages
 import Register from "./features/auth/Register";
@@ -51,16 +51,15 @@ export default function App() {
   const [showSessionModal, setShowSessionModal] = useState(false);
 
   useEffect(() => {
-  if (localStorage.getItem("session_expired") === "true") {
-    localStorage.removeItem("session_expired");
-    clearTokens("auto");  // ✅ 보호 경로만 강제 로그인 이동
-  }
+    if (localStorage.getItem("session_expired") === "true") {
+      localStorage.removeItem("session_expired");
+      clearTokens("auto"); // ✅ 보호 경로만 강제 로그인 이동
+    }
 
-  const handleExpire = () => setShowSessionModal(true);
-  window.addEventListener("sessionExpired", handleExpire);
-  return () => window.removeEventListener("sessionExpired", handleExpire);
-}, []);
-
+    const handleExpire = () => setShowSessionModal(true);
+    window.addEventListener("sessionExpired", handleExpire);
+    return () => window.removeEventListener("sessionExpired", handleExpire);
+  }, []);
 
   return (
     <Router>
@@ -78,24 +77,10 @@ export default function App() {
           {/* 🔹 조회는 누구나 가능 */}
           <Route path="/posts" element={<ProjectPostList />} />
           <Route path="/recipe/:postId" element={<ProjectPostDetail />} />
+          <Route path="/board" element={<Board />} />
+          <Route path="/ranking" element={<Ranking />} />
 
           {/* 🔹 로그인 필요 */}
-          <Route
-            path="/board"
-            element={
-              <ProtectedRoute>
-                <Board />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/ranking"
-            element={
-              <ProtectedRoute>
-                <Ranking />
-              </ProtectedRoute>
-            }
-          />
           <Route
             path="/profile"
             element={
