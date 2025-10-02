@@ -11,10 +11,7 @@ import { clearTokens } from "./features/auth/api";
 // pages
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
-
-// 프로필 관련 페이지
-import ProfilePage from "./features/profile/profile_pages";
-import ProfileCreate from "./features/profile/profileCreate_pages";
+import FindAccount from "./features/auth/FindAccount"; // ✅ 추가
 
 function Home() {
   return (
@@ -45,10 +42,9 @@ export default function App() {
   const [showSessionModal, setShowSessionModal] = useState(false);
 
   useEffect(() => {
-    // 새로고침 시 세션 만료 플래그 확인
     if (localStorage.getItem("session_expired") === "true") {
       localStorage.removeItem("session_expired");
-      clearTokens(true);
+      clearTokens("auto"); // ✅ 보호 경로만 강제 로그인 이동
     }
 
     const handleExpire = () => setShowSessionModal(true);
@@ -63,21 +59,36 @@ export default function App() {
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/find-account" element={<FindAccount />} /> {/* ✅ 추가 */}
         </Route>
 
         {/* Navbar 있는 그룹 */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/posts" element={<ProtectedRoute><ProjectPostList /></ProtectedRoute>} />
-          <Route path="/recipe/create" element={<ProtectedRoute><RecipeCreate /></ProtectedRoute>} />
-          <Route path="/recipe/:postId" element={<ProtectedRoute><ProjectPostDetail /></ProtectedRoute>} />
-          <Route path="/board" element={<ProtectedRoute><Board /></ProtectedRoute>} />
-          <Route path="/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
 
-          {/* 프로필 라우트 */}
-          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          <Route path="/profile/:userId" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          <Route path="/profile/create" element={<ProtectedRoute><ProfileCreate /></ProtectedRoute>} />
+          {/* 🔹 조회는 누구나 가능 */}
+          <Route path="/posts" element={<ProjectPostList />} />
+          <Route path="/recipe/:postId" element={<ProjectPostDetail />} />
+          <Route path="/board" element={<Board />} />
+          <Route path="/ranking" element={<Ranking />} />
+
+          {/* 🔹 로그인 필요 */}
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recipe/create"
+            element={
+              <ProtectedRoute>
+                <RecipeCreate />
+              </ProtectedRoute>
+            }
+          />
         </Route>
       </Routes>
 

@@ -2,7 +2,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FaBell, FaEnvelope } from "react-icons/fa";
 import { getCurrentUser, clearTokens } from "../features/auth/api";
-import axios from "axios";
+import "./Navbar.css"; // ✅ CSS 분리
+import logoImg from "../shared/assets/logo/logo.png";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -18,7 +19,6 @@ export default function Navbar() {
     async function fetchUser() {
       const token = localStorage.getItem("access_token");
       if (!token) return;
-
       try {
         const user = await getCurrentUser();
         setCurrentUser(user);
@@ -32,7 +32,6 @@ export default function Navbar() {
         );
         setProfileImage(profileRes.data.profile_image);
       } catch {
-        console.warn("⚠ 로그인 사용자 없음 또는 토큰 만료");
         clearTokens();
         setCurrentUser(null);
         setProfileImage(null);
@@ -50,86 +49,37 @@ export default function Navbar() {
     navigate("/login");
   };
 
-  // 아이콘 버튼
   const IconButton = ({ icon, count, onClick, label }) => (
-    <div style={{ position: "relative" }}>
-      <button
-        style={{
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          fontSize: "20px",
-          position: "relative",
-        }}
-        onClick={onClick}
-        aria-label={label}
-      >
+    <div className="icon-button">
+      <button onClick={onClick} aria-label={label}>
         {icon}
       </button>
-      {count > 0 && (
-        <span
-          style={{
-            position: "absolute",
-            top: "-5px",
-            right: "-5px",
-            background: "red",
-            color: "white",
-            borderRadius: "50%",
-            padding: "2px 6px",
-            fontSize: "12px",
-            fontWeight: "bold",
-          }}
-        >
-          {count}
-        </span>
-      )}
+      {count > 0 && <span className="icon-badge">{count}</span>}
     </div>
   );
 
   return (
-    <nav
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "10px 20px",
-        borderBottom: "1px solid #ddd",
-        backgroundColor: "#fff",
-        position: "sticky",
-        top: 0,
-        zIndex: 1000,
-      }}
-    >
+    <nav className="navbar">
       {/* 좌측 로고 */}
-      <div
-        style={{ fontWeight: "bold", cursor: "pointer" }}
-        onClick={() => navigate("/")}
-      >
-        로고(누르면 메인)
+      <div className="navbar-logo" onClick={() => navigate("/")}>
+        <img src={logoImg} alt="메인으로 이동" className="logo-img" />
       </div>
 
       {/* 중앙 메뉴 */}
-      <div
-        style={{
-          display: "flex",
-          gap: "30px",
-          justifyContent: "center",
-          flex: 1,
-        }}
-      >
-        <Link to="/posts" style={linkStyle}>
+      <div className="navbar-links">
+        <Link to="/posts" className="nav-link">
           프로젝트/스터디 게시판
         </Link>
-        <Link to="/board" style={linkStyle}>
+        <Link to="/board" className="nav-link">
           유저게시판
         </Link>
-        <Link to="/ranking" style={linkStyle}>
+        <Link to="/ranking" className="nav-link">
           랭킹게시판
         </Link>
       </div>
 
       {/* 우측 */}
-      <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+      <div className="navbar-right">
         {currentUser ? (
           <>
             <IconButton
@@ -144,33 +94,21 @@ export default function Navbar() {
               onClick={() => alert("메시지 페이지 연결 예정")}
               label="메시지"
             />
-            <div style={{ position: "relative" }}>
-              <img
-                src={
-                  profileImage && typeof profileImage === 'string'
-                    ? (profileImage.startsWith('/static') || profileImage.startsWith('/'))
-                      ? `http://localhost:8000${profileImage}`
-                      : profileImage
-                    : "/assets/profile/Provisionalprofile.png"
-                }
-                alt="프로필"
-                style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                  cursor: "pointer",
-                  border: "1px solid #ddd",
-                }}
+            <div className="profile-wrapper">
+              <div
+                className="profile-avatar"
                 title={currentUser?.nickname}
                 onClick={() => setMenuOpen(!menuOpen)}
               />
               {menuOpen && (
-                <div style={dropdownStyle}>
-                  <button style={menuButtonStyle} onClick={() => navigate("/profile")}>
+                <div className="dropdown-menu">
+                  <button
+                    className="dropdown-item"
+                    onClick={() => navigate("/profile")}
+                  >
                     내 프로필
                   </button>
-                  <button style={menuButtonStyle} onClick={handleLogout}>
+                  <button className="dropdown-item" onClick={handleLogout}>
                     로그아웃
                   </button>
                 </div>
@@ -178,36 +116,11 @@ export default function Navbar() {
             </div>
           </>
         ) : (
-          <button onClick={() => navigate("/login")}>로그인</button>
+          <button className="login-button" onClick={() => navigate("/login")}>
+            로그인
+          </button>
         )}
       </div>
     </nav>
   );
 }
-
-const linkStyle = {
-  textDecoration: "none",
-  color: "black",
-  padding: "8px 12px",
-  borderRadius: "6px",
-  transition: "0.2s",
-};
-const dropdownStyle = {
-  position: "absolute",
-  top: "40px",
-  right: 0,
-  background: "#fff",
-  border: "1px solid #ddd",
-  borderRadius: "6px",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-  zIndex: 2000,
-  minWidth: "120px",
-};
-const menuButtonStyle = {
-  width: "100%",
-  padding: "8px 12px",
-  border: "none",
-  background: "none",
-  textAlign: "left",
-  cursor: "pointer",
-};
