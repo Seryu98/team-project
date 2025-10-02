@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Outlet, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
@@ -15,9 +16,9 @@ import ProfileCreate from "./features/profile/profileCreate_pages";
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
 
-import FindAccount from "./features/auth/FindAccount";
+import FindAccount from "./features/auth/FindAccount"; // ✅ 아이디/비밀번호 찾기
 import AccountSettings from "./features/account/AccountSettings";
-import AccountLayout from "./features/account/AccountLayout"; // ✅ 추가
+import AccountLayout from "./features/account/AccountLayout";
 
 
 // 홈
@@ -55,7 +56,7 @@ function MainLayout() {
 }
 
 
-// ✅ 레이아웃 2: Navbar 없음 (로그인/회원가입 전용)
+// ✅ 레이아웃 2: Navbar 없음 (로그인/회원가입/아이디찾기 전용)
 function AuthLayout() {
   return <Outlet />;
 }
@@ -77,14 +78,17 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* Navbar 없는 그룹 */}
+        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기) */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+
           <Route path="/find-account" element={<FindAccount />} />
+          <Route path="/find-account" element={<FindAccount />} /> {/* ✅ 아이디/비번 찾기 */}
+
         </Route>
 
-        {/* Navbar 있는 그룹 */}
+        {/* ✅ Navbar 있는 그룹 */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
 
@@ -143,9 +147,10 @@ export default function App() {
               </ProtectedRoute>
             }
           >
+            {/* 기본 접속 시 /account/settings로 리다이렉트 */}
             <Route index element={<Navigate to="settings" replace />} />
             <Route path="settings" element={<AccountSettings />} />
-            {/* 필요시 확장 */}
+            {/* 필요 시 확장 */}
             {/* <Route path="password" element={<PasswordChange />} /> */}
             {/* <Route path="notifications" element={<NotificationSettings />} /> */}
           </Route>

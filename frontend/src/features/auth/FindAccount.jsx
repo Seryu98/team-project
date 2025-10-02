@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { findUserId, requestPasswordReset, resetPassword } from "./api";
+import "./Login.css"; // 로그인 스타일 재사용
 
 export default function FindAccount() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function FindAccount() {
     try {
       const res = await requestPasswordReset(email);
       setResetToken(res.reset_token); // 🚩 테스트 단계에서는 화면에 표시
-      setResult("✅ 비밀번호 재설정 토큰 발급됨 (테스트용 콘솔 확인)");
+      setResult("✅ 비밀번호 재설정 토큰 발급됨 (콘솔 확인)");
       console.log("reset_token:", res.reset_token);
       setMode("reset");
     } catch {
@@ -42,97 +43,80 @@ export default function FindAccount() {
     try {
       await resetPassword(resetToken, newPassword);
       setResult("✅ 비밀번호 재설정 완료! 다시 로그인하세요.");
-      // 2초 후 로그인 페이지로 이동
       setTimeout(() => navigate("/login"), 2000);
     } catch {
       setResult("❌ 비밀번호 재설정 실패");
     }
   };
 
-  const inputStyle = {
-    display: "block",
-    width: "100%",
-    padding: "10px 12px",
-    margin: "6px 0",
-    borderRadius: "8px",
-    border: "1px solid #ddd",
-    fontSize: "14px",
-  };
-
-  const buttonStyle = {
-    marginTop: "10px",
-    padding: "10px 12px",
-    borderRadius: "8px",
-    border: "none",
-    background: "#2563eb",
-    color: "#fff",
-    fontSize: "14px",
-    cursor: "pointer",
-    width: "100%",
-  };
-
   return (
-    <div style={{ maxWidth: 400, margin: "50px auto", textAlign: "center" }}>
-      <h2>아이디 / 비밀번호 찾기</h2>
-      <div style={{ marginBottom: 20 }}>
-        <button onClick={() => setMode("id")}>아이디 찾기</button>
-        <button onClick={() => setMode("reset-request")}>비밀번호 재설정</button>
+    <div className="login-container">
+      <div className="login-box">
+        <h2 className="login-title">아이디 / 비밀번호 찾기</h2>
+
+        <div className="login-links">
+          <a onClick={() => setMode("id")}>아이디 찾기</a> |{" "}
+          <a onClick={() => setMode("reset-request")}>비밀번호 재설정</a>
+        </div>
+
+        {mode === "id" && (
+          <div className="login-form">
+            <input
+              type="text"
+              placeholder="이름"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+            <input
+              type="text"
+              placeholder="전화번호"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+            />
+            <button className="login-button" onClick={handleFindId}>
+              아이디 찾기
+            </button>
+          </div>
+        )}
+
+        {mode === "reset-request" && (
+          <div className="login-form">
+            <input
+              type="email"
+              placeholder="가입한 이메일"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <button className="login-button" onClick={handleRequestReset}>
+              비밀번호 재설정 요청
+            </button>
+          </div>
+        )}
+
+        {mode === "reset" && (
+          <div className="login-form">
+            <p className="login-message">
+              (테스트용) 발급된 토큰: <br />
+              <code>{resetToken}</code>
+            </p>
+            <input
+              type="password"
+              placeholder="새 비밀번호"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+            <button className="login-button" onClick={handleResetPassword}>
+              비밀번호 재설정
+            </button>
+          </div>
+        )}
+
+        {result && <p className="login-message">{result}</p>}
       </div>
-
-      {mode === "id" && (
-        <div>
-          <input
-            style={inputStyle}
-            placeholder="이름"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            style={inputStyle}
-            placeholder="전화번호"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-          <button style={buttonStyle} onClick={handleFindId}>
-            아이디 찾기
-          </button>
-        </div>
-      )}
-
-      {mode === "reset-request" && (
-        <div>
-          <input
-            style={inputStyle}
-            placeholder="가입한 이메일"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <button style={buttonStyle} onClick={handleRequestReset}>
-            비밀번호 재설정 요청
-          </button>
-        </div>
-      )}
-
-      {mode === "reset" && (
-        <div>
-          <p style={{ fontSize: "12px", color: "#555" }}>
-            (테스트용) 발급된 토큰: <br />
-            <code>{resetToken}</code>
-          </p>
-          <input
-            style={inputStyle}
-            type="password"
-            placeholder="새 비밀번호"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-          <button style={buttonStyle} onClick={handleResetPassword}>
-            비밀번호 재설정
-          </button>
-        </div>
-      )}
-
-      {result && <p style={{ marginTop: 20 }}>{result}</p>}
     </div>
   );
 }
