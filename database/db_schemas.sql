@@ -71,22 +71,6 @@ CREATE TABLE `skills` (
   CONSTRAINT `uq_skills_name` UNIQUE (`name`)
 );
 
--- SKILLS Seed Data
-INSERT INTO `skills` (name) VALUES
-('C'), ('C++'), ('Rust'), ('Go'), ('Zig'),
-('Java'), ('C#'), ('Kotlin'), ('Swift'), ('ObjectiveC'),
-('Dart'), ('Scala'), ('Python'), ('Ruby'), ('Perl'),
-('PHP'), ('Lua'), ('R'), ('JavaScript'), ('TypeScript'),
-('HTML'), ('CSS'), ('SASS'), ('LESS'),
-('NodeJS'), ('ExpressJS'), ('Spring'), ('Django'), ('Flask'), ('Laravel'),
-('SQL'), ('MySQL'), ('PostgreSQL'), ('Oracle'), ('MSSQLServer'), ('SQLite'),
-('MongoDB'), ('Redis'), ('MATLAB'), ('Julia'), ('SPSS'),
-('Haskell'), ('F#'), ('Elixir'), ('Erlang'), ('OCaml'),
-('Lisp'), ('Clojure'), ('Scheme'),
-('Flutter'), ('React_Native'),
-('Bash'), ('PowerShell'), ('Groovy'),
-('JSON'), ('Markdown');
-
 -- USER_SKILLS
 CREATE TABLE `user_skills` (
   `user_id` BIGINT NOT NULL COMMENT '유저 ID',
@@ -98,7 +82,7 @@ CREATE TABLE `user_skills` (
   CONSTRAINT `chk_level_range` CHECK (`level` >= 1.0 AND `level` <= 5.0)
 );
 
--- POSTS
+-- POSTS  ✅ 변경 반영
 CREATE TABLE `posts` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '게시글 ID',
   `leader_id` BIGINT NOT NULL COMMENT '리더 ID',
@@ -112,6 +96,10 @@ CREATE TABLE `posts` (
   `start_date` DATE NULL COMMENT '모집 시작일',
   `end_date` DATE NULL COMMENT '모집 종료일',
   `status` ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING' COMMENT '승인 상태',
+  `recruit_status` ENUM('OPEN','CLOSED') DEFAULT 'OPEN' COMMENT '모집 상태',
+  `project_status` ENUM('ONGOING','ENDED') NOT NULL DEFAULT 'ONGOING' COMMENT '프로젝트 진행 상태',
+  `project_start` DATE NULL COMMENT '프로젝트 시작일',
+  `project_end` DATE NULL COMMENT '프로젝트 종료일',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성일',
   `deleted_at` DATETIME NULL COMMENT '삭제 시각',
   PRIMARY KEY (`id`),
@@ -160,13 +148,6 @@ CREATE TABLE `application_fields` (
   PRIMARY KEY (`id`)
 );
 
--- APPLICATION_FIELDS Seed Data
-INSERT INTO `application_fields` (name) VALUES
-('이메일'), ('지원사유'), ('성별'), ('나이'),
-('자기소개'), ('경험/경력설명'),
-('직장인/취준생여부'), ('다룰 수 있는 언어/프로그램'),
-('투자가능한 시간(1주당)'), ('궁금한 점'), ('자유기재');
-
 -- APPLICATION_ANSWERS
 CREATE TABLE `application_answers` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '답변 ID',
@@ -175,9 +156,9 @@ CREATE TABLE `application_answers` (
   `answer_text` TEXT NOT NULL COMMENT '답변',
   `deleted_at` DATETIME NULL COMMENT '삭제 시각',
   PRIMARY KEY (`id`),
+  UNIQUE (`application_id`, `field_id`),
   CONSTRAINT `FK_application_answers_application` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`),
-  CONSTRAINT `FK_application_answers_field` FOREIGN KEY (`field_id`) REFERENCES `application_fields` (`id`),
-  UNIQUE (`application_id`, `field_id`)
+  CONSTRAINT `FK_application_answers_field` FOREIGN KEY (`field_id`) REFERENCES `application_fields` (`id`)
 );
 
 -- POST_REQUIRED_FIELDS
@@ -251,7 +232,7 @@ CREATE TABLE `board_posts` (
   `content` TEXT NOT NULL COMMENT '내용',
   `attachment_url` VARCHAR(255) NULL COMMENT '첨부파일 경로 (파일첨부 기능용)',
   `view_count` INT NOT NULL DEFAULT 0 COMMENT '조회수 (랭킹 기능용)',
-  `like_count` INT NOT NULL DEFAULT 0 COMMENT '추천수 (랭king 기능용)',
+  `like_count` INT NOT NULL DEFAULT 0 COMMENT '추천수 (랭킹 기능용)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '작성일',
   `updated_at` DATETIME NULL COMMENT '수정일',
   `status` ENUM('VISIBLE', 'HIDDEN', 'DELETED') NOT NULL DEFAULT 'VISIBLE' COMMENT '상태',
@@ -324,11 +305,15 @@ CREATE TABLE `follows` (
   CONSTRAINT `chk_follows_self` CHECK (`follower_id` <> `following_id`)
 );
 
--- NOTIFICATIONS
+-- NOTIFICATIONS  ✅ 변경 반영
 CREATE TABLE `notifications` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '알림 ID',
   `user_id` BIGINT NOT NULL COMMENT '알림을 받는 사용자 ID',
-  `type` ENUM('FOLLOW', 'APPLICATION', 'APPLICATION_ACCEPTED', 'APPLICATION_REJECTED', 'WARNING', 'BAN', 'UNBAN') NOT NULL COMMENT '알림 유형',
+  `type` ENUM(
+    'FOLLOW','APPLICATION','APPLICATION_ACCEPTED','APPLICATION_REJECTED',
+    'WARNING','BAN','UNBAN','MESSAGE',
+    'REPORT_RECEIVED','REPORT_RESOLVED','REPORT_REJECTED'
+  ) NOT NULL COMMENT '알림 유형',
   `message` VARCHAR(255) NOT NULL COMMENT '알림 메시지',
   `related_id` BIGINT NULL COMMENT '연관된 엔티티 ID',
   `is_read` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '읽음 여부',
@@ -337,12 +322,13 @@ CREATE TABLE `notifications` (
   CONSTRAINT `FK_notifications_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 );
 
--- MESSAGES
+-- MESSAGES  ✅ 변경 반영
 CREATE TABLE `messages` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '쪽지 ID',
   `sender_id` BIGINT NOT NULL COMMENT '보낸 사용자 ID',
   `receiver_id` BIGINT NOT NULL COMMENT '받는 사용자 ID',
   `content` TEXT NOT NULL COMMENT '쪽지 내용',
+  `is_read` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '읽음 여부',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '전송 시각',
   `deleted_at` DATETIME NULL COMMENT '삭제 시각',
   PRIMARY KEY (`id`),
