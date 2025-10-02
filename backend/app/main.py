@@ -58,7 +58,7 @@ app.add_middleware(
 )
 
 # 정적 파일
-app.mount("/static", StaticFiles(directory="static"), name="static")
+#app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # 라우터 등록

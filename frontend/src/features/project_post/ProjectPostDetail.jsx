@@ -203,11 +203,11 @@ export default function ProjectPostDetail() {
             <strong>리더 ID: {post.leader_id}</strong>
           </div>
 
-          {/* ✅ 리더만 보이는 버튼 (승인 전엔 모집/종료 버튼 숨김, 종료된 경우 전부 숨김) */}
+          {/* ✅ 리더만 보이는 버튼 */}
           {isLeader && !ended && (
             <div style={{ marginTop: "1rem" }}>
               <button
-                onClick={() => navigate(`/recipe/${post.id}/edit`)}
+                onClick={() => navigate(`/recipe/${post.id}/edit`)} // ✅ 수정 페이지 이동
                 style={{ marginRight: "10px" }}
                 disabled={busy}
               >
@@ -343,7 +343,6 @@ export default function ProjectPostDetail() {
             )}
           </div>
         )}
-
       </div>
 
       {/* ✅ 지원서 모달 */}
