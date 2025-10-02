@@ -105,9 +105,21 @@ export default function Navbar() {
                 <div className="dropdown-menu">
                   <button
                     className="dropdown-item"
-                    onClick={() => navigate("/profile")}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate("/profile");
+                    }}
                   >
                     내 프로필
+                  </button>
+                  <button
+                    className="dropdown-item"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate("/account/settings");
+                    }}
+                  >
+                    개인정보 수정
                   </button>
                   <button className="dropdown-item" onClick={handleLogout}>
                     로그아웃

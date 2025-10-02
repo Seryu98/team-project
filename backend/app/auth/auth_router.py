@@ -2,17 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from pydantic import BaseModel, EmailStr
+from datetime import datetime
 import re
 
 from app.core.database import get_db
 from app.auth import auth_service
 from app.auth.auth_schema import UserRegister
-from app.core.security import verify_token
-from app.users.user_model import User
+from app.core.security import verify_token, hash_password
+from app.users.user_model import User, UserStatus
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# 🚩 tokenUrl 앞에 / 제거 (중요!)
+# 🚩 tokenUrl 앞에 / 제거
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
@@ -33,6 +34,12 @@ class PasswordResetRequest(BaseModel):
 class PasswordResetConfirm(BaseModel):
     reset_token: str
     new_password: str
+
+
+class UpdateUserRequest(BaseModel):
+    nickname: str | None = None
+    phone_number: str | None = None
+    password: str | None = None
 
 
 # === Routes ===
@@ -96,13 +103,83 @@ def get_me(token: str = Depends(oauth2_scheme),
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
+    if user.status == UserStatus.DELETED:
+        raise HTTPException(status_code=403, detail="탈퇴한 사용자입니다.")
+
     return {
         "id": user.id,
         "user_id": user.user_id,
         "email": user.email,
+        "name": user.name,
         "nickname": user.nickname,
+        "phone_number": user.phone_number,
         "role": getattr(user, "role", "user"),
+        "status": user.status,
     }
+
+
+@router.patch("/me")
+def update_me(req: UpdateUserRequest,
+              token: str = Depends(oauth2_scheme),
+              db: Session = Depends(get_db)):
+    """
+    개인정보 수정
+    - 닉네임, 전화번호, 비밀번호 변경 가능
+    - 이름/이메일/user_id는 수정 불가
+    """
+    payload = verify_token(token, expected_type="access")
+    if not payload:
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+
+    user_id = payload.get("sub")
+    user = db.query(User).filter(User.id == int(user_id), User.status != UserStatus.DELETED).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    if req.nickname:
+        user.nickname = req.nickname
+    if req.phone_number:
+        user.phone_number = req.phone_number
+    if req.password:
+        user.password_hash = hash_password(req.password)
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "msg": "개인정보가 수정되었습니다.",
+        "nickname": user.nickname,
+        "phone_number": user.phone_number
+    }
+
+
+@router.delete("/delete-account")
+def delete_account(token: str = Depends(oauth2_scheme),
+                   db: Session = Depends(get_db)):
+    """
+    회원 탈퇴 (Soft Delete)
+    - User.deleted_at = 현재시간
+    - User.status = DELETED
+    - 로그인 불가 상태로 전환
+    """
+    payload = verify_token(token, expected_type="access")
+    if not payload:
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+
+    user_id = payload.get("sub")
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    if user.status == UserStatus.DELETED:
+        raise HTTPException(status_code=400, detail="이미 탈퇴한 계정입니다.")
+
+    user.status = UserStatus.DELETED
+    user.deleted_at = datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+
+    return {"msg": "회원 탈퇴가 완료되었습니다."}
 
 
 # === 아이디/비밀번호 찾기 ===
@@ -114,7 +191,7 @@ def find_id(req: FindIdRequest, db: Session = Depends(get_db)):
     - 전화번호 비교 시 숫자만 추출해서 비교
     """
     input_name = req.name.strip()
-    input_phone = re.sub(r"\D", "", req.phone_number)  # 숫자만 남기기
+    input_phone = re.sub(r"\D", "", req.phone_number)
 
     user = db.query(User).filter(User.name == input_name).first()
     if not user:
