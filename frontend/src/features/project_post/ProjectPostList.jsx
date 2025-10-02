@@ -83,13 +83,13 @@ export default function ProjectPostList() {
     }));
   };
 
-  // ✅ 언어 선택 시 → 구분 해제
+  // ✅ 언어 선택 시 
   const toggleSkill = (id) => {
     setFilters((prev) => {
       const already = prev.skill_ids.includes(id);
       return {
         ...prev,
-        type: null, // 구분 해제
+        type: "ALL", 
         skill_ids: already
           ? prev.skill_ids.filter((s) => s !== id)
           : [...prev.skill_ids, id],
@@ -97,11 +97,11 @@ export default function ProjectPostList() {
     });
   };
 
-  // ✅ 정확 매칭 시 → 구분 해제
+  // ✅ 정확 매칭 시 
   const toggleMatchMode = (checked) => {
     setFilters((prev) => ({
       ...prev,
-      type: null,                 // 구분 해제
+      type: "ALL",                 
       match_mode: checked ? "AND" : "OR",
     }));
   };

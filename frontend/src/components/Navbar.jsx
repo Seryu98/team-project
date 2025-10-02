@@ -2,19 +2,20 @@ import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FaBell, FaEnvelope } from "react-icons/fa";
 import { getCurrentUser, clearTokens } from "../features/auth/api";
-import "./Navbar.css"; // ✅ CSS 분리
+import "./Navbar.css";
 import logoImg from "../shared/assets/logo/logo.png";
+import api from "../features/profile/api";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
+  const [profileImage, setProfileImage] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // 더미 카운트 (추후 API 연동 예정)
   const [unreadNotifications] = useState(3);
   const [unreadMessages] = useState(5);
 
-  // 로그인 상태 확인 (토큰이 있을 때만 호출)
+  // 로그인 상태 확인 및 프로필 이미지 가져오기
   useEffect(() => {
     async function fetchUser() {
       const token = localStorage.getItem("access_token");
@@ -22,9 +23,19 @@ export default function Navbar() {
       try {
         const user = await getCurrentUser();
         setCurrentUser(user);
+
+        // 프로필 이미지 가져오기
+        const profileRes = await api.get(
+          `/profiles/${user.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        setProfileImage(profileRes.data.profile_image);
       } catch {
         clearTokens();
         setCurrentUser(null);
+        setProfileImage(null);
       }
     }
     fetchUser();
@@ -34,6 +45,7 @@ export default function Navbar() {
   const handleLogout = () => {
     clearTokens();
     setCurrentUser(null);
+    setProfileImage(null);
     setMenuOpen(false);
     navigate("/login");
   };

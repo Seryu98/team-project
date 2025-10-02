@@ -117,7 +117,6 @@ export default function ProjectPostDetail() {
 
   const workLabelPrefix = post.type === "STUDY" ? "스터디" : "프로젝트";
   const ended = post.project_status === "ENDED";
-  const approved = post.status === "APPROVED";
 
   return (
     <div style={{ maxWidth: "900px", margin: "auto", padding: "2rem" }}>
@@ -168,7 +167,7 @@ export default function ProjectPostDetail() {
                   종료됨
                 </span>
               )}
-              {!approved && (
+              {post.status !== "APPROVED" && (
                 <span
                   style={{
                     marginLeft: 8,
@@ -223,7 +222,7 @@ export default function ProjectPostDetail() {
               </button>
 
               {/* 승인된 경우에만 모집/종료 제어 가능 */}
-              {approved && (
+              {post.status === "APPROVED" && (
                 <>
                   {post.recruit_status === "OPEN" && (
                     <button
@@ -311,7 +310,7 @@ export default function ProjectPostDetail() {
         </div>
 
         {/* ✅ 신청/탈퇴 버튼 (종료/승인전/모집종료 시 숨김) */}
-        {!isLeader && currentUser && approved && !ended && post.recruit_status === "OPEN" && (
+        {!isLeader && currentUser && post.status === "APPROVED" && !ended && post.recruit_status === "OPEN" && (
           <div>
             {!isMember ? (
               <button
