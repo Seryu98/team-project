@@ -51,16 +51,16 @@ export default function App() {
   const [showSessionModal, setShowSessionModal] = useState(false);
 
   useEffect(() => {
-    // 🚩 새로고침 시 세션 만료 플래그 확인
-    if (localStorage.getItem("session_expired") === "true") {
-      localStorage.removeItem("session_expired");
-      clearTokens(true); // 토큰 제거 + 로그인으로 강제 이동
-    }
+  if (localStorage.getItem("session_expired") === "true") {
+    localStorage.removeItem("session_expired");
+    clearTokens("auto");  // ✅ 보호 경로만 강제 로그인 이동
+  }
 
-    const handleExpire = () => setShowSessionModal(true);
-    window.addEventListener("sessionExpired", handleExpire);
-    return () => window.removeEventListener("sessionExpired", handleExpire);
-  }, []);
+  const handleExpire = () => setShowSessionModal(true);
+  window.addEventListener("sessionExpired", handleExpire);
+  return () => window.removeEventListener("sessionExpired", handleExpire);
+}, []);
+
 
   return (
     <Router>
