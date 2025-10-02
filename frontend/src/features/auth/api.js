@@ -3,6 +3,7 @@ const API_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 // --- 토큰/세션 타이머 관리 ---
 let logoutTimer = null;
 let lastActivityTime = Date.now();
+
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30분 (테스트시 1분 등으로 조정)
 
 // --- 토큰 헬퍼 ---
@@ -17,7 +18,6 @@ function setTokens({ access_token, refresh_token, expires_in }) {
   if (refresh_token) localStorage.setItem("refresh_token", refresh_token);
 
   if (expires_in) {
-    // Access Token 만료 기반 타이머
     startLogoutTimer(expires_in * 1000);
   }
 }
@@ -29,12 +29,22 @@ function redirectToLogin() {
   }
 }
 
-// ✅ 토큰 클리어 (이제 직접 redirect 안함 → 모달/플래그에서 실행)
-export function clearTokens(redirect = true) {
+// ✅ 토큰 클리어
+// redirect: "always" | "never" | "auto"
+export function clearTokens(redirect = "always") {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
   stopLogoutTimer();
-  if (redirect) redirectToLogin();
+
+  if (redirect === "always") {
+    redirectToLogin();
+  } else if (redirect === "auto") {
+    const currentPath = window.location.pathname;
+    const protectedPaths = ["/board", "/ranking", "/profile", "/recipe/create"];
+    if (protectedPaths.some(path => currentPath.startsWith(path))) {
+      redirectToLogin();
+    }
+  }
 }
 
 // --- 자동 로그아웃 타이머 ---
@@ -60,7 +70,7 @@ function startLogoutTimer(durationMs) {
     }
   }, 1000);
 
-  // 사용자 활동 감지 (키보드/마우스)
+  // 사용자 활동 감지
   window.onmousemove = resetActivityTimer;
   window.onkeydown = resetActivityTimer;
 }
@@ -92,6 +102,7 @@ export async function register(data) {
   if (!res.ok) throw new Error("회원가입 실패");
   return res.json();
 }
+
 
 // ============================
 // 로그인 (username=user_id)
@@ -127,7 +138,7 @@ export async function refreshAccessToken() {
   });
 
   if (!res.ok) {
-    clearTokens();
+    clearTokens("always");
     throw new Error("리프레시 토큰 만료");
   }
 
@@ -136,10 +147,12 @@ export async function refreshAccessToken() {
   return data.access_token;
 }
 
+
 // ============================
 // API 요청 wrapper
 // ============================
-export async function authFetch(url, options = {}) {
+export async function authFetch(url, options = {}, { skipRedirect = false } = {}) {
+
   let token = getAccessToken();
 
   let res = await fetch(`${API_URL}${url}`, {
@@ -163,7 +176,8 @@ export async function authFetch(url, options = {}) {
         },
       });
     } catch {
-      clearTokens();
+      if (!skipRedirect) clearTokens("always");
+      else clearTokens("never");
       throw new Error("세션 만료");
     }
   }
@@ -172,11 +186,12 @@ export async function authFetch(url, options = {}) {
   return res.json();
 }
 
+
 // ============================
 // 현재 로그인된 사용자
 // ============================
-export async function getCurrentUser() {
-  return authFetch("/auth/me", { method: "GET" });
+export async function getCurrentUser({ skipRedirect = false } = {}) {
+  return authFetch("/auth/me", { method: "GET" }, { skipRedirect });
 }
 
 // ============================
@@ -191,8 +206,6 @@ export async function loginAndFetchUser(loginId, password) {
 // ============================
 // 아이디 / 비밀번호 찾기
 // ============================
-
-// --- 아이디 찾기 ---
 export async function findUserId(name, phone) {
   const res = await fetch(`${API_URL}/auth/find-id`, {
     method: "POST",

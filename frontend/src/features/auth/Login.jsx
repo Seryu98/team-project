@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { loginAndFetchUser, getCurrentUser, clearTokens } from "./api";
+import "./Login.css"; // ✅ CSS 분리
+import logoImg from "../../shared/assets/logo/logo.png";
 
 function Login() {
   const navigate = useNavigate();
@@ -9,12 +11,11 @@ function Login() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
 
-  // 이미 로그인된 상태면 메인으로
+  // ✅ 자동 로그인 처리
   useEffect(() => {
     (async () => {
       const token = localStorage.getItem("access_token");
       if (!token) return;
-
       try {
         const user = await getCurrentUser();
         if (user) {
@@ -28,6 +29,7 @@ function Login() {
     })();
   }, [navigate]);
 
+  // ✅ 로그인 요청
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMsg("");
@@ -56,7 +58,6 @@ function Login() {
     } catch (err) {
       console.error("❌ 로그인 후 에러:", err);
       const message = String(err?.message || "");
-
       if (message.includes("423")) {
         setMsg("⏳ 계정이 잠겼습니다. 잠시 후 다시 시도하세요.");
       } else if (message.includes("세션 만료")) {
@@ -68,53 +69,22 @@ function Login() {
     }
   };
 
-  const inputStyle = {
-    padding: "10px 12px",
-    borderRadius: "8px",
-    border: "1px solid #ddd",
-    fontSize: "14px",
-  };
-  const buttonStyle = {
-    padding: "10px 12px",
-    borderRadius: "8px",
-    border: "none",
-    background: "#2563eb",
-    color: "#fff",
-    fontSize: "14px",
-    cursor: "pointer",
-  };
-
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#f6f7fb",
-        padding: "24px",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          background: "#fff",
-          border: "1px solid #eee",
-          borderRadius: "12px",
-          padding: "28px 24px",
-          boxShadow: "0 10px 24px rgba(0,0,0,0.06)",
-        }}
-      >
-        <h2 style={{ margin: 0, marginBottom: "16px", textAlign: "center" }}>로그인</h2>
+    <div className="login-container">
+      {/* ✅ 로고 버튼 (메인 이동) */}
+      <div className="login-logo" onClick={() => navigate("/")}>
+        <img src={logoImg} alt="메인으로 이동" />
+      </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "10px" }}>
+      <div className="login-box">
+        <h2 className="login-title">로그인</h2>
+
+        <form onSubmit={handleSubmit} className="login-form">
           <input
             type="text"
             placeholder="아이디"
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
-            style={inputStyle}
             autoComplete="username"
           />
           <input
@@ -122,21 +92,21 @@ function Login() {
             placeholder="비밀번호"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
             autoComplete="current-password"
           />
-          <button type="submit" style={buttonStyle}>
+          <button type="submit" className="login-button">
             로그인
           </button>
         </form>
 
+
         {/* ✅ 회원가입 & 아이디/비번 찾기 링크 */}
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px" }}>
+        <div className="login-links">
           <Link to="/register">회원가입</Link>
           <Link to="/find-account">아이디/비밀번호 찾기</Link>
         </div>
 
-        {msg && <p style={{ marginTop: "12px", textAlign: "center" }}>{msg}</p>}
+        {msg && <p className="login-message">{msg}</p>}
       </div>
     </div>
   );

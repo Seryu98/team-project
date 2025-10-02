@@ -1,4 +1,4 @@
-# app/models/base.py
+# app/core/base.py
 from sqlalchemy.orm import declarative_base
 
 # 모든 모델이 상속받을 Base

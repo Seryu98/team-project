@@ -1,8 +1,10 @@
 # app/users/user_model.py
+# app/users/user_model.py
 from sqlalchemy import Column, BigInteger, String, Enum, Boolean, DateTime, Integer
 from sqlalchemy.sql import func
 from app.core.base import Base
 import enum
+from sqlalchemy.orm import relationship
 
 # role과 status Enum 정의
 class UserRole(str, enum.Enum):
@@ -41,3 +43,5 @@ class User(Base):
     last_fail_time = Column(DateTime, nullable=True)
     account_locked = Column(Boolean, nullable=False, default=False)
     banned_until = Column(DateTime, nullable=True)
+
+    joined_posts = relationship("PostMember", back_populates="user", cascade="all, delete-orphan")

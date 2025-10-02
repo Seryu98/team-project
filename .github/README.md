@@ -37,6 +37,7 @@ frontend/
 backend/
   app/
     auth/          // 로그인, 회원가입, JWT 인증
+    meta/          // 스킬관련
     users/         // 유저 관련 모델 + API
     project_post/  // 프로젝트/스터디 생성, 승인, 게시판
     profile/       // 프로필 관련 API
