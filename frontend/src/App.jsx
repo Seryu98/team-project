@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import RecipeCreate from "./features/project_post/RecipeCreate";
+import RecipeEdit from "./features/project_post/RecipeEdit";  // ✅ 추가
 import ProjectPostList from "./features/project_post/ProjectPostList";
 import ProjectPostDetail from "./features/project_post/ProjectPostDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -96,6 +97,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <RecipeCreate />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recipe/:postId/edit"   // ✅ 수정 페이지 라우트 추가
+            element={
+              <ProtectedRoute>
+                <RecipeEdit />
               </ProtectedRoute>
             }
           />
