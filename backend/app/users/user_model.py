@@ -43,4 +43,4 @@ class User(Base):
 
     # ✅ Relationships
     joined_posts = relationship("PostMember", back_populates="user", cascade="all, delete-orphan")
-    led_posts = relationship("RecipePost", foreign_keys="RecipePost.leader_id", back_populates="leader")
+    led_posts = relationship("RecipePost", back_populates="leader")

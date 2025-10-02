@@ -1,4 +1,5 @@
-// src/features/profile/ProfilePage.jsx
+// src/features/profile/ProfilePage.jsx 전체 수정본
+
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "./api";
@@ -58,7 +59,7 @@ export default function ProfilePage() {
 
   const fetchCurrentUser = async () => {
     try {
-      const token = localStorage.getItem("access_token");  // ✅ 수정
+      const token = localStorage.getItem("access_token");
       if (!token) return;
       const res = await api.get("/auth/me", {
         headers: { Authorization: `Bearer ${token}` },
@@ -71,25 +72,31 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem("access_token");  // ✅ 수정
-      if (!token) {
-        alert("로그인이 필요합니다.");
-        return;
-      }
-
+      const token = localStorage.getItem("access_token");
+      
       let endpoint;
       if (userId) {
+        // 다른 사람 프로필 - 로그인 선택적
         endpoint = `/profiles/${userId}`;
       } else {
+        // 내 프로필 - 로그인 필수
+        if (!token) {
+          alert("로그인이 필요합니다.");
+          navigate("/login");
+          return;
+        }
         const me = await api.get("/auth/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
         endpoint = `/profiles/${me.data.id}`;
       }
 
-      const res = await api.get(endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // 토큰이 있으면 헤더 추가
+      const config = token 
+        ? { headers: { Authorization: `Bearer ${token}` } }
+        : {};
+      
+      const res = await api.get(endpoint, config);
       setProfile(res.data);
     } catch {
       alert("프로필 불러오기 실패");
@@ -98,13 +105,15 @@ export default function ProfilePage() {
 
   const fetchPortfolios = async () => {
     try {
-      const token = localStorage.getItem("access_token");  // ✅ 수정
+      const token = localStorage.getItem("access_token");
       const targetUserId = userId || currentUser?.id;
       if (!targetUserId) return;
 
-      const res = await api.get(`/portfolios/user/${targetUserId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const config = token 
+        ? { headers: { Authorization: `Bearer ${token}` } }
+        : {};
+
+      const res = await api.get(`/portfolios/user/${targetUserId}`, config);
       setPortfolios(res.data);
     } catch {
       setPortfolios([]);
@@ -113,13 +122,15 @@ export default function ProfilePage() {
 
   const fetchComments = async () => {
     try {
-      const token = localStorage.getItem("access_token");  // ✅ 수정
+      const token = localStorage.getItem("access_token");
       const targetUserId = userId || currentUser?.id;
       if (!targetUserId) return;
 
-      const res = await api.get(`/comments/user/${targetUserId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const config = token 
+        ? { headers: { Authorization: `Bearer ${token}` } }
+        : {};
+
+      const res = await api.get(`/comments/user/${targetUserId}`, config);
       setComments(res.data);
     } catch {
       setComments([]);
@@ -140,9 +151,10 @@ export default function ProfilePage() {
 
   const handleFollowToggle = async () => {
     try {
-      const token = localStorage.getItem("access_token");  // ✅ 수정
+      const token = localStorage.getItem("access_token");
       if (!token) {
         alert("로그인이 필요합니다.");
+        navigate("/login");
         return;
       }
 
@@ -172,7 +184,13 @@ export default function ProfilePage() {
 
   const fetchFollowList = async (type) => {
     try {
-      const token = localStorage.getItem("access_token");  // ✅ 수정
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        alert("로그인이 필요합니다.");
+        navigate("/login");
+        return;
+      }
+
       const endpoint =
         type === "followers"
           ? `/follows/${profile.id}/followers`
@@ -190,7 +208,7 @@ export default function ProfilePage() {
 
   const handleUnfollowInModal = async (targetId) => {
     try {
-      const token = localStorage.getItem("access_token");  // ✅ 수정
+      const token = localStorage.getItem("access_token");
       await api.delete(`/follows/${targetId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -277,33 +295,37 @@ export default function ProfilePage() {
                 </button>
               ) : (
                 <>
-                  <button
-                    onClick={handleFollowToggle}
-                    style={{
-                      padding: "6px 16px",
-                      fontSize: "13px",
-                      border: "none",
-                      background: profile.is_following ? "#ef4444" : "#3b82f6",
-                      color: "#fff",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {profile.is_following ? "언팔로우" : "팔로우"}
-                  </button>
-                  <button
-                    onClick={handleSendMessage}
-                    style={{
-                      padding: "6px 16px",
-                      fontSize: "13px",
-                      border: "1px solid #d1d5db",
-                      background: "#fff",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    메시지
-                  </button>
+                  {currentUser && (
+                    <>
+                      <button
+                        onClick={handleFollowToggle}
+                        style={{
+                          padding: "6px 16px",
+                          fontSize: "13px",
+                          border: "none",
+                          background: profile.is_following ? "#ef4444" : "#3b82f6",
+                          color: "#fff",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {profile.is_following ? "언팔로우" : "팔로우"}
+                      </button>
+                      <button
+                        onClick={handleSendMessage}
+                        style={{
+                          padding: "6px 16px",
+                          fontSize: "13px",
+                          border: "1px solid #d1d5db",
+                          background: "#fff",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        메시지
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </div>

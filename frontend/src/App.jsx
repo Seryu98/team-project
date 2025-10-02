@@ -7,11 +7,13 @@ import ProjectPostDetail from "./features/project_post/ProjectPostDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SessionExpiredModal from "./components/SessionExpiredModal";
 import { clearTokens } from "./features/auth/api";
+import ProfilePage from "./features/profile/profile_pages";
+import ProfileCreate from "./features/profile/profileCreate_pages";
 
 // pages
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
-import FindAccount from "./features/auth/FindAccount"; // ✅ 추가
+import FindAccount from "./features/auth/FindAccount";
 
 function Home() {
   return (
@@ -44,7 +46,7 @@ export default function App() {
   useEffect(() => {
     if (localStorage.getItem("session_expired") === "true") {
       localStorage.removeItem("session_expired");
-      clearTokens("auto"); // ✅ 보호 경로만 강제 로그인 이동
+      clearTokens("auto");
     }
 
     const handleExpire = () => setShowSessionModal(true);
@@ -59,7 +61,7 @@ export default function App() {
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/find-account" element={<FindAccount />} /> {/* ✅ 추가 */}
+          <Route path="/find-account" element={<FindAccount />} />
         </Route>
 
         {/* Navbar 있는 그룹 */}
@@ -71,16 +73,29 @@ export default function App() {
           <Route path="/recipe/:postId" element={<ProjectPostDetail />} />
           <Route path="/board" element={<Board />} />
           <Route path="/ranking" element={<Ranking />} />
+          <Route path="/profile/:userId" element={<ProfilePage />} />
 
-          {/* 🔹 로그인 필요 */}
+          {/* 🔹 로그인 필요 - 내 프로필 */}
           <Route
             path="/profile"
             element={
               <ProtectedRoute>
-                <Profile />
+                <ProfilePage />
               </ProtectedRoute>
             }
           />
+
+          {/* 🔹 로그인 필요 - 프로필 수정 */}
+          <Route
+            path="/profile/create"
+            element={
+              <ProtectedRoute>
+                <ProfileCreate />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* 🔹 로그인 필요 - 모집공고 생성 */}
           <Route
             path="/recipe/create"
             element={

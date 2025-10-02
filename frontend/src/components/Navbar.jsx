@@ -2,8 +2,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FaBell, FaEnvelope } from "react-icons/fa";
 import { getCurrentUser, clearTokens } from "../features/auth/api";
-import "./Navbar.css"; // ✅ CSS 분리
+import "./Navbar.css";
 import logoImg from "../shared/assets/logo/logo.png";
+import api from "../features/profile/api";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -24,8 +25,8 @@ export default function Navbar() {
         setCurrentUser(user);
 
         // 프로필 이미지 가져오기
-        const profileRes = await axios.get(
-          `http://localhost:8000/profiles/${user.id}`,
+        const profileRes = await api.get(
+          `/profiles/${user.id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
