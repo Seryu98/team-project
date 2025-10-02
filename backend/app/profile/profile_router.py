@@ -6,14 +6,14 @@ from app.profile.profile_schemas import ProfileOut, ProfileUpdate
 from app.profile.profile_service import get_profile_detail, update_profile, get_or_create_profile
 from app.core.deps import get_current_user
 from app.models import User
-import os
-from datetime import datetime
+from app.files import upload_router   # ✅ 업로드 모듈 가져오기
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
-UPLOAD_DIR = "uploads/profile_images"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# ---------------------------------------------------------------------
+# ✅ 내 프로필 조회
+# ---------------------------------------------------------------------
 @router.get("/me", response_model=ProfileOut)
 def get_my_profile(
     db: Session = Depends(get_db),
@@ -21,6 +21,10 @@ def get_my_profile(
 ):
     return get_profile_detail(db, current_user.id, current_user_id=current_user.id)
 
+
+# ---------------------------------------------------------------------
+# ✅ 특정 유저 프로필 조회
+# ---------------------------------------------------------------------
 @router.get("/{user_id}", response_model=ProfileOut)
 def get_profile(
     user_id: int,
@@ -29,6 +33,10 @@ def get_profile(
 ):
     return get_profile_detail(db, user_id, current_user_id=current_user.id)
 
+
+# ---------------------------------------------------------------------
+# ✅ 내 프로필 수정
+# ---------------------------------------------------------------------
 @router.put("/me", response_model=ProfileOut)
 def update_my_profile(
     update_data: ProfileUpdate,
@@ -37,29 +45,23 @@ def update_my_profile(
 ):
     return update_profile(db, current_user.id, update_data)
 
+
+# ---------------------------------------------------------------------
+# ✅ 프로필 이미지 업로드 (해시 기반 upload_router 재사용)
+# ---------------------------------------------------------------------
 @router.post("/me/image", response_model=ProfileOut)
-def upload_profile_image(
+async def upload_profile_image(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if file.content_type not in ["image/jpeg", "image/png", "image/gif"]:
-        raise HTTPException(status_code=400, detail="허용되지 않는 파일 형식입니다.")
+    # 👉 upload_router.upload_file 사용 (type="profile")
+    result = await upload_router.upload_file(file=file, type="profile")
+    image_url = result["url"]
 
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in [".jpg", ".jpeg", ".png", ".gif"]:
-        raise HTTPException(status_code=400, detail="허용되지 않는 파일 확장자입니다.")
-
-    # 고유 파일명 생성 (타임스탬프 포함)
-    timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
-    save_filename = f"user_{current_user.id}_{timestamp}{ext}"
-    save_path = os.path.join(UPLOAD_DIR, save_filename)
-
-    with open(save_path, "wb") as buffer:
-        buffer.write(file.file.read())
-
+    # DB 업데이트
     profile = get_or_create_profile(db, current_user.id)
-    profile.profile_image = f"/uploads/profile_images/{save_filename}"
+    profile.profile_image = image_url
     db.commit()
     db.refresh(profile)
 
