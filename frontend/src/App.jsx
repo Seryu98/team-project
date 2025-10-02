@@ -11,6 +11,7 @@ import { clearTokens } from "./features/auth/api";
 // pages
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
+import FindAccount from "./features/auth/FindAccount"; // ✅ 추가
 
 function Home() {
   return (
@@ -68,6 +69,7 @@ export default function App() {
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/find-account" element={<FindAccount />} /> {/* ✅ 추가 */}
         </Route>
 
         {/* Navbar 있는 그룹 */}

@@ -37,8 +37,23 @@ function Login() {
       const { tokens } = await loginAndFetchUser(userId, password);
       console.log("✅ 로그인 성공", tokens);
 
+      const access = localStorage.getItem("access_token");
+      const refresh = localStorage.getItem("refresh_token");
+      console.log("localStorage access_token:", access);
+      console.log("localStorage refresh_token:", refresh);
+
+      if (access) {
+        try {
+          const payload = JSON.parse(atob(access.split(".")[1]));
+          console.log("access_token payload:", payload);
+        } catch (err) {
+          console.error("❌ access_token 디코딩 실패", err);
+        }
+      }
+
       const user = await getCurrentUser();
       setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);
+
       navigate("/", { replace: true });
     } catch (err) {
       console.error("❌ 로그인 후 에러:", err);
@@ -84,9 +99,11 @@ function Login() {
           </button>
         </form>
 
+
+        {/* ✅ 회원가입 & 아이디/비번 찾기 링크 */}
         <div className="login-links">
           <Link to="/register">회원가입</Link>
-          <Link to="/account/find">아이디/비밀번호 찾기</Link>
+          <Link to="/find-account">아이디/비밀번호 찾기</Link>
         </div>
 
         {msg && <p className="login-message">{msg}</p>}
