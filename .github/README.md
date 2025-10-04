@@ -68,7 +68,8 @@ npm run dev
 ### 백엔드
 cd backend
 pip install -r requirements.txt 
-uvicorn app.main:app --reload ,"D:\soldesk project\team-project\backend\venv\Scripts\python.exe" -m uvicorn app.main:app --reload
+uvicorn app.main:app --reload 
+"D:\soldesk project\team-project\backend\venv\Scripts\python.exe" -m uvicorn app.main:app --reload
 
 
 
