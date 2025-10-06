@@ -159,7 +159,13 @@ export default function FindAccount() {
 
         {/* ✅ 1단계: 아이디 찾기 */}
         {step === 1 && (
-          <div className="login-form">
+          <form
+            className="login-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleFindId();
+            }}
+          >
             <input
               type="text"
               placeholder="이름"
@@ -172,30 +178,42 @@ export default function FindAccount() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
-            <button className="login-button" onClick={handleFindId}>
+            <button type="submit" className="login-button">
               다음
             </button>
-          </div>
+          </form>
         )}
 
         {/* ✅ 2단계: 아이디 입력 */}
         {step === 2 && (
-          <div className="login-form">
+          <form
+            className="login-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleNextToEmail();
+            }}
+          >
             <input
               type="text"
               placeholder="가입한 아이디"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
             />
-            <button className="login-button" onClick={handleNextToEmail}>
+            <button type="submit" className="login-button">
               다음
             </button>
-          </div>
+          </form>
         )}
 
         {/* ✅ 3단계: 이메일 인증 */}
         {step === 3 && (
-          <div className="login-form">
+          <form
+            className="login-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleRequestReset();
+            }}
+          >
             <p className="login-message">비밀번호를 찾을 방법을 선택해주세요.</p>
             <div className="email-auth-box">
               <label>
@@ -204,15 +222,21 @@ export default function FindAccount() {
                 <span className="email-hint">({emailHint})</span>
               </label>
             </div>
-            <button className="login-button" onClick={handleRequestReset}>
+            <button type="submit" className="login-button">
               인증 메일 발송
             </button>
-          </div>
+          </form>
         )}
 
         {/* ✅ 4단계: 인증번호 입력 */}
         {step === 4 && (
-          <div className="login-form">
+          <form
+            className="login-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleVerifyCode();
+            }}
+          >
             <p className="login-message">이메일로 받은 6자리 인증번호를 입력해주세요.</p>
             <input
               type="text"
@@ -221,15 +245,21 @@ export default function FindAccount() {
               onChange={(e) => setVerifyCode(e.target.value)}
               maxLength={6}
             />
-            <button className="login-button" onClick={handleVerifyCode}>
+            <button type="submit" className="login-button">
               인증하기
             </button>
-          </div>
+          </form>
         )}
 
         {/* ✅ 5단계: 새 비밀번호 설정 */}
         {step === 5 && (
-          <div className="login-form">
+          <form
+            className="login-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleResetPassword();
+            }}
+          >
             <input
               type="password"
               placeholder="새 비밀번호 (영문, 숫자, 특수문자 포함 8~20자)"
@@ -242,10 +272,10 @@ export default function FindAccount() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
-            <button className="login-button" onClick={handleResetPassword}>
+            <button type="submit" className="login-button">
               비밀번호 재설정
             </button>
-          </div>
+          </form>
         )}
 
         {/* 결과 메시지 */}
