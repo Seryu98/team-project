@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "./api";
 
+
 function buildIconMap(globs) {
   const map = {};
   for (const [path, url] of Object.entries(globs)) {
@@ -73,7 +74,7 @@ export default function ProfilePage() {
   const fetchProfile = async () => {
     try {
       const token = localStorage.getItem("access_token");
-      
+
       let endpoint;
       if (userId) {
         // 다른 사람 프로필 - 로그인 선택적
@@ -92,10 +93,10 @@ export default function ProfilePage() {
       }
 
       // 토큰이 있으면 헤더 추가
-      const config = token 
+      const config = token
         ? { headers: { Authorization: `Bearer ${token}` } }
         : {};
-      
+
       const res = await api.get(endpoint, config);
       setProfile(res.data);
     } catch {
@@ -109,7 +110,7 @@ export default function ProfilePage() {
       const targetUserId = userId || currentUser?.id;
       if (!targetUserId) return;
 
-      const config = token 
+      const config = token
         ? { headers: { Authorization: `Bearer ${token}` } }
         : {};
 
@@ -126,7 +127,7 @@ export default function ProfilePage() {
       const targetUserId = userId || currentUser?.id;
       if (!targetUserId) return;
 
-      const config = token 
+      const config = token
         ? { headers: { Authorization: `Bearer ${token}` } }
         : {};
 
@@ -240,9 +241,12 @@ export default function ProfilePage() {
             <img
               src={
                 profile.profile_image
-                  ? `http://localhost:8000${profile.profile_image}`
-                  : "/assets/default_profile.png"
+                  ? profile.profile_image.startsWith("/assets")
+                    ? `http://localhost:8000${profile.profile_image}`
+                    : `http://localhost:8000${profile.profile_image}`
+                  : "/assets/profile/default_profile.png"
               }
+
               alt="프로필"
               style={{
                 width: "100px",
@@ -506,7 +510,14 @@ export default function ProfilePage() {
                 <div key={comment.id} style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: "12px", marginBottom: "12px" }}>
                   <div style={{ display: "flex", gap: "12px" }}>
                     <img
-                      src={comment.author_profile_image ? `http://localhost:8000${comment.author_profile_image}` : "/assets/default_profile.png"}
+                      src={
+                        profile.profile_image
+                          ? profile.profile_image.startsWith("/assets")
+                            ? `http://localhost:8000${profile.profile_image}`
+                            : `http://localhost:8000${profile.profile_image}`
+                          : "/assets/profile/default_profile.png"
+                      }
+
                       alt={comment.author_name}
                       style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }}
                     />
@@ -579,7 +590,14 @@ export default function ProfilePage() {
                         }}
                       >
                         <img
-                          src={user.profile_image ? `http://localhost:8000${user.profile_image}` : "/assets/default_profile.png"}
+                          src={
+                            profile.profile_image
+                              ? profile.profile_image.startsWith("/assets")
+                                ? `http://localhost:8000${profile.profile_image}`
+                                : `http://localhost:8000${profile.profile_image}`
+                              : "/assets/profile/default_profile.png"
+                          }
+
                           alt={user.nickname}
                           style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }}
                         />

@@ -15,7 +15,9 @@ def get_or_create_profile(db: Session, user_id: int) -> Profile:
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        profile = Profile(id=user_id)
+        profile = Profile(
+            id=user_id, profile_image="/assets/profile/default_profile.png"
+        )
         db.add(profile)
         db.commit()
         db.refresh(profile)
@@ -53,7 +55,7 @@ def get_profile_detail(db: Session, user_id: int, current_user_id: int = None):
             .filter(
                 Follow.follower_id == current_user_id,
                 Follow.following_id == user_id,
-                Follow.deleted_at.is_(None)
+                Follow.deleted_at.is_(None),
             )
             .first()
         )
@@ -96,10 +98,11 @@ def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
         raise HTTPException(status_code=404, detail="프로필을 찾을 수 없습니다.")
 
     if update_data.nickname is not None:
-        exists = db.query(User).filter(
-            User.nickname == update_data.nickname, 
-            User.id != user_id
-        ).first()
+        exists = (
+            db.query(User)
+            .filter(User.nickname == update_data.nickname, User.id != user_id)
+            .first()
+        )
         if exists:
             raise HTTPException(status_code=400, detail="이미 사용 중인 닉네임입니다.")
         user.nickname = update_data.nickname

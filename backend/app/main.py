@@ -8,7 +8,13 @@ from fastapi.staticfiles import StaticFiles
 
 import logging
 import os
+from pathlib import Path
 from logging.handlers import RotatingFileHandler
+
+# ✅ 경로 설정 (team-project 기준으로 assets 폴더 연결)
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+ASSETS_DIR = BASE_DIR / "frontend" / "src" / "shared" / "assets"
+UPLOADS_DIR = BASE_DIR / "backend" / "uploads"
 
 # 라우터 import
 from app.auth import auth_router
@@ -57,9 +63,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 정적 파일
-#app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# ✅ 정적 파일 마운트
+# 업로드된 이미지 (유저 프로필 등)
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+
+# 프론트 assets (임시 프로필, 스킬, 별 아이콘 등)
+if ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+    logging.info(f"✅ /assets 경로가 연결되었습니다 → {ASSETS_DIR}")
+else:
+    logging.warning(f"⚠️ assets 폴더를 찾을 수 없습니다: {ASSETS_DIR}")
 
 # 라우터 등록
 app.include_router(auth_router.router)
