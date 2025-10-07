@@ -3,6 +3,7 @@ uvicorn[standard]==0.30.0
 sqlalchemy==2.0.31
 pymysql==1.1.1
 python-dotenv==1.0.1
+cryptography==43.0.1
 
 # auth / security
 python-jose==3.3.0
