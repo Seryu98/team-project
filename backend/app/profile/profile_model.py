@@ -1,3 +1,4 @@
+# app/profile/profile_model.py
 from sqlalchemy import Column, BigInteger, String, Text, Integer, DateTime, Enum, Date
 from app.core.base import Base
 

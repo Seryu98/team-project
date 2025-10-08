@@ -1,4 +1,4 @@
-// frontend/src/features/project_post/RecipeFormInput.jsx
+// /src/features/project_post/RecipeFormInput.jsx
 export default function FormInput({
   label,
   name,

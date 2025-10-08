@@ -1,3 +1,4 @@
+// src/components/Navbar.jsx
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FaBell, FaEnvelope } from "react-icons/fa";

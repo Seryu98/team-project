@@ -1,3 +1,4 @@
+// /src/features/project_post/ProjectPostDetail.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { authFetch, getCurrentUser } from "../auth/api";

@@ -1,22 +1,16 @@
 -- ===============================================
--- 🚀 team_project 통합 최신 버전 (2025-10-07)
+-- 🚀 team_project 통합 최신 버전 (2025-10-08 확정)
 -- ===============================================
 
--- 기존 DB 삭제
 DROP DATABASE IF EXISTS team_project;
-
--- 새로 생성
 CREATE DATABASE team_project CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE team_project;
 
--- 공통 아이디 / 비밀번호 생성
 CREATE USER 'team_user'@'%' IDENTIFIED BY '1234';
-
--- 권한 부여 (모든 테이블 접근 허용)
 GRANT ALL PRIVILEGES ON team_project.* TO 'team_user'@'%';
 FLUSH PRIVILEGES;
 
-
+ 
 -- ===============================================
 -- USERS
 -- ===============================================
@@ -27,20 +21,17 @@ CREATE TABLE users (
   email VARCHAR(255) NOT NULL COMMENT '이메일',
   user_id VARCHAR(255) NULL COMMENT '로컬 로그인 ID (소셜 로그인은 NULL 가능)',
   password_hash VARCHAR(255) NULL COMMENT '로컬 로그인 시 해시 비밀번호',
-  auth_provider ENUM('LOCAL', 'GOOGLE', 'KAKAO', 'NAVER', 'GITHUB') 
-      NOT NULL DEFAULT 'LOCAL' COMMENT '인증 제공자',
+  auth_provider ENUM('LOCAL', 'GOOGLE', 'KAKAO', 'NAVER', 'GITHUB') NOT NULL DEFAULT 'LOCAL' COMMENT '인증 제공자',
   social_id VARCHAR(255) NULL COMMENT '소셜 로그인 고유 식별자',
   name VARCHAR(50) NOT NULL COMMENT '실제 이름',
   phone_number VARCHAR(20) NULL COMMENT '전화번호',
-  role ENUM('MEMBER', 'ADMIN', 'GUEST', 'LEADER') 
-      NOT NULL DEFAULT 'MEMBER' COMMENT '권한 구분',
-  status ENUM('ACTIVE', 'BANNED', 'DELETED') 
-      NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태',
+  role ENUM('MEMBER', 'ADMIN', 'GUEST', 'LEADER') NOT NULL DEFAULT 'MEMBER' COMMENT '권한 구분',
+  status ENUM('ACTIVE', 'BANNED', 'DELETED') NOT NULL DEFAULT 'ACTIVE' COMMENT '계정 상태',
   last_login_at DATETIME NULL COMMENT '마지막 로그인 시각',
   deleted_at DATETIME NULL COMMENT '삭제 시각',
-  reset_token VARCHAR(255) NULL COMMENT '비밀번호 재설정 토큰 (LOCAL 전용)',
-  reset_token_expire DATETIME NULL COMMENT '비밀번호 재설정 토큰 만료 시각 (LOCAL 전용)',
-  login_fail_count INT NOT NULL DEFAULT 0 COMMENT '로그인 실패 횟수 누적',
+  reset_token VARCHAR(255) NULL COMMENT '비밀번호 재설정 토큰',
+  reset_token_expire DATETIME NULL COMMENT '비밀번호 재설정 토큰 만료 시각',
+  login_fail_count INT NOT NULL DEFAULT 0 COMMENT '로그인 실패 횟수',
   last_fail_time DATETIME NULL COMMENT '마지막 로그인 실패 시각',
   account_locked BOOLEAN NOT NULL DEFAULT FALSE COMMENT '계정 잠금 여부',
   banned_until DATETIME NULL COMMENT '정지 해제 예정일',
@@ -76,13 +67,13 @@ CREATE TABLE profiles (
 -- SKILLS
 -- ===============================================
 CREATE TABLE skills (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '고유 스킬ID',
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '스킬 ID',
   name VARCHAR(100) NOT NULL COMMENT '스킬명',
   PRIMARY KEY (id),
   CONSTRAINT uq_skills_name UNIQUE (name)
 );
 
--- SKILLS Seed Data
+-- Seed
 INSERT INTO skills (name) VALUES
 ('C'), ('C++'), ('Rust'), ('Go'), ('Zig'), ('Java'), ('C#'), ('Kotlin'), ('Swift'), ('ObjectiveC'),
 ('Dart'), ('Scala'), ('Python'), ('Ruby'), ('Perl'), ('PHP'), ('Lua'), ('R'), ('JavaScript'), ('TypeScript'),
@@ -96,65 +87,56 @@ INSERT INTO skills (name) VALUES
 -- USER_SKILLS
 -- ===============================================
 CREATE TABLE user_skills (
-  user_id BIGINT NOT NULL COMMENT '유저 ID',
-  skill_id BIGINT NOT NULL COMMENT '스킬 ID',
-  level DECIMAL(2,1) NOT NULL COMMENT '숙련도 (1.0 ~ 5.0)',
+  user_id BIGINT NOT NULL,
+  skill_id BIGINT NOT NULL,
+  level DECIMAL(2,1) NOT NULL COMMENT '숙련도 (1.0~5.0)',
   PRIMARY KEY (user_id, skill_id),
   CONSTRAINT FK_user_skills_user FOREIGN KEY (user_id) REFERENCES users (id),
   CONSTRAINT FK_user_skills_skill FOREIGN KEY (skill_id) REFERENCES skills (id),
-  CONSTRAINT chk_level_range CHECK (level >= 1.0 AND level <= 5.0)
+  CONSTRAINT chk_level_range CHECK (level BETWEEN 1.0 AND 5.0)
 );
 
 
 -- ===============================================
--- POSTS
+-- POSTS / 관련 테이블
 -- ===============================================
 CREATE TABLE posts (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '게시글 ID',
-  leader_id BIGINT NOT NULL COMMENT '리더 ID',
-  type ENUM('PROJECT', 'STUDY') NOT NULL COMMENT '게시글 유형',
-  title VARCHAR(200) NOT NULL COMMENT '제목',
-  field VARCHAR(100) NULL COMMENT '분야',
-  image_url VARCHAR(255) NULL COMMENT '대표 이미지 URL',
-  capacity INT NOT NULL COMMENT '모집 정원(>0)',
-  current_members INT NOT NULL DEFAULT 0 COMMENT '현재 참여 인원',
-  description TEXT NULL COMMENT '프로젝트 설명 / 스터디 소개',
-  start_date DATE NULL COMMENT '모집 시작일',
-  end_date DATE NULL COMMENT '모집 종료일',
-  status ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING' COMMENT '승인 상태',
-  recruit_status ENUM('OPEN','CLOSED') DEFAULT 'OPEN' COMMENT '모집 상태',
-  project_status ENUM('ONGOING','ENDED') NOT NULL DEFAULT 'ONGOING' COMMENT '프로젝트 진행 상태',
-  project_start DATE NULL COMMENT '프로젝트 시작일',
-  project_end DATE NULL COMMENT '프로젝트 종료일',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성일',
-  deleted_at DATETIME NULL COMMENT '삭제 시각',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  leader_id BIGINT NOT NULL,
+  type ENUM('PROJECT', 'STUDY') NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  field VARCHAR(100) NULL,
+  image_url VARCHAR(255) NULL,
+  capacity INT NOT NULL,
+  current_members INT DEFAULT 0,
+  description TEXT NULL,
+  start_date DATE NULL,
+  end_date DATE NULL,
+  status ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
+  recruit_status ENUM('OPEN','CLOSED') DEFAULT 'OPEN',
+  project_status ENUM('ONGOING','ENDED') DEFAULT 'ONGOING',
+  project_start DATE NULL,
+  project_end DATE NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
   PRIMARY KEY (id),
-  CONSTRAINT FK_posts_user FOREIGN KEY (leader_id) REFERENCES users (id),
-  CONSTRAINT chk_capacity CHECK (capacity > 0)
+  CONSTRAINT FK_posts_user FOREIGN KEY (leader_id) REFERENCES users (id)
 );
 
-
--- ===============================================
--- POST_SKILLS
--- ===============================================
 CREATE TABLE post_skills (
-  post_id BIGINT NOT NULL COMMENT '게시글 ID',
-  skill_id BIGINT NOT NULL COMMENT '스킬 ID',
+  post_id BIGINT NOT NULL,
+  skill_id BIGINT NOT NULL,
   PRIMARY KEY (post_id, skill_id),
   CONSTRAINT FK_post_skills_post FOREIGN KEY (post_id) REFERENCES posts (id),
   CONSTRAINT FK_post_skills_skill FOREIGN KEY (skill_id) REFERENCES skills (id)
 );
 
-
--- ===============================================
--- POST_MEMBERS
--- ===============================================
 CREATE TABLE post_members (
-  post_id BIGINT NOT NULL COMMENT '게시글 ID',
-  user_id BIGINT NOT NULL COMMENT '유저 ID',
-  role ENUM('MEMBER', 'LEADER') NOT NULL DEFAULT 'MEMBER' COMMENT '역할',
-  joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '가입일',
-  deleted_at DATETIME NULL COMMENT '삭제 시각',
+  post_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL,
+  role ENUM('MEMBER', 'LEADER') DEFAULT 'MEMBER',
+  joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
   PRIMARY KEY (post_id, user_id),
   CONSTRAINT FK_post_members_post FOREIGN KEY (post_id) REFERENCES posts (id),
   CONSTRAINT FK_post_members_user FOREIGN KEY (user_id) REFERENCES users (id)
@@ -162,60 +144,47 @@ CREATE TABLE post_members (
 
 
 -- ===============================================
--- APPLICATIONS
+-- APPLICATIONS / ANSWERS / 필수항목
 -- ===============================================
 CREATE TABLE applications (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '지원서 ID',
-  post_id BIGINT NOT NULL COMMENT '게시글 ID',
-  user_id BIGINT NOT NULL COMMENT '지원자 ID',
-  status ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING' COMMENT '상태',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '지원일',
-  deleted_at DATETIME NULL COMMENT '삭제 시각',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  post_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL,
+  status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
   PRIMARY KEY (id),
   CONSTRAINT FK_applications_post FOREIGN KEY (post_id) REFERENCES posts (id),
   CONSTRAINT FK_applications_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-
--- ===============================================
--- APPLICATION_FIELDS
--- ===============================================
 CREATE TABLE application_fields (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '필드 ID',
-  name VARCHAR(100) NOT NULL COMMENT '질문 항목',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
   PRIMARY KEY (id)
 );
 
--- Seed Data
 INSERT INTO application_fields (name) VALUES
 ('이메일'), ('지원사유'), ('성별'), ('나이'),
 ('자기소개'), ('경험/경력설명'),
 ('직장인/취준생여부'), ('다룰 수 있는 언어/프로그램'),
 ('투자가능한 시간(1주당)'), ('궁금한 점'), ('자유기재');
 
-
--- ===============================================
--- APPLICATION_ANSWERS
--- ===============================================
 CREATE TABLE application_answers (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '답변 ID',
-  application_id BIGINT NOT NULL COMMENT '지원서 ID',
-  field_id BIGINT NOT NULL COMMENT '필드 ID',
-  answer_text TEXT NOT NULL COMMENT '답변',
-  deleted_at DATETIME NULL COMMENT '삭제 시각',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  application_id BIGINT NOT NULL,
+  field_id BIGINT NOT NULL,
+  answer_text TEXT NOT NULL,
+  deleted_at DATETIME NULL,
   PRIMARY KEY (id),
   UNIQUE (application_id, field_id),
   CONSTRAINT FK_application_answers_application FOREIGN KEY (application_id) REFERENCES applications (id),
   CONSTRAINT FK_application_answers_field FOREIGN KEY (field_id) REFERENCES application_fields (id)
 );
 
-
--- ===============================================
--- POST_REQUIRED_FIELDS
--- ===============================================
 CREATE TABLE post_required_fields (
-  post_id BIGINT NOT NULL COMMENT '게시글 ID',
-  field_id BIGINT NOT NULL COMMENT '필수 질문 ID',
+  post_id BIGINT NOT NULL,
+  field_id BIGINT NOT NULL,
   PRIMARY KEY (post_id, field_id),
   CONSTRAINT FK_post_required_fields_post FOREIGN KEY (post_id) REFERENCES posts (id),
   CONSTRAINT FK_post_required_fields_field FOREIGN KEY (field_id) REFERENCES application_fields (id)
@@ -223,115 +192,119 @@ CREATE TABLE post_required_fields (
 
 
 -- ===============================================
--- FILES
+-- FILES / ANNOUNCEMENTS
 -- ===============================================
 CREATE TABLE files (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '파일 ID',
-  post_id BIGINT NULL COMMENT '프로젝트/스터디 ID',
-  user_id BIGINT NOT NULL COMMENT '업로더 ID',
-  file_url VARCHAR(255) NOT NULL COMMENT '파일 경로/URL',
-  file_type VARCHAR(50) NULL COMMENT '파일 타입',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '업로드 시각',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  post_id BIGINT NULL,
+  user_id BIGINT NOT NULL,
+  file_url VARCHAR(255) NOT NULL,
+  file_type VARCHAR(50) NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   CONSTRAINT FK_files_post FOREIGN KEY (post_id) REFERENCES posts (id),
   CONSTRAINT FK_files_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-
--- ===============================================
--- ANNOUNCEMENTS / READS / BOARDS / CATEGORIES
--- ===============================================
 CREATE TABLE announcements (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '공지사항 ID',
-  admin_id BIGINT NOT NULL COMMENT '작성자 (관리자) ID',
-  title VARCHAR(100) NOT NULL COMMENT '공지 제목',
-  content TEXT NOT NULL COMMENT '공지 내용',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '공지 작성일',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  admin_id BIGINT NOT NULL,
+  title VARCHAR(100) NOT NULL,
+  content TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   CONSTRAINT fk_announcements_admin FOREIGN KEY (admin_id) REFERENCES users (id)
 );
 
 CREATE TABLE announcement_reads (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '읽음 ID',
-  announcement_id BIGINT NOT NULL COMMENT '공지사항 ID',
-  user_id BIGINT NOT NULL COMMENT '사용자 ID',
-  is_read BOOLEAN NOT NULL DEFAULT FALSE COMMENT '읽음 여부',
-  read_at DATETIME NULL COMMENT '읽은 시각',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  announcement_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  read_at DATETIME NULL,
   PRIMARY KEY (id),
   CONSTRAINT fk_announcement_reads_announcement FOREIGN KEY (announcement_id) REFERENCES announcements (id),
   CONSTRAINT fk_announcement_reads_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
+
+-- ===============================================
+-- BOARDS / 게시판 구조
+-- ===============================================
 CREATE TABLE boards (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '게시판 ID',
-  name VARCHAR(100) NOT NULL COMMENT '게시판 이름',
-  description VARCHAR(255) NULL COMMENT '게시판 설명',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(255) NULL,
   PRIMARY KEY (id)
 );
 
 CREATE TABLE categories (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '카테고리 ID',
-  name VARCHAR(100) NOT NULL COMMENT '카테고리명',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
   PRIMARY KEY (id),
   CONSTRAINT uq_categories_name UNIQUE (name)
-) COMMENT '게시판 글 카테고리';
+);
 
--- Seed Data
+-- ✅ 수정된 Seed 데이터
 INSERT INTO categories (name) VALUES
-('잡담'), ('홍보'), ('질문&답변');
+('홍보글'), ('잡담글'), ('자랑글'), ('질문&답변'), ('정보공유');
 
-
--- ===============================================
--- BOARD_POSTS
--- ===============================================
 CREATE TABLE board_posts (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '게시판 글 ID',
-  board_id BIGINT NOT NULL COMMENT '게시판 ID',
-  category_id BIGINT NULL COMMENT '카테고리 ID (필터 기능용)',
-  author_id BIGINT NOT NULL COMMENT '작성자 ID',
-  title VARCHAR(200) NOT NULL COMMENT '제목',
-  content TEXT NOT NULL COMMENT '내용',
-  attachment_url VARCHAR(255) NULL COMMENT '첨부파일 경로 (파일첨부 기능용)',
-  view_count INT NOT NULL DEFAULT 0 COMMENT '조회수',
-  like_count INT NOT NULL DEFAULT 0 COMMENT '추천수',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '작성일',
-  updated_at DATETIME NULL COMMENT '수정일',
-  status ENUM('VISIBLE', 'HIDDEN', 'DELETED') NOT NULL DEFAULT 'VISIBLE' COMMENT '상태',
-  deleted_at DATETIME NULL COMMENT '삭제 시각',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  board_id BIGINT NOT NULL,
+  category_id BIGINT NULL,
+  author_id BIGINT NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  content TEXT NOT NULL,
+  attachment_url VARCHAR(255) NULL,
+  view_count INT DEFAULT 0,
+  like_count INT DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NULL,
+  status ENUM('VISIBLE','HIDDEN','DELETED') DEFAULT 'VISIBLE',
+  deleted_at DATETIME NULL,
   PRIMARY KEY (id),
   CONSTRAINT FK_board_posts_board FOREIGN KEY (board_id) REFERENCES boards (id),
   CONSTRAINT FK_board_posts_author FOREIGN KEY (author_id) REFERENCES users (id),
   CONSTRAINT FK_board_posts_category FOREIGN KEY (category_id) REFERENCES categories (id)
 );
 
-
--- ===============================================
--- BOARD_POST_LIKES
--- ===============================================
 CREATE TABLE board_post_likes (
-  board_post_id BIGINT NOT NULL COMMENT '게시판 글 ID',
-  user_id BIGINT NOT NULL COMMENT '추천한 사용자 ID',
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '추천일',
+  board_post_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (board_post_id, user_id),
   CONSTRAINT FK_board_post_likes_post FOREIGN KEY (board_post_id) REFERENCES board_posts (id) ON DELETE CASCADE,
   CONSTRAINT FK_board_post_likes_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-) COMMENT '게시판 글 추천 기록';
+);
+
+-- ✅ 조회수 기록 테이블 추가
+CREATE TABLE board_post_views (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  board_post_id BIGINT NOT NULL,
+  viewer_id BIGINT NULL,
+  ip_address VARCHAR(45) NULL,
+  user_agent VARCHAR(255) NULL,
+  viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT FK_board_post_views_post FOREIGN KEY (board_post_id) REFERENCES board_posts (id) ON DELETE CASCADE
+);
 
 
 -- ===============================================
--- COMMENTS
+-- COMMENTS / REPORTS / 기타 관리 테이블
 -- ===============================================
 CREATE TABLE comments (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '댓글 ID',
-  post_id BIGINT NULL COMMENT '프로젝트/스터디 ID',
-  board_post_id BIGINT NULL COMMENT '게시판 글 ID',
-  user_id BIGINT NOT NULL COMMENT '작성자 ID',
-  parent_id BIGINT NULL COMMENT '부모 댓글 ID',
-  content TEXT NOT NULL COMMENT '내용',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '작성일',
-  updated_at DATETIME NULL COMMENT '수정일',
-  status ENUM('VISIBLE', 'HIDDEN', 'DELETED') NOT NULL DEFAULT 'VISIBLE' COMMENT '상태',
-  deleted_at DATETIME NULL COMMENT '삭제 시각',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  post_id BIGINT NULL,
+  board_post_id BIGINT NULL,
+  user_id BIGINT NOT NULL,
+  parent_id BIGINT NULL,
+  content TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NULL,
+  status ENUM('VISIBLE','HIDDEN','DELETED') DEFAULT 'VISIBLE',
+  deleted_at DATETIME NULL,
   PRIMARY KEY (id),
   CONSTRAINT FK_comments_user FOREIGN KEY (user_id) REFERENCES users (id),
   CONSTRAINT FK_comments_post FOREIGN KEY (post_id) REFERENCES posts (id),
@@ -343,20 +316,16 @@ CREATE TABLE comments (
   )
 );
 
-
--- ===============================================
--- REPORTS
--- ===============================================
 CREATE TABLE reports (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '신고 ID',
-  reported_user_id BIGINT NOT NULL COMMENT '피신고자 ID',
-  reporter_user_id BIGINT NOT NULL COMMENT '신고자 ID',
-  target_type ENUM('POST', 'BOARD_POST', 'COMMENT', 'USER') NOT NULL COMMENT '대상 타입',
-  target_id BIGINT NOT NULL COMMENT '대상 ID',
-  reason VARCHAR(255) NOT NULL COMMENT '신고 사유',
-  status ENUM('PENDING', 'RESOLVED', 'REJECTED') NOT NULL DEFAULT 'PENDING' COMMENT '상태',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '신고일',
-  deleted_at DATETIME NULL COMMENT '삭제 시각',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  reported_user_id BIGINT NOT NULL,
+  reporter_user_id BIGINT NOT NULL,
+  target_type ENUM('POST','BOARD_POST','COMMENT','USER') NOT NULL,
+  target_id BIGINT NOT NULL,
+  reason VARCHAR(255) NOT NULL,
+  status ENUM('PENDING','RESOLVED','REJECTED') DEFAULT 'PENDING',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
   PRIMARY KEY (id),
   CONSTRAINT FK_reports_reported_user FOREIGN KEY (reported_user_id) REFERENCES users (id),
   CONSTRAINT FK_reports_reporter_user FOREIGN KEY (reporter_user_id) REFERENCES users (id),
@@ -365,99 +334,87 @@ CREATE TABLE reports (
 
 
 -- ===============================================
--- FOLLOWS
+-- FOLLOW / NOTIFICATION / MESSAGE / WARNING
 -- ===============================================
 CREATE TABLE follows (
-  follower_id BIGINT NOT NULL COMMENT '팔로우 하는 사용자',
-  following_id BIGINT NOT NULL COMMENT '팔로우 당하는 사용자',
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '팔로우 시작일',
-  deleted_at DATETIME NULL COMMENT '삭제 시각',
+  follower_id BIGINT NOT NULL,
+  following_id BIGINT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
   PRIMARY KEY (follower_id, following_id),
   CONSTRAINT FK_follows_follower FOREIGN KEY (follower_id) REFERENCES users (id),
   CONSTRAINT FK_follows_following FOREIGN KEY (following_id) REFERENCES users (id),
   CONSTRAINT chk_follows_self CHECK (follower_id <> following_id)
 );
 
-
--- ===============================================
--- NOTIFICATIONS
--- ===============================================
 CREATE TABLE notifications (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '알림 ID',
-  user_id BIGINT NOT NULL COMMENT '알림을 받는 사용자 ID',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
   type ENUM(
     'FOLLOW','APPLICATION','APPLICATION_ACCEPTED','APPLICATION_REJECTED',
     'WARNING','BAN','UNBAN','MESSAGE',
     'REPORT_RECEIVED','REPORT_RESOLVED','REPORT_REJECTED'
-  ) NOT NULL COMMENT '알림 유형',
-  message VARCHAR(255) NOT NULL COMMENT '알림 메시지',
-  related_id BIGINT NULL COMMENT '연관된 엔티티 ID',
-  is_read BOOLEAN NOT NULL DEFAULT FALSE COMMENT '읽음 여부',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '알림 생성 시각',
+  ) NOT NULL,
+  message VARCHAR(255) NOT NULL,
+  related_id BIGINT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   CONSTRAINT FK_notifications_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-
--- ===============================================
--- MESSAGES
--- ===============================================
 CREATE TABLE messages (
-  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '쪽지 ID',
-  sender_id BIGINT NOT NULL COMMENT '보낸 사용자 ID',
-  receiver_id BIGINT NOT NULL COMMENT '받는 사용자 ID',
-  content TEXT NOT NULL COMMENT '쪽지 내용',
-  is_read TINYINT(1) NOT NULL DEFAULT 0 COMMENT '읽음 여부',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '전송 시각',
-  deleted_at DATETIME NULL COMMENT '삭제 시각',
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  sender_id BIGINT NOT NULL,
+  receiver_id BIGINT NOT NULL,
+  content TEXT NOT NULL,
+  is_read TINYINT(1) DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
   PRIMARY KEY (id),
   CONSTRAINT FK_messages_sender FOREIGN KEY (sender_id) REFERENCES users (id),
   CONSTRAINT FK_messages_receiver FOREIGN KEY (receiver_id) REFERENCES users (id)
 );
 
-
--- ===============================================
--- REPORT_ACTIONS
--- ===============================================
 CREATE TABLE report_actions (
   id BIGINT NOT NULL AUTO_INCREMENT,
   report_id BIGINT NOT NULL,
   admin_id BIGINT NOT NULL,
   action ENUM('RESOLVE','REJECT','ESCALATE') NOT NULL,
   reason VARCHAR(255) NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   CONSTRAINT fk_ra_report FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE,
   CONSTRAINT fk_ra_admin FOREIGN KEY (admin_id) REFERENCES users(id)
 );
 
-
--- ===============================================
--- MESSAGE_USER_STATUS
--- ===============================================
 CREATE TABLE message_user_status (
   message_id BIGINT NOT NULL,
   user_id BIGINT NOT NULL,
-  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  is_read BOOLEAN DEFAULT FALSE,
   read_at DATETIME NULL,
-  is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+  is_deleted BOOLEAN DEFAULT FALSE,
   deleted_at DATETIME NULL,
   PRIMARY KEY (message_id, user_id),
   CONSTRAINT fk_mus_msg FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
   CONSTRAINT fk_mus_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-
--- ===============================================
--- USER_WARNINGS
--- ===============================================
 CREATE TABLE user_warnings (
   id BIGINT NOT NULL AUTO_INCREMENT,
-  user_id BIGINT NOT NULL COMMENT '경고 대상 사용자',
-  admin_id BIGINT NOT NULL COMMENT '처리한 관리자',
-  reason VARCHAR(255) NOT NULL COMMENT '경고 사유',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '경고 시각',
+  user_id BIGINT NOT NULL,
+  admin_id BIGINT NOT NULL,
+  reason VARCHAR(255) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   CONSTRAINT fk_uw_user FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_uw_admin FOREIGN KEY (admin_id) REFERENCES users(id)
 );
+
+
+-- ===============================================
+-- ✅ 팀원 요청: 기본 프로필 이미지 경로 설정
+-- ===============================================
+ALTER TABLE profiles
+MODIFY profile_image VARCHAR(255)
+DEFAULT '/assets/profile/default_profile.png';

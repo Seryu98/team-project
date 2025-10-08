@@ -1,3 +1,4 @@
+// src/features/account/AccountSettings.jsx
 import { useEffect, useState } from "react";
 import { getCurrentUser, authFetch } from "../auth/api";
 import "./AccountSettings.css"; // ✅ CSS 분리 적용

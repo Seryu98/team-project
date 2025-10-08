@@ -1,4 +1,4 @@
-// frontend/src/feature/project_post/recipeService.js
+// /src/feature/project_post/recipeService.js
 import axios from "axios";
 
 const API_BASE = "http://localhost:8000"; // 백엔드 주소

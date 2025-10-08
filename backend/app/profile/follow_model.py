@@ -1,3 +1,4 @@
+# app/profile/follow_model.py
 from sqlalchemy import Column, BigInteger, ForeignKey, DateTime
 from sqlalchemy.sql import func
 from app.core.base import Base
