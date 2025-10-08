@@ -104,17 +104,16 @@ export default function FindAccount() {
     }
   };
 
-  // ✅ 비밀번호 규칙 검증
+  // ✅ 비밀번호 규칙 검증 (백엔드와 동일한 정규식)
   const validatePassword = (password) => {
-    const regex =
-      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+~{}:;<>?])[A-Za-z\d!@#$%^&*()_+~{}:;<>?]{8,20}$/;
+    const regex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$/;
     return regex.test(password);
   };
 
   // ✅ 5단계 - 새 비밀번호 설정
   const handleResetPassword = async () => {
     if (!validatePassword(newPassword)) {
-      setResult("❌ 비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자로 입력해주세요.");
+      setResult("❌ 비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.");
       return;
     }
     if (newPassword !== confirmPassword) {
