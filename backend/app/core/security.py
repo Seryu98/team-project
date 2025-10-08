@@ -4,7 +4,7 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 from typing import Optional
 import os
-import uuid   # 🚩 서버 재시작 시마다 UUID 변경
+import uuid  # 🚩 서버 재시작 시마다 UUID 변경
 
 # === 환경설정 ===
 SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key")
@@ -17,20 +17,32 @@ REFRESH_TOKEN_EXPIRE_DAYS = 1
 # 🚩 서버 재시작 시마다 새로운 UUID 발급 → 기존 토큰 무효화
 SERVER_SESSION_VERSION = str(uuid.uuid4())
 
+# bcrypt 암호화 설정
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-# === 비밀번호 해싱/검증 ===
-def hash_password(password: str) -> str:
+# ===============================
+# 🔐 비밀번호 해싱 및 검증
+# ===============================
+def get_password_hash(password: str) -> str:
+    """비밀번호를 bcrypt로 해싱"""
     return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """입력한 비밀번호와 DB 해시 비밀번호 검증"""
     return pwd_context.verify(plain_password, hashed_password)
 
 
-# === 공통 토큰 생성 ===
+# ✅ 기존 코드 호환용 (auth_service.py 등에서 hash_password를 사용하는 경우 대비)
+hash_password = get_password_hash
+
+
+# ===============================
+# 🔑 JWT 토큰 생성/검증
+# ===============================
 def _create_token(data: dict, expires_delta: timedelta, token_type: str):
+    """Access / Refresh / Reset 공용 토큰 생성"""
     to_encode = data.copy()
     expire = datetime.utcnow() + expires_delta
     to_encode.update({
@@ -42,8 +54,8 @@ def _create_token(data: dict, expires_delta: timedelta, token_type: str):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-# === 전용 함수들 ===
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    """Access 토큰 생성"""
     return _create_token(
         data,
         expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -52,6 +64,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 
 
 def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
+    """Refresh 토큰 생성"""
     return _create_token(
         data,
         expires_delta or timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
@@ -60,6 +73,7 @@ def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
 
 
 def create_reset_token(data: dict, expires_delta: timedelta | None = None):
+    """비밀번호 재설정용 토큰 생성"""
     return _create_token(
         data,
         expires_delta or timedelta(minutes=30),  # 기본 30분 유효
@@ -67,8 +81,8 @@ def create_reset_token(data: dict, expires_delta: timedelta | None = None):
     )
 
 
-# === 토큰 검증 ===
 def verify_token(token: str, expected_type: Optional[str] = None):
+    """JWT 토큰 검증"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         print("[verify_token] payload:", payload)

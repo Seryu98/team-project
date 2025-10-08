@@ -17,6 +17,7 @@ from app.profile import profile_router, follow_router, skill_router
 from app.project_post import recipe_router
 from app.meta import meta_router
 from app.files import upload_router
+from app.users import user_router  # ✅ 계정관리(비밀번호 변경 포함) 추가
 
 # 로깅 설정
 LOG_LEVEL = logging.INFO
@@ -44,6 +45,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# CORS 설정
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -58,7 +60,6 @@ app.add_middleware(
 )
 
 # 정적 파일
-#app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # 라우터 등록
@@ -70,6 +71,7 @@ app.include_router(skill_router.router)
 app.include_router(recipe_router.router)
 app.include_router(meta_router.router)
 app.include_router(upload_router.router)
+app.include_router(user_router.router)  # ✅ 추가된 부분
 
 # 기본 라우트
 @app.get("/")
