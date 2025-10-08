@@ -290,9 +290,6 @@ CREATE TABLE board_post_views (
   CONSTRAINT FK_board_post_views_post FOREIGN KEY (board_post_id) REFERENCES board_posts (id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX uq_board_post_views_unique
-ON board_post_views (board_post_id, viewer_id, DATE(viewed_at));
-
 
 -- ===============================================
 -- COMMENTS / REPORTS / 기타 관리 테이블
