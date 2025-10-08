@@ -1,4 +1,3 @@
-# main.py
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -10,15 +9,18 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
-# 라우터 import
+# ✅ 라우터 import
 from app.auth import auth_router
 from app.test import db_test
 from app.profile import profile_router, follow_router, skill_router
 from app.project_post import recipe_router
 from app.meta import meta_router
 from app.files import upload_router
+from app.board import board_router  # ✅ 추가
 
+# ------------------------------------
 # 로깅 설정
+# ------------------------------------
 LOG_LEVEL = logging.INFO
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
@@ -37,10 +39,12 @@ logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 logging.getLogger("uvicorn.error").setLevel(logging.INFO)
 logging.getLogger("uvicorn.access").setLevel(logging.INFO)
 
+# ------------------------------------
 # FastAPI 앱 설정
+# ------------------------------------
 app = FastAPI(
     title="Team Project API",
-    description="회원 관리 + 프로필 + 모집공고 API",
+    description="회원 관리 + 프로필 + 모집공고 + 게시판 API",
     version="1.0.0",
 )
 
@@ -58,10 +62,11 @@ app.add_middleware(
 )
 
 # 정적 파일
-#app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+# ------------------------------------
 # 라우터 등록
+# ------------------------------------
 app.include_router(auth_router.router)
 app.include_router(db_test.router)
 app.include_router(profile_router.router)
@@ -70,8 +75,11 @@ app.include_router(skill_router.router)
 app.include_router(recipe_router.router)
 app.include_router(meta_router.router)
 app.include_router(upload_router.router)
+app.include_router(board_router.router)  # ✅ 추가됨
 
+# ------------------------------------
 # 기본 라우트
+# ------------------------------------
 @app.get("/")
 def root():
     return {"message": "🚀 Team Project API is running!"}

@@ -1,5 +1,5 @@
 -- ===============================================
--- 🚀 team_project 통합 최신 버전 (2025-10-08 확정)
+-- 🚀 team_project 통합 최신 버전 (2025-10-08 확정, boards 테이블 제거 버전)
 -- ===============================================
 
 DROP DATABASE IF EXISTS team_project;
@@ -229,15 +229,8 @@ CREATE TABLE announcement_reads (
 
 
 -- ===============================================
--- BOARDS / 게시판 구조
+-- BOARDS / 게시판 구조 (boards 테이블 제거)
 -- ===============================================
-CREATE TABLE boards (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  name VARCHAR(100) NOT NULL,
-  description VARCHAR(255) NULL,
-  PRIMARY KEY (id)
-);
-
 CREATE TABLE categories (
   id BIGINT NOT NULL AUTO_INCREMENT,
   name VARCHAR(100) NOT NULL,
@@ -245,13 +238,13 @@ CREATE TABLE categories (
   CONSTRAINT uq_categories_name UNIQUE (name)
 );
 
--- ✅ 수정된 Seed 데이터
+-- ✅ Seed 데이터
 INSERT INTO categories (name) VALUES
 ('홍보글'), ('잡담글'), ('자랑글'), ('질문&답변'), ('정보공유');
 
 CREATE TABLE board_posts (
   id BIGINT NOT NULL AUTO_INCREMENT,
-  board_id BIGINT NOT NULL,
+  -- ✅ board_id 제거
   category_id BIGINT NULL,
   author_id BIGINT NOT NULL,
   title VARCHAR(200) NOT NULL,
@@ -264,7 +257,6 @@ CREATE TABLE board_posts (
   status ENUM('VISIBLE','HIDDEN','DELETED') DEFAULT 'VISIBLE',
   deleted_at DATETIME NULL,
   PRIMARY KEY (id),
-  CONSTRAINT FK_board_posts_board FOREIGN KEY (board_id) REFERENCES boards (id),
   CONSTRAINT FK_board_posts_author FOREIGN KEY (author_id) REFERENCES users (id),
   CONSTRAINT FK_board_posts_category FOREIGN KEY (category_id) REFERENCES categories (id)
 );
@@ -278,7 +270,6 @@ CREATE TABLE board_post_likes (
   CONSTRAINT FK_board_post_likes_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- ✅ 조회수 기록 테이블 추가
 CREATE TABLE board_post_views (
   id BIGINT NOT NULL AUTO_INCREMENT,
   board_post_id BIGINT NOT NULL,
@@ -413,7 +404,7 @@ CREATE TABLE user_warnings (
 
 
 -- ===============================================
--- ✅ 팀원 요청: 기본 프로필 이미지 경로 설정
+-- 기본 프로필 이미지 경로 설정
 -- ===============================================
 ALTER TABLE profiles
 MODIFY profile_image VARCHAR(255)

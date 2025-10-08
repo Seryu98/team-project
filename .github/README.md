@@ -24,6 +24,7 @@ frontend/
     components/    // 공용 컴포넌트 (Header, Footer, Modal 등)
     features/      // 기능(도메인) 단위 모듈
       account/     // 개인정보 수정쪽 UI + API
+      board/       // 유저 게시판 UI + API
       auth/        // 로그인, 회원가입 UI + API
       notify/      // 알림 관련 UI + API
       profile/     // 프로필 페이지, 편집 UI
@@ -38,6 +39,7 @@ frontend/
 backend/
   app/
     auth/          // 로그인, 회원가입, JWT 인증
+    board/         // 유저 게시판 기능 폴더
     core/          // DB 연결, 보안, 설정
     files/         // 첨부파일기능 관련 코드
     meta/          // 스킬관련
