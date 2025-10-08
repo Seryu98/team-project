@@ -21,7 +21,7 @@ router = APIRouter(prefix="/skills", tags=["skills"])
 @router.get("/search", response_model=List[SkillOut])
 def search_skill_endpoint(
     q: Optional[str] = Query("", description="부분 검색어"),
-    limit: int = Query(10, ge=1, le=50),
+    limit: int = Query(10, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     return search_skills(db, q, limit)

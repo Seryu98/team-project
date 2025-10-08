@@ -2,6 +2,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+from app.users import user_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -83,6 +84,7 @@ app.include_router(skill_router.router)
 app.include_router(recipe_router.router)
 app.include_router(meta_router.router)
 app.include_router(upload_router.router)
+app.include_router(user_router.router)
 
 # 기본 라우트
 @app.get("/")

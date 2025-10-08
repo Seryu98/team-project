@@ -11,6 +11,7 @@ import SessionExpiredModal from "./components/SessionExpiredModal";
 import { clearTokens } from "./features/auth/api";
 import ProfilePage from "./features/profile/profile_pages";
 import ProfileCreate from "./features/profile/profileCreate_pages";
+import UserRanking from "./features/users/UserRanking";
 
 // pages
 import Register from "./features/auth/Register";
@@ -95,6 +96,7 @@ export default function App() {
           <Route path="/board" element={<Board />} />
           <Route path="/ranking" element={<Ranking />} />
           <Route path="/profile/:userId" element={<ProfilePage />} />
+          <Route path="/users/ranking" element={<UserRanking />} />
 
           {/* 🔹 로그인 필요 - 내 프로필 */}
           <Route

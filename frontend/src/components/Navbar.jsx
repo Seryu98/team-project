@@ -88,7 +88,7 @@ export default function Navbar() {
         <Link to="/board" className="nav-link">
           유저게시판
         </Link>
-        <Link to="/ranking" className="nav-link">
+        <Link to="/users/ranking" className="nav-link">
           랭킹게시판
         </Link>
       </div>
