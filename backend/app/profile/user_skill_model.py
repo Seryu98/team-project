@@ -1,3 +1,4 @@
+# app/profile/user_skill_model.py
 from sqlalchemy import Column, BigInteger, ForeignKey, Integer
 from app.core.base import Base
 

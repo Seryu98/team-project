@@ -1,4 +1,4 @@
-// src/features/profile/ProfilePage.jsx 전체 수정본
+// src/features/profile/ProfilePage.jsx
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
