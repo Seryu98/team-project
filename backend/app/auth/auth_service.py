@@ -7,12 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.users.user_model import User
 from app.auth.auth_schema import UserRegister
+from app.profile.profile_model import Profile  # ✅ 추가
 from app.core.security import (
     hash_password,
     verify_password,
     create_access_token,
     create_refresh_token,
-    create_reset_token,   # ✅ 추가
+    create_reset_token,
     verify_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_DAYS,
@@ -50,6 +51,15 @@ def register_user(db: Session, user: UserRegister) -> User:
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    
+    # ✅ Profile 자동 생성
+    new_profile = Profile(
+        id=new_user.id,
+        profile_image="/assets/profile/default_profile.png"
+    )
+    db.add(new_profile)
+    db.commit()
+    
     logger.info("회원가입 성공: id=%s email=%s", new_user.id, new_user.email)
     return new_user
 

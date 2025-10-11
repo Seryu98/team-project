@@ -112,6 +112,8 @@ export async function login(loginId, password) {
   const params = new URLSearchParams();
   params.append("username", loginId);
   params.append("password", password);
+  params.append("grant_type", "password");
+   params.append("scope", "");
 
   const res = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
@@ -119,7 +121,12 @@ export async function login(loginId, password) {
     body: params,
   });
 
-  if (!res.ok) throw new Error(String(res.status));
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("로그인 에러:", res.status, errorText);
+    throw new Error(String(res.status));
+  }
+  
   const data = await res.json();
   setTokens(data);
   return data;

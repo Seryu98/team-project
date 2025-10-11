@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Modal from "../../components/Modal";
-import { register } from "./api";
+import { register, login } from "./api"; // ✅ login 추가
 
 function Register() {
   const navigate = useNavigate();
@@ -31,9 +31,15 @@ function Register() {
     }
     setSubmitting(true);
     try {
+      // 1. 회원가입
       await register(form);
+      
+      // 2. 자동 로그인 (기존 login 함수 사용)
+      await login(form.user_id, form.password);
+      
       setShowDone(true);
-    } catch {
+    } catch (error) {
+      console.error("회원가입/로그인 실패:", error);
       setMsg("❌ 회원가입 실패");
     } finally {
       setSubmitting(false);

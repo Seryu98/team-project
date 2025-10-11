@@ -21,9 +21,10 @@ export default function ProfileTutorial() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [form, setForm] = useState({
-    nickname: "",
     headline: "",
     bio: "",
+    experience: "",
+    certifications: "",
   });
   const [previewImage, setPreviewImage] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -65,8 +66,24 @@ export default function ProfileTutorial() {
     return `/assets/skills/${rawName.replace(/\s+/g, "_")}.png`;
   };
 
-  const totalSteps = 5;
+  const totalSteps = 7;
   const progress = ((currentStep + 1) / totalSteps) * 100;
+
+  const hasInput = () => {
+    if (currentStep === 0) return false;
+    if (currentStep === 1) return previewImage !== null;
+    if (currentStep === 2) return form.headline;
+    if (currentStep === 3) return form.bio;
+    if (currentStep === 4) return form.experience;
+    if (currentStep === 5) return form.certifications;
+    if (currentStep === 6) return selectedSkills.length > 0;
+    return false;
+  };
+
+  const getButtonText = () => {
+    if (currentStep === 0) return "시작하기";
+    return hasInput() ? "다음" : "건너뛰기";
+  };
 
   const handleImageSelect = (e) => {
     const file = e.target.files?.[0];
@@ -113,17 +130,8 @@ export default function ProfileTutorial() {
     );
   };
 
-  const canProceed = () => {
-    if (currentStep === 0) return true; // 환영 화면
-    if (currentStep === 1) return previewImage; // 프로필 이미지
-    if (currentStep === 2) return form.nickname && form.headline; // 닉네임 + 헤드라인
-    if (currentStep === 3) return form.bio; // 자기소개
-    if (currentStep === 4) return selectedSkills.length >= 3; // 스킬 3개 이상
-    return false;
-  };
-
   const handleNext = () => {
-    if (canProceed() && currentStep < totalSteps - 1) {
+    if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -139,7 +147,6 @@ export default function ProfileTutorial() {
       setLoading(true);
       const token = localStorage.getItem("access_token");
 
-      // 1. 프로필 이미지 업로드
       if (selectedFile) {
         const formData = new FormData();
         formData.append("file", selectedFile);
@@ -151,20 +158,19 @@ export default function ProfileTutorial() {
         });
       }
 
-      // 2. 프로필 정보 저장
       await api.put(
         "/profiles/me",
         {
-          nickname: form.nickname,
           headline: form.headline,
           bio: form.bio,
+          experience: form.experience,
+          certifications: form.certifications,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      // 3. 스킬 저장
       for (const skill of selectedSkills) {
         await api.post(
           `/skills/me`,
@@ -174,7 +180,7 @@ export default function ProfileTutorial() {
       }
 
       alert("프로필 설정이 완료되었습니다! 🎉");
-      navigate("/"); // 메인 페이지로 이동
+      navigate("/");
     } catch (error) {
       console.error("프로필 저장 실패:", error);
       alert("프로필 저장 중 오류가 발생했습니다.");
@@ -202,11 +208,10 @@ export default function ProfileTutorial() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", padding: "40px 20px" }}>
-      <div style={{ maxWidth: "600px", margin: "0 auto", background: "#fff", borderRadius: "16px", padding: "40px", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
-        
-        {/* Progress Bar */}
-        <div style={{ marginBottom: "32px" }}>
+    <div style={{ minHeight: "100vh", background: "#fff", display: "flex", flexDirection: "column" }}>
+      {/* Progress Bar - 상단 고정 */}
+      <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "20px 40px" }}>
+        <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
             <span style={{ fontSize: "14px", color: "#6b7280", fontWeight: "500" }}>
               {currentStep + 1} / {totalSteps}
@@ -219,106 +224,77 @@ export default function ProfileTutorial() {
             <div style={{ width: `${progress}%`, height: "100%", background: "linear-gradient(90deg, #667eea, #764ba2)", transition: "width 0.3s ease" }} />
           </div>
         </div>
+      </div>
 
-        {/* Step 0: 환영 화면 */}
-        {currentStep === 0 && (
-          <div style={{ textAlign: "center" }}>
-            <h1 style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
-              환영합니다! 👋
-            </h1>
-            <p style={{ fontSize: "16px", color: "#6b7280", marginBottom: "32px", lineHeight: "1.6" }}>
-              프로필을 완성하고<br />
-              함께 프로젝트를 진행할 팀원을 찾아보세요!
-            </p>
-            <div style={{ fontSize: "64px", marginBottom: "32px" }}>🚀</div>
-            <p style={{ fontSize: "14px", color: "#9ca3af" }}>
-              5단계만 완료하면 프로필이 완성돼요
-            </p>
-          </div>
-        )}
+      {/* Main Content - 중앙 */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px" }}>
+        <div style={{ width: "100%", maxWidth: "800px" }}>
 
-        {/* Step 1: 프로필 이미지 */}
-        {currentStep === 1 && (
-          <div style={{ textAlign: "center" }}>
-            <h2 style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "12px", color: "#1f2937" }}>
-              프로필 사진을 선택해주세요
-            </h2>
-            <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "32px" }}>
-              첫인상이 중요해요! 😊
-            </p>
-            <div style={{ marginBottom: "24px" }}>
-              <img
-                src={
-                  previewImage ||
-                  "http://localhost:8000/assets/profile/default_profile.png"
-                }
-                alt="프로필"
-                style={{
-                  width: "150px",
-                  height: "150px",
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                  margin: "0 auto",
-                  border: "4px solid #e5e7eb",
-                }}
-              />
+          {/* Step 0: 환영 화면 */}
+          {currentStep === 0 && (
+            <div style={{ textAlign: "center" }}>
+              <h1 style={{ fontSize: "48px", fontWeight: "bold", marginBottom: "24px", color: "#1f2937" }}>
+                환영합니다! 👋
+              </h1>
+              <p style={{ fontSize: "20px", color: "#6b7280", marginBottom: "40px", lineHeight: "1.6" }}>
+                프로필을 완성하고<br />
+                함께 프로젝트를 진행할 팀원을 찾아보세요!
+              </p>
+              <div style={{ fontSize: "80px", marginBottom: "40px" }}>💻</div>
+              <p style={{ fontSize: "16px", color: "#9ca3af" }}>
+                7단계로 프로필을 완성해요
+              </p>
             </div>
-            <label style={{
-              display: "inline-block",
-              padding: "12px 24px",
-              background: "#3b82f6",
-              color: "#fff",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: "500",
-            }}>
-              사진 선택
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-                style={{ display: "none" }}
-              />
-            </label>
-          </div>
-        )}
+          )}
 
-        {/* Step 2: 닉네임 + 헤드라인 */}
-        {currentStep === 2 && (
-          <div>
-            <h2 style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "12px", color: "#1f2937" }}>
-              자신을 소개해주세요
-            </h2>
-            <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "32px" }}>
-              어떻게 불리고 싶으신가요?
-            </p>
-            <div style={{ marginBottom: "24px" }}>
-              <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
-                닉네임
+          {/* Step 1: 프로필 이미지 */}
+          {currentStep === 1 && (
+            <div style={{ textAlign: "center" }}>
+              <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
+                프로필 사진을 선택해주세요
+              </h2>
+              <p style={{ fontSize: "18px", color: "#6b7280", marginBottom: "40px" }}>
+                {previewImage ? "멋진 프로필이네요! 😊" : "현재 프로필은 기본 프로필입니다"}
+              </p>
+              <div style={{ marginBottom: "32px" }}>
+                <img
+                  src={previewImage || "http://localhost:8000/assets/profile/default_profile.png"}
+                  alt="프로필"
+                  style={{
+                    width: "200px",
+                    height: "200px",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    margin: "0 auto",
+                    border: "4px solid #e5e7eb",
+                  }}
+                />
+              </div>
+              <label style={{
+                display: "inline-block",
+                padding: "16px 32px",
+                background: "#667eea",
+                color: "#fff",
+                borderRadius: "12px",
+                cursor: "pointer",
+                fontSize: "16px",
+                fontWeight: "600",
+              }}>
+                사진 선택
+                <input type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
               </label>
-              <input
-                type="text"
-                value={form.nickname}
-                onChange={(e) => setForm({ ...form, nickname: e.target.value })}
-                placeholder="예: 코딩천재"
-                style={{
-                  width: "100%",
-                  padding: "12px 16px",
-                  border: "2px solid #e5e7eb",
-                  borderRadius: "8px",
-                  fontSize: "16px",
-                  outline: "none",
-                  transition: "border 0.2s",
-                }}
-                onFocus={(e) => e.target.style.border = "2px solid #667eea"}
-                onBlur={(e) => e.target.style.border = "2px solid #e5e7eb"}
-              />
             </div>
+          )}
+
+          {/* Step 2: 헤드라인 */}
+          {currentStep === 2 && (
             <div>
-              <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
-                한 줄 소개
-              </label>
+              <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
+                한 줄로 자신을 소개해주세요
+              </h2>
+              <p style={{ fontSize: "18px", color: "#6b7280", marginBottom: "40px" }}>
+                어떤 개발자인가요?
+              </p>
               <input
                 type="text"
                 value={form.headline}
@@ -326,129 +302,173 @@ export default function ProfileTutorial() {
                 placeholder="예: 풀스택 개발자 | React & Node.js"
                 style={{
                   width: "100%",
-                  padding: "12px 16px",
+                  padding: "16px 20px",
                   border: "2px solid #e5e7eb",
-                  borderRadius: "8px",
-                  fontSize: "16px",
+                  borderRadius: "12px",
+                  fontSize: "18px",
                   outline: "none",
-                  transition: "border 0.2s",
                 }}
                 onFocus={(e) => e.target.style.border = "2px solid #667eea"}
                 onBlur={(e) => e.target.style.border = "2px solid #e5e7eb"}
               />
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Step 3: 자기소개 */}
-        {currentStep === 3 && (
-          <div>
-            <h2 style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "12px", color: "#1f2937" }}>
-              자신에 대해 알려주세요
-            </h2>
-            <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "32px" }}>
-              어떤 개발자인지 자유롭게 작성해보세요
-            </p>
-            <textarea
-              value={form.bio}
-              onChange={(e) => setForm({ ...form, bio: e.target.value })}
-              placeholder="예: 3년차 프론트엔드 개발자입니다. React와 TypeScript를 주로 사용하며, 사용자 경험을 중요하게 생각합니다."
-              rows={8}
-              style={{
-                width: "100%",
-                padding: "16px",
-                border: "2px solid #e5e7eb",
-                borderRadius: "8px",
-                fontSize: "14px",
-                resize: "none",
-                outline: "none",
-                lineHeight: "1.6",
-                transition: "border 0.2s",
-              }}
-              onFocus={(e) => e.target.style.border = "2px solid #667eea"}
-              onBlur={(e) => e.target.style.border = "2px solid #e5e7eb"}
-            />
-          </div>
-        )}
+          {/* Step 3: 자기소개 */}
+          {currentStep === 3 && (
+            <div>
+              <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
+                자기소개를 작성해주세요
+              </h2>
+              <p style={{ fontSize: "18px", color: "#6b7280", marginBottom: "40px" }}>
+                자신에 대해 자유롭게 표현해보세요
+              </p>
+              <textarea
+                value={form.bio}
+                onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                placeholder="예: 3년차 프론트엔드 개발자입니다. React와 TypeScript를 주로 사용하며, 사용자 경험을 중요하게 생각합니다."
+                rows={8}
+                style={{
+                  width: "100%",
+                  padding: "16px 20px",
+                  border: "2px solid #e5e7eb",
+                  borderRadius: "12px",
+                  fontSize: "16px",
+                  resize: "none",
+                  outline: "none",
+                  lineHeight: "1.6",
+                }}
+                onFocus={(e) => e.target.style.border = "2px solid #667eea"}
+                onBlur={(e) => e.target.style.border = "2px solid #e5e7eb"}
+              />
+            </div>
+          )}
 
-        {/* Step 4: 스킬 선택 */}
-        {currentStep === 4 && (
-          <div>
-            <h2 style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "12px", color: "#1f2937" }}>
-              보유 스킬을 선택해주세요
-            </h2>
-            <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "24px" }}>
-              최소 3개 이상 선택해주세요 ({selectedSkills.length}/3)
-            </p>
+          {/* Step 4: 이력 */}
+          {currentStep === 4 && (
+            <div>
+              <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
+                경력 및 이력을 작성해주세요
+              </h2>
+              <p style={{ fontSize: "18px", color: "#6b7280", marginBottom: "40px" }}>
+                프로젝트 경험이나 학력을 자유롭게 작성하세요
+              </p>
+              <textarea
+                value={form.experience}
+                onChange={(e) => setForm({ ...form, experience: e.target.value })}
+                placeholder="예:&#10;• 2022-2024: ABC 회사 프론트엔드 개발자&#10;• 2020-2022: XYZ 대학교 컴퓨터공학과 졸업"
+                rows={8}
+                style={{
+                  width: "100%",
+                  padding: "16px 20px",
+                  border: "2px solid #e5e7eb",
+                  borderRadius: "12px",
+                  fontSize: "16px",
+                  resize: "none",
+                  outline: "none",
+                  lineHeight: "1.6",
+                }}
+                onFocus={(e) => e.target.style.border = "2px solid #667eea"}
+                onBlur={(e) => e.target.style.border = "2px solid #e5e7eb"}
+              />
+            </div>
+          )}
 
-            {/* 선택된 스킬 */}
-            <div style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "16px",
-              padding: "16px",
-              border: "2px dashed #e5e7eb",
-              borderRadius: "8px",
-              minHeight: "100px",
-              marginBottom: "20px",
-            }}>
-              {selectedSkills.length > 0 ? (
-                selectedSkills.map((skill) => (
-                  <div
-                    key={skill.id}
-                    style={{
+          {/* Step 5: 자격증 */}
+          {currentStep === 5 && (
+            <div>
+              <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
+                자격증을 작성해주세요
+              </h2>
+              <p style={{ fontSize: "18px", color: "#6b7280", marginBottom: "40px" }}>
+                보유하신 자격증이 있다면 작성해주세요
+              </p>
+              <textarea
+                value={form.certifications}
+                onChange={(e) => setForm({ ...form, certifications: e.target.value })}
+                placeholder="예:&#10;• 정보처리기사 (2023)&#10;• AWS Certified Solutions Architect (2024)"
+                rows={8}
+                style={{
+                  width: "100%",
+                  padding: "16px 20px",
+                  border: "2px solid #e5e7eb",
+                  borderRadius: "12px",
+                  fontSize: "16px",
+                  resize: "none",
+                  outline: "none",
+                  lineHeight: "1.6",
+                }}
+                onFocus={(e) => e.target.style.border = "2px solid #667eea"}
+                onBlur={(e) => e.target.style.border = "2px solid #e5e7eb"}
+              />
+            </div>
+          )}
+
+          {/* Step 6: 스킬 */}
+          {currentStep === 6 && (
+            <div>
+              <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
+                보유 스킬을 선택해주세요
+              </h2>
+              <p style={{ fontSize: "18px", color: "#6b7280", marginBottom: "32px" }}>
+                자유롭게 선택해보세요 ({selectedSkills.length}개 선택됨)
+              </p>
+
+              <div style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "16px",
+                padding: "24px",
+                border: "2px dashed #e5e7eb",
+                borderRadius: "12px",
+                minHeight: "120px",
+                marginBottom: "24px",
+              }}>
+                {selectedSkills.length > 0 ? (
+                  selectedSkills.map((skill) => (
+                    <div key={skill.id} style={{
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
                       width: "70px",
                       position: "relative",
-                    }}
-                  >
-                    <button
-                      onClick={() => handleRemoveSkill(skill.id)}
-                      style={{
-                        position: "absolute",
-                        top: "-8px",
-                        right: "-8px",
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "50%",
-                        background: "#ef4444",
-                        color: "#fff",
-                        border: "none",
-                        fontSize: "16px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      ×
-                    </button>
-                    <img
-                      src={resolveSkillIconUrl(skill.name)}
-                      alt={skill.name}
-                      style={{ width: "48px", height: "48px", objectFit: "contain" }}
-                    />
-                    <span style={{ fontSize: "11px", marginTop: "4px", textAlign: "center", fontWeight: "500" }}>
-                      {skill.name}
-                    </span>
-                    <StarRating
-                      level={skill.level}
-                      onSelect={(lv) => handleUpdateSkillLevel(skill.id, lv)}
-                    />
-                  </div>
-                ))
-              ) : (
-                <p style={{ color: "#9ca3af", fontSize: "14px", margin: "auto" }}>
-                  아래에서 스킬을 검색하고 추가해보세요
-                </p>
-              )}
-            </div>
+                    }}>
+                      <button
+                        onClick={() => handleRemoveSkill(skill.id)}
+                        style={{
+                          position: "absolute",
+                          top: "-8px",
+                          right: "-8px",
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "50%",
+                          background: "#ef4444",
+                          color: "#fff",
+                          border: "none",
+                          fontSize: "16px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ×
+                      </button>
+                      <img
+                        src={resolveSkillIconUrl(skill.name)}
+                        alt={skill.name}
+                        style={{ width: "48px", height: "48px", objectFit: "contain" }}
+                      />
+                      <span style={{ fontSize: "11px", marginTop: "4px", textAlign: "center", fontWeight: "500" }}>
+                        {skill.name}
+                      </span>
+                      <StarRating level={skill.level} onSelect={(lv) => handleUpdateSkillLevel(skill.id, lv)} />
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ color: "#9ca3af", fontSize: "16px", margin: "auto" }}>
+                    아래에서 스킬을 검색하고 추가해보세요
+                  </p>
+                )}
+              </div>
 
-            {/* 스킬 검색 */}
-            <div>
               <input
                 type="text"
                 value={searchQuery}
@@ -456,41 +476,37 @@ export default function ProfileTutorial() {
                 placeholder="스킬 검색 (예: React, Python, Java)"
                 style={{
                   width: "100%",
-                  padding: "12px 16px",
+                  padding: "16px 20px",
                   border: "2px solid #e5e7eb",
-                  borderRadius: "8px",
-                  fontSize: "14px",
+                  borderRadius: "12px",
+                  fontSize: "16px",
                   outline: "none",
                 }}
               />
 
               {searchResults.length > 0 && (
                 <div style={{
-                  marginTop: "12px",
+                  marginTop: "16px",
                   border: "1px solid #e5e7eb",
-                  borderRadius: "8px",
-                  maxHeight: "200px",
+                  borderRadius: "12px",
+                  maxHeight: "240px",
                   overflowY: "auto",
                 }}>
                   {searchResults.map((skill) => (
-                    <div
-                      key={skill.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "12px 16px",
-                        borderBottom: "1px solid #f3f4f6",
-                        background: "#fff",
-                      }}
-                    >
+                    <div key={skill.id} style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "16px 20px",
+                      borderBottom: "1px solid #f3f4f6",
+                    }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                         <img
                           src={resolveSkillIconUrl(skill.name)}
                           alt={skill.name}
                           style={{ width: "32px", height: "32px", objectFit: "contain" }}
                         />
-                        <span style={{ fontSize: "14px", fontWeight: "500" }}>{skill.name}</span>
+                        <span style={{ fontSize: "16px", fontWeight: "500" }}>{skill.name}</span>
                       </div>
                       <div style={{ display: "flex", gap: "4px" }}>
                         {[1, 2, 3].map((star) => (
@@ -498,11 +514,7 @@ export default function ProfileTutorial() {
                             key={star}
                             src={zeroStarUrl}
                             alt="star"
-                            style={{
-                              width: "24px",
-                              height: "24px",
-                              cursor: "pointer",
-                            }}
+                            style={{ width: "24px", height: "24px", cursor: "pointer" }}
                             onClick={() => handleAddSkill(skill, star)}
                           />
                         ))}
@@ -512,23 +524,26 @@ export default function ProfileTutorial() {
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Navigation Buttons */}
-        <div style={{ display: "flex", gap: "12px", marginTop: "32px" }}>
+        </div>
+      </div>
+
+      {/* Navigation Buttons - 하단 고정 */}
+      <div style={{ background: "#fff", borderTop: "1px solid #e5e7eb", padding: "20px 40px" }}>
+        <div style={{ maxWidth: "800px", margin: "0 auto", display: "flex", gap: "16px" }}>
           {currentStep > 0 && (
             <button
               onClick={handleBack}
               style={{
                 flex: 1,
-                padding: "14px",
+                padding: "16px",
                 background: "#fff",
                 color: "#374151",
                 border: "2px solid #e5e7eb",
-                borderRadius: "8px",
-                fontSize: "15px",
-                fontWeight: "500",
+                borderRadius: "12px",
+                fontSize: "16px",
+                fontWeight: "600",
                 cursor: "pointer",
               }}
             >
@@ -538,35 +553,34 @@ export default function ProfileTutorial() {
           {currentStep < totalSteps - 1 ? (
             <button
               onClick={handleNext}
-              disabled={!canProceed()}
               style={{
                 flex: 1,
-                padding: "14px",
-                background: canProceed() ? "linear-gradient(90deg, #667eea, #764ba2)" : "#d1d5db",
+                padding: "16px",
+                background: "linear-gradient(90deg, #667eea, #764ba2)",
                 color: "#fff",
                 border: "none",
-                borderRadius: "8px",
-                fontSize: "15px",
-                fontWeight: "500",
-                cursor: canProceed() ? "pointer" : "not-allowed",
+                borderRadius: "12px",
+                fontSize: "16px",
+                fontWeight: "600",
+                cursor: "pointer",
               }}
             >
-              다음
+              {getButtonText()}
             </button>
           ) : (
             <button
               onClick={handleComplete}
-              disabled={!canProceed() || loading}
+              disabled={loading}
               style={{
                 flex: 1,
-                padding: "14px",
-                background: canProceed() && !loading ? "linear-gradient(90deg, #10b981, #059669)" : "#d1d5db",
+                padding: "16px",
+                background: loading ? "#d1d5db" : "#10b981",
                 color: "#fff",
                 border: "none",
-                borderRadius: "8px",
-                fontSize: "15px",
-                fontWeight: "500",
-                cursor: canProceed() && !loading ? "pointer" : "not-allowed",
+                borderRadius: "12px",
+                fontSize: "16px",
+                fontWeight: "600",
+                cursor: loading ? "not-allowed" : "pointer",
               }}
             >
               {loading ? "저장 중..." : "완료! 🎉"}
