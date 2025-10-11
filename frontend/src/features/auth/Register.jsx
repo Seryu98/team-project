@@ -40,10 +40,10 @@ function Register() {
     }
   };
 
-  const goLogin = () => {
-    navigate("/login", {
+  // ✅ 튜토리얼로 이동
+  const goTutorial = () => {
+    navigate("/tutorial", {
       replace: true,
-      state: { justRegistered: true, email: form.email },
     });
   };
 
@@ -174,16 +174,17 @@ function Register() {
         {msg && <p style={{ marginTop: "12px", textAlign: "center" }}>{msg}</p>}
       </div>
 
+      {/* ✅ 튜토리얼로 연결 */}
       {showDone && (
         <Modal
           title="회원가입 완료"
-          confirmText="로그인 하러 가기"
-          onConfirm={goLogin}
-          onClose={goLogin}
+          confirmText="프로필 만들러 가기"
+          onConfirm={goTutorial}
+          onClose={goTutorial}
         >
           회원가입이 정상적으로 완료되었습니다.
           <br />
-          다음 화면에서 로그인해 주세요.
+          프로필을 만들어볼까요? 🚀
         </Modal>
       )}
     </div>
