@@ -9,7 +9,7 @@
   justify-content: center;
   background: #f6f7fb;
   padding: 24px;
-  animation: fadeIn 0.6s ease-in-out; /* 🔹 전체 페이드인 */
+  animation: fadeIn 0.6s ease-in-out;
 }
 
 /* 로고 */
@@ -35,29 +35,28 @@
   border: 1px solid #eee;
   border-radius: 12px;
   padding: 28px 24px;
-  box-shadow: 0 10px 24px rgba(0,0,0,0.06);
-  animation: slideUp 0.5s ease; /* 🔹 살짝 위로 슬라이드 등장 */
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+  animation: slideUp 0.5s ease;
 }
 
 .login-title {
-  margin: 0 0 16px;
+  margin: 0 0 20px;
   text-align: center;
-  font-size: 20px;
-  font-weight: bold;
+  font-size: 22px;
+  font-weight: 700;
   color: #111;
 }
 
+/* 일반 로그인 */
 .login-form {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
-
-/* input */
 .login-form input {
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: 8px;
   border: 1px solid #ddd;
-  font-size: 14px;
+  font-size: 15px;
   transition: border-color 0.3s, box-shadow 0.3s;
 }
 .login-form input:focus {
@@ -66,28 +65,141 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
-/* 버튼 */
+/* 로그인 버튼 */
 .login-button {
-  padding: 10px 12px;
+  padding: 12px;
   border-radius: 8px;
   border: none;
   background: #2563eb;
   color: #fff;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: bold;
   cursor: pointer;
   transition: background 0.3s, transform 0.2s;
 }
 .login-button:hover {
   background: #1e40af;
-  transform: scale(1.02); /* 🔹 hover 시 살짝 커짐 */
+  transform: scale(1.02);
 }
 
-/* 링크 */
+/* 구분선 */
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 18px 0;
+  color: #aaa;
+  font-size: 13px;
+  position: relative;
+}
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #ddd;
+  margin: 0 8px;
+}
+
+/* 소셜 로그인 */
+.social-login {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 공통 버튼 스타일 */
+.social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* ✅ 텍스트 가운데 정렬 */
+  height: 48px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+  padding: 0 14px;
+}
+.social-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+/* ✅ 구글 */
+.social-btn.google {
+  border: 1px solid #dadce0;
+  background: #fff;
+  color: #222;
+}
+.google .social-icon {
+  width: 22px;
+  height: 22px;
+  margin-right: 10px;
+}
+
+/* ✅ 카카오 */
+.social-btn.kakao {
+  background: #fee500;
+  color: #3c1e1e;
+}
+.kakao .social-icon {
+  width: 22px;
+  height: 22px;
+  margin-right: 10px;
+  border-radius: 5px;
+  background: transparent;
+}
+
+/* ✅ 네이버 */
+.social-btn.naver {
+  background-color: #03c75a; /* 💚 네이버 초록 */
+  color: #fff;
+  border-radius: 6px;
+  border: none;
+  overflow: hidden;
+  height: 48px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* ✅ 텍스트 완전 가운데 */
+  gap: 8px; /* 로고와 텍스트 간격 조정 */
+}
+
+.social-btn.naver:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* ✅ N 로고 */
+.naver-logo-area {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none; /* ✅ 배경 제거 */
+  border: none; /* ✅ 흰색 선 제거 */
+}
+
+/* ✅ 텍스트 */
+.social-btn.naver span {
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  text-align: center;
+}
+
+/* 하단 링크 */
 .login-links {
   display: flex;
   justify-content: space-between;
-  margin-top: 12px;
+  margin-top: 14px;
   font-size: 13px;
 }
 .login-links a {
@@ -102,18 +214,21 @@
 
 /* 메시지 */
 .login-message {
-  margin-top: 12px;
+  margin-top: 14px;
   text-align: center;
   font-size: 14px;
   color: #dc2626;
 }
 
-/* 🔹 애니메이션 키프레임 */
+/* 애니메이션 */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
-
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -122,5 +237,21 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 반응형 */
+@media (max-width: 480px) {
+  .login-box {
+    padding: 20px 16px;
+    border-radius: 10px;
+  }
+  .social-btn {
+    height: 44px;
+    font-size: 14px;
+  }
+  .naver-logo-area {
+    width: 20px;
+    height: 20px;
   }
 }

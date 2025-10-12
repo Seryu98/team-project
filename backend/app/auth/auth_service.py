@@ -4,6 +4,9 @@ import logging
 from typing import Optional
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+import os
+import requests
+from urllib.parse import urlencode
 
 from app.users.user_model import User
 from app.auth.auth_schema import UserRegister
@@ -12,7 +15,7 @@ from app.core.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
-    create_reset_token,   # ✅ 추가
+    create_reset_token,
     verify_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_DAYS,
@@ -26,7 +29,6 @@ LOCK_TIME_MINUTES = 15
 RESET_TOKEN_EXPIRE_MINUTES = 30  # 비밀번호 재설정 토큰 만료시간
 
 logger = logging.getLogger(__name__)
-
 
 # ===============================
 # 회원가입 처리
@@ -208,3 +210,147 @@ def reset_password(db: Session, reset_token: str, new_password: str) -> bool:
     db.refresh(user)
     logger.info("비밀번호 재설정 성공: user_id=%s", user.user_id)
     return True
+
+
+# ===============================
+# ✅ 소셜 로그인 (2단계: 실제 구현)
+# ===============================
+def get_oauth_login_url(provider: str) -> str:
+    redirect_uri = os.getenv("OAUTH_REDIRECT_URI", "http://localhost:8000/auth/social/callback")
+
+    if provider == "google":
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        params = {
+            "client_id": client_id,
+            "redirect_uri": f"{redirect_uri}/google",
+            "response_type": "code",
+            "scope": "openid email profile",
+            "access_type": "offline",
+        }
+        return f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+
+    elif provider == "naver":
+        client_id = os.getenv("NAVER_CLIENT_ID")
+        state = "naver_state"
+        params = {
+            "client_id": client_id,
+            "redirect_uri": f"{redirect_uri}/naver",
+            "response_type": "code",
+            "state": state,
+        }
+        return f"https://nid.naver.com/oauth2.0/authorize?{urlencode(params)}"
+
+    elif provider == "kakao":
+        client_id = os.getenv("KAKAO_CLIENT_ID")
+        params = {
+            "client_id": client_id,
+            "redirect_uri": f"{redirect_uri}/kakao",
+            "response_type": "code",
+        }
+        return f"https://kauth.kakao.com/oauth/authorize?{urlencode(params)}"
+
+    else:
+        raise ValueError("지원하지 않는 provider입니다.")
+
+
+def handle_oauth_callback(db: Session, provider: str, code: str) -> dict:
+    redirect_uri = os.getenv("OAUTH_REDIRECT_URI", "http://localhost:8000/auth/social/callback")
+
+    if provider == "google":
+        token_url = "https://oauth2.googleapis.com/token"
+        data = {
+            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": f"{redirect_uri}/google",
+        }
+        token_res = requests.post(token_url, data=data)
+        token_res.raise_for_status()
+        access_token = token_res.json().get("access_token")
+
+        user_info = requests.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+        ).json()
+        email = user_info.get("email")
+        name = user_info.get("name") or "Google 사용자"
+        social_id = user_info.get("id")
+
+    elif provider == "naver":
+        token_url = "https://nid.naver.com/oauth2.0/token"
+        data = {
+            "client_id": os.getenv("NAVER_CLIENT_ID"),
+            "client_secret": os.getenv("NAVER_CLIENT_SECRET"),
+            "grant_type": "authorization_code",
+            "code": code,
+            "state": "naver_state",
+        }
+        token_res = requests.post(token_url, data=data)
+        token_res.raise_for_status()
+        access_token = token_res.json().get("access_token")
+
+        user_info = requests.get(
+            "https://openapi.naver.com/v1/nid/me",
+            headers={"Authorization": f"Bearer {access_token}"},
+        ).json()
+        profile = user_info.get("response", {})
+        email = profile.get("email")
+        name = profile.get("name") or "Naver 사용자"
+        social_id = profile.get("id")
+
+    elif provider == "kakao":
+        token_url = "https://kauth.kakao.com/oauth/token"
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": os.getenv("KAKAO_CLIENT_ID"),
+            "client_secret": os.getenv("KAKAO_CLIENT_SECRET", ""),
+            "redirect_uri": f"{redirect_uri}/kakao",
+            "code": code,
+        }
+        token_res = requests.post(token_url, data=data)
+        token_res.raise_for_status()
+        access_token = token_res.json().get("access_token")
+
+        user_info = requests.get(
+            "https://kapi.kakao.com/v2/user/me",
+            headers={"Authorization": f"Bearer {access_token}"},
+        ).json()
+        kakao_account = user_info.get("kakao_account", {})
+        email = kakao_account.get("email")
+        name = kakao_account.get("profile", {}).get("nickname") or "Kakao 사용자"
+        social_id = str(user_info.get("id"))
+
+    else:
+        raise ValueError("지원하지 않는 provider입니다.")
+
+    # ✅ 유저 등록 or 기존 유저 조회
+    user = db.query(User).filter(User.social_id == social_id, User.auth_provider == provider).first()
+
+    if not user:
+        user = User(
+            email=email or f"{provider}_{social_id}@example.com",
+            user_id=f"{provider}_{social_id}",
+            name=name,
+            nickname=name,
+            auth_provider=provider,
+            social_id=social_id,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    # ✅ JWT 발급
+    access_token = create_access_token(
+        data={"sub": str(user.id)},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+
+    logger.info(f"{provider.capitalize()} 로그인 성공: email={email}")
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
