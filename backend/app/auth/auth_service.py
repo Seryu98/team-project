@@ -502,4 +502,91 @@ def get_current_user(
 
     return user
 
+# ===============================
+# 🔑 비밀번호 재설정 토큰 발급 (user_id 기준)
+# ===============================
+def generate_reset_token_by_user_id(db: Session, user_id: str) -> Optional[str]:
+    """user_id로 비밀번호 재설정 토큰 생성"""
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user or user.auth_provider != "LOCAL":
+        return None
 
+    from app.core.security import create_reset_token
+    reset_token = create_reset_token(
+    data={"sub": str(user.id)},
+    expires_delta=timedelta(minutes=30)
+)
+    print(f"🪄 [DEBUG] Reset token for {user_id}: {reset_token}")
+    return reset_token
+
+# ===============================
+# ✉️ 이메일 힌트 및 인증번호 발송
+# ===============================
+def get_email_hint(db: Session, user_id: str) -> Optional[str]:
+    print(f"[DEBUG] db session type={type(db)}")
+    print(f"🧩 [DEBUG] email-hint called with user_id={user_id}")
+    """
+    아이디(user_id)로 이메일 일부 힌트와 인증번호(6자리) 발송 처리
+    - 실제 메일 전송 대신 콘솔에 6자리 코드 출력
+    """
+    user = db.query(User).filter(User.user_id == user_id).first()
+    email = user.email if user else None
+    print(f"🧩 [DEBUG] user={user}")
+    if not user:
+        print("⚠️ user is None")
+        raise HTTPException(status_code=404, detail="등록된 계정을 찾을 수 없습니다.")
+    if not user.email:
+        print("⚠️ user.email is None")
+        raise HTTPException(status_code=404, detail="등록된 이메일이 없습니다.")
+    
+
+    # 이메일 힌트 마스킹 (예: ex*****@g****.com)
+    email = user.email
+    at_index = email.find("@")
+    if at_index > 2:
+        email_hint = f"{email[:2]}*****@{email[at_index+1:at_index+2]}****.{email.split('.')[-1]}"
+    else:
+        email_hint = "****"
+
+    # 6자리 인증번호 생성
+    import random
+    code = "".join([str(random.randint(0, 9)) for _ in range(6)])
+
+    # 콘솔 출력 (실제 메일 발송 대신)
+    print(f"🔐 인증번호: {code}")
+
+    # 필요하다면 이후 이메일 전송 로직 추가 가능 (SMTP or SendGrid 등)
+    return email_hint
+
+# ===============================
+# 🔑 비밀번호 재설정 (Reset Token 기반)
+# ===============================
+def reset_password(db: Session, reset_token: str, new_password: str) -> bool:
+    """
+    Reset 토큰 검증 후 비밀번호 변경
+    """
+    from app.core.security import verify_token, hash_password
+    payload = verify_token(reset_token, expected_type="reset")
+
+    if not payload:
+        print("❌ reset_password: invalid token")
+        return False
+
+    user_id = payload.get("sub")
+    if not user_id:
+        print("❌ reset_password: no user_id in payload")
+        return False
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user:
+        print("❌ reset_password: user not found")
+        return False
+
+    user.password_hash = hash_password(new_password)
+    user.reset_token = None
+    user.reset_token_expire = None
+    db.commit()
+    db.refresh(user)
+
+    print(f"✅ reset_password: password updated for user_id={user.user_id}")
+    return True

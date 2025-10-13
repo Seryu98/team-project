@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from pydantic import BaseModel
 from datetime import datetime
 import re
+from fastapi.responses import JSONResponse
 
 from app.core.database import get_db
 from app.auth import auth_service
@@ -175,7 +176,7 @@ def find_id(req: FindIdRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/email-hint")
-def get_email_hint(req: EmailHintRequest, db: Session = Depends(get_db)):
+async def get_email_hint(req: EmailHintRequest, db: Session = Depends(get_db)):
     """✉️ 이메일 힌트 조회 (user_id 기준)"""
     email_hint = auth_service.get_email_hint(db, req.user_id)
     if not email_hint:

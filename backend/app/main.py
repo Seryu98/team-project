@@ -2,54 +2,16 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
-import logging
-import os
+import sys, traceback, logging, os
 from logging.handlers import RotatingFileHandler
 
 # ===================================
-# 📦 라우터 import
-# ===================================
-from app.auth import auth_router, social_router  # ✅ 일반 로그인 + 소셜 로그인
-from app.test import db_test
-from app.profile import profile_router, follow_router, skill_router
-from app.project_post import recipe_router
-from app.meta import meta_router
-from app.files import upload_router
-from app.board import board_router  # ✅ 추가
-from app.users import user_router  # ✅ 계정관리(비밀번호 변경 포함) 추가
-
-# ===================================
-# 📜 로깅 설정
-# ===================================
-LOG_LEVEL = logging.INFO
-LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-
-logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)
-
-# 로그 폴더 생성
-os.makedirs("logs", exist_ok=True)
-
-file_handler = RotatingFileHandler(
-    os.path.join("logs", "app.log"),
-    maxBytes=2_000_000,
-    backupCount=5,
-    encoding="utf-8"
-)
-file_handler.setLevel(LOG_LEVEL)
-file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-logging.getLogger().addHandler(file_handler)
-
-# SQLAlchemy 및 Uvicorn 관련 로그 레벨 조정
-logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-logging.getLogger("uvicorn.error").setLevel(logging.INFO)
-logging.getLogger("uvicorn.access").setLevel(logging.INFO)
-
-# ===================================
-# 🚀 FastAPI 앱 설정
+# 🚀 FastAPI 앱 생성
 # ===================================
 app = FastAPI(
     title="Team Project API",
@@ -58,13 +20,11 @@ app = FastAPI(
 )
 
 # ===================================
-# 🌐 CORS 설정
+# 🌐 CORS 설정 (라우터 등록보다 반드시 위)
 # ===================================
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    # 배포 시 아래 주석 해제
-    # "https://your-production-domain.com",
 ]
 
 app.add_middleware(
@@ -77,15 +37,32 @@ app.add_middleware(
 
 
 # ===================================
-# 🗂️ 정적 파일 (업로드 등)
+# 📜 로깅 설정
 # ===================================
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+LOG_LEVEL = logging.INFO
+LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)
+os.makedirs("logs", exist_ok=True)
+file_handler = RotatingFileHandler("logs/app.log", maxBytes=2_000_000, backupCount=5, encoding="utf-8")
+file_handler.setLevel(LOG_LEVEL)
+file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+logging.getLogger().addHandler(file_handler)
 
 # ===================================
-# 🔗 라우터 등록
+# 📦 라우터 import 및 등록
 # ===================================
-app.include_router(auth_router.router)     # 일반 회원 로그인/가입/비밀번호 관리
-app.include_router(social_router.router)   # ✅ 소셜 로그인 전용 라우터
+from app.auth import auth_router, social_router
+from app.test import db_test
+from app.profile import profile_router, follow_router, skill_router
+from app.project_post import recipe_router
+from app.meta import meta_router
+from app.files import upload_router
+from app.board import board_router
+from app.users import user_router
+
+app.include_router(auth_router.router)
+app.include_router(social_router.router)
 app.include_router(db_test.router)
 app.include_router(profile_router.router)
 app.include_router(follow_router.router)
@@ -93,8 +70,14 @@ app.include_router(skill_router.router)
 app.include_router(recipe_router.router)
 app.include_router(meta_router.router)
 app.include_router(upload_router.router)
-app.include_router(board_router.router)  # ✅ 추가됨
-app.include_router(user_router.router)  # ✅ 추가된 부분
+app.include_router(board_router.router)
+app.include_router(user_router.router)
+
+
+# ===================================
+# 🗂️ 정적 파일
+# ===================================
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ===================================
 # 🏠 기본 라우트
@@ -103,7 +86,18 @@ app.include_router(user_router.router)  # ✅ 추가된 부분
 def root():
     return {"message": "🚀 Team Project API is running!"}
 
-# ===================================
-# 🧾 서버 시작 로그
-# ===================================
 logging.info("🚀 FastAPI 서버가 시작되었습니다.")
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    except Exception as e:
+        print(f"\n🔥 [GLOBAL ERROR] 요청 경로: {request.url.path}")
+        traceback.print_exc()  # stderr 말고 stdout으로!
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Internal Server Error: {str(e)}"},
+        )
