@@ -16,3 +16,6 @@ pydantic-settings==2.6.1   # settings management (with python-dotenv)
 
 # etc
 typing-extensions>=4.12.2
+
+# http requests
+requests==2.32.3

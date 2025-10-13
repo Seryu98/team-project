@@ -17,11 +17,11 @@ import UserRanking from "./features/users/UserRanking";
 // pages
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
-
-import FindAccount from "./features/auth/FindAccount";
+import FindAccount from "./features/auth/FindAccount"; // ✅ 아이디/비밀번호 찾기
+import SocialCallback from "./features/auth/SocialCallback"; // ✅ 소셜 로그인 콜백 추가
 import AccountSettings from "./features/account/AccountSettings";
 import AccountLayout from "./features/account/AccountLayout";
-
+import ChangePassword from "./features/account/ChangePassword"; // ✅ 비밀번호 변경 페이지 추가
 
 // 홈
 function Home() {
@@ -54,8 +54,7 @@ function MainLayout() {
   );
 }
 
-
-// ✅ 레이아웃 2: Navbar 없음 (로그인/회원가입/아이디찾기 전용)
+// ✅ 레이아웃 2: Navbar 없음 (로그인/회원가입/아이디찾기/소셜콜백/튜토리얼 전용)
 function AuthLayout() {
   return <Outlet />;
 }
@@ -77,12 +76,13 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기/튜토리얼) */}
+        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기/소셜콜백/튜토리얼) */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/find-account" element={<FindAccount />} />
-          <Route path="/tutorial" element={<ProfileTutorial />} /> {/* ✅ 튜토리얼 추가 */}
+          <Route path="/social/callback" element={<SocialCallback />} /> {/* ✅ 소셜 로그인 콜백 */}
+          <Route path="/tutorial" element={<ProfileTutorial />} /> {/* ✅ 튜토리얼 */}
         </Route>
 
         {/* ✅ Navbar 있는 그룹 */}
@@ -148,6 +148,7 @@ export default function App() {
             {/* 기본 접속 시 /account/settings로 리다이렉트 */}
             <Route index element={<Navigate to="settings" replace />} />
             <Route path="settings" element={<AccountSettings />} />
+            <Route path="change-password" element={<ChangePassword />} /> {/* ✅ 비밀번호 변경 */}
           </Route>
         </Route>
       </Routes>

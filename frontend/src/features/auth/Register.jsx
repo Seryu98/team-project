@@ -25,10 +25,19 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMsg("");
+
     if (!form.email || !form.user_id || !form.password || !form.name || !form.nickname) {
       setMsg("❌ 필수 항목을 모두 입력해 주세요.");
       return;
     }
+
+    // ✅ 비밀번호 정규식 검증 추가 (백엔드와 동일 정책)
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$/;
+    if (!passwordRegex.test(form.password)) {
+      setMsg("❌ 비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       // 1. 회원가입
@@ -124,7 +133,7 @@ function Register() {
             <input
               name="password"
               type="password"
-              placeholder="영문/숫자 포함 6자 이상"
+              placeholder="영문, 숫자, 특수문자 포함 8~20자"
               value={form.password}
               onChange={handleChange}
               style={{ ...inputStyle, marginTop: "6px" }}
