@@ -3,7 +3,9 @@ from datetime import datetime, timedelta
 import logging
 import re
 from typing import Optional
-from fastapi.security import OAuth2PasswordRequestForm
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.users.user_model import User
@@ -13,11 +15,12 @@ from app.core.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
-    create_reset_token,   # ✅ 추가
+    create_reset_token,
     verify_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
+from app.core.database import get_db  # ✅ DB 의존성 주입용
 
 # ===============================
 # 정책 상수
@@ -27,6 +30,9 @@ LOCK_TIME_MINUTES = 15
 RESET_TOKEN_EXPIRE_MINUTES = 30  # 비밀번호 재설정 토큰 만료시간
 
 logger = logging.getLogger(__name__)
+
+# OAuth2 설정
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
 # ===============================
@@ -72,7 +78,7 @@ def register_user(db: Session, user: UserRegister) -> User:
 
 
 # ===============================
-# 계정 잠금 관련
+# 🔹 계정 잠금 관련
 # ===============================
 def _is_locked(u: User) -> bool:
     if not u:
@@ -107,7 +113,7 @@ def _on_login_success(u: User) -> None:
 
 
 # ===============================
-# 사용자 인증
+# 🔹 사용자 인증
 # ===============================
 def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User]:
     user = db.query(User).filter(User.user_id == user_id).first()
@@ -119,7 +125,7 @@ def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User
 
 
 # ===============================
-# 로그인 처리 (Access + Refresh 발급)
+# 🔹 로그인 처리 (Access + Refresh 발급)
 # ===============================
 def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
     login_id = form_data.username
@@ -159,7 +165,7 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
 
 
 # ===============================
-# Refresh Token → 새 Access Token 발급
+# 🔹 Refresh Token → 새 Access Token 발급
 # ===============================
 def refresh_access_token(refresh_token: str) -> Optional[dict]:
     payload = verify_token(refresh_token, expected_type="refresh")
@@ -225,7 +231,7 @@ def generate_reset_token_by_user_id(db: Session, user_id: str) -> Optional[str]:
 
 
 # ===============================
-# 비밀번호 재설정 실행
+# 🔹 비밀번호 재설정 실행
 # ===============================
 def reset_password(db: Session, reset_token: str, new_password: str) -> bool:
     payload = verify_token(reset_token, expected_type="reset")
@@ -251,3 +257,30 @@ def reset_password(db: Session, reset_token: str, new_password: str) -> bool:
     db.refresh(user)
     logger.info("비밀번호 재설정 성공: user_id=%s", user.user_id)
     return True
+
+
+# ===============================
+# 🔹 현재 로그인된 사용자 조회 (JWT 기반)
+# ===============================
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> User:
+    """JWT Access Token 기반으로 현재 로그인된 사용자 조회"""
+    payload = verify_token(token, expected_type="access")
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="유효하지 않은 인증 토큰입니다.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="토큰에 사용자 정보가 없습니다.")
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    return user
