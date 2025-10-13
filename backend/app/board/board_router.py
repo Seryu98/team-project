@@ -85,14 +85,18 @@ def get_post_detail(
     post_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    me=Depends(get_current_user),  # ✅ 추가
 ):
     ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent", "")
 
+    # ✅ 로그인 여부에 따라 viewer_id 전달
+    viewer_id = me.id if me else None
+
     post = svc.get_post_and_touch_view(
         db=db,
         post_id=post_id,
-        viewer_id=None,
+        viewer_id=viewer_id,
         ip_address=ip,
         user_agent=ua,
     )

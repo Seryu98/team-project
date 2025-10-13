@@ -190,22 +190,26 @@ def get_post_and_touch_view(
     if not row or row["status"] != "VISIBLE":
         return None
 
+    # ✅ 중복 조회 체크 (viewer_id 우선)
     chk = db.execute(
         text("""
         SELECT 1 FROM board_post_views
-        WHERE board_post_id = :pid AND ip_address = :ip AND DATE(viewed_at) = CURRENT_DATE
+        WHERE board_post_id = :pid
+          AND ((:vid IS NOT NULL AND viewer_id = :vid)
+               OR (:vid IS NULL AND ip_address = :ip))
+          AND DATE(viewed_at) = CURRENT_DATE
         LIMIT 1
         """),
-        {"pid": post_id, "ip": ip_address},
+        {"pid": post_id, "vid": viewer_id, "ip": ip_address},
     ).first()
 
     if not chk:
         db.execute(
             text("""
-                INSERT INTO board_post_views (board_post_id, ip_address, user_agent)
-                VALUES (:pid, :ip, :ua)
+                INSERT INTO board_post_views (board_post_id, viewer_id, ip_address, user_agent)
+                VALUES (:pid, :vid, :ip, :ua)
             """),
-            {"pid": post_id, "ip": ip_address, "ua": user_agent},
+            {"pid": post_id, "vid": viewer_id, "ip": ip_address, "ua": user_agent},
         )
         db.execute(
             text("UPDATE board_posts SET view_count = view_count + 1 WHERE id = :pid"),
