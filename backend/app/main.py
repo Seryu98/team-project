@@ -19,6 +19,7 @@ from app.profile import profile_router, follow_router, skill_router
 from app.project_post import recipe_router
 from app.meta import meta_router
 from app.files import upload_router
+from app.users import user_router  # ✅ 계정관리(비밀번호 변경 포함) 추가
 
 # ===================================
 # 📜 로깅 설정
@@ -73,6 +74,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # ===================================
 # 🗂️ 정적 파일 (업로드 등)
 # ===================================
@@ -90,6 +92,7 @@ app.include_router(skill_router.router)
 app.include_router(recipe_router.router)
 app.include_router(meta_router.router)
 app.include_router(upload_router.router)
+app.include_router(user_router.router)  # ✅ 추가된 부분
 
 # ===================================
 # 🏠 기본 라우트
@@ -102,4 +105,5 @@ def root():
 # ===================================
 # 🧾 서버 시작 로그
 # ===================================
-logging.info("✅ FastAPI 서버가 성공적으로 시작되었습니다.")
+logging.info("🚀 FastAPI 서버가 시작되었습니다.")
+

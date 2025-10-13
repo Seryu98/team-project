@@ -36,7 +36,7 @@
   border-radius: 12px;
   padding: 28px 24px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
-  animation: slideUp 0.5s ease;
+  animation: slideUp 0.5s ease; /* 🔹 살짝 위로 슬라이드 등장 */
 }
 
 .login-title {
@@ -220,7 +220,44 @@
   color: #dc2626;
 }
 
-/* 애니메이션 */
+/* 🔹 탭 메뉴 스타일 (버튼형으로 개선) */
+.tab-menu {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fafafa;
+  font-size: 15px;
+  font-weight: 500;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.tab:hover {
+  background: #f0f0ff;
+  color: #2563eb;
+  border-color: #c7d2fe;
+}
+
+/* 활성화된 탭 */
+.tab.active {
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  border-color: #2563eb;
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.25);
+}
+
+/* 🔹 애니메이션 키프레임 */
 @keyframes fadeIn {
   from {
     opacity: 0;

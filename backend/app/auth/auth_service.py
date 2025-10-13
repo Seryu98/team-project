@@ -1,8 +1,16 @@
 # app/auth/auth_service.py
 from datetime import datetime, timedelta
 import logging
+
 from typing import Optional, Tuple
 from fastapi.security import OAuth2PasswordRequestForm
+
+import re
+from typing import Optional
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
 from sqlalchemy.orm import Session
 import os
 import requests
@@ -20,6 +28,7 @@ from app.core.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
+from app.core.database import get_db  # ✅ DB 의존성 주입용
 
 # ===============================
 # ⚙️ 정책 상수
@@ -82,6 +91,22 @@ def _get_json(url: str, headers: dict) -> dict:
     except requests.RequestException as e:
         logger.exception("OAuth userinfo request failed: %s", e)
         raise ValueError("사용자 정보 조회 실패")
+
+# OAuth2 설정
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+
+# ===============================
+# 비밀번호 유효성 검사 함수 추가 ✅
+# ===============================
+def validate_password(password: str) -> bool:
+    """
+    비밀번호 유효성 검사
+    - 영문, 숫자, 특수문자 포함 8~20자
+    """
+    pattern = r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$'
+    return bool(re.match(pattern, password))
+
 
 
 # ===============================
@@ -150,6 +175,10 @@ def register_user(db: Session, user: UserRegister) -> User:
     if db.query(User).filter(User.nickname == user.nickname).first():
         raise ValueError("이미 존재하는 닉네임입니다.")
 
+    # ✅ 비밀번호 유효성 검사 추가
+    if not validate_password(user.password):
+        raise ValueError("비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.")
+
     new_user = User(
         email=user.email,
         user_id=user.user_id,
@@ -166,7 +195,7 @@ def register_user(db: Session, user: UserRegister) -> User:
 
 
 # ===============================
-# 🔒 계정 잠금 관련
+# 🔹 계정 잠금 관련
 # ===============================
 
 def _is_locked(u: User) -> bool:
@@ -201,7 +230,7 @@ def _on_login_success(u: User) -> None:
 
 
 # ===============================
-# 🔑 일반 로그인
+# 🔹 사용자 인증
 # ===============================
 
 def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User]:
@@ -212,6 +241,9 @@ def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User
         return None
     return user
 
+# ===============================
+# 🔹 로그인 처리 (Access + Refresh 발급)
+# ===============================
 
 def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
     login_id = form_data.username
@@ -246,7 +278,7 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
 
 
 # ===============================
-# 🔁 Refresh Token
+# 🔹 Refresh Token → 새 Access Token 발급
 # ===============================
 
 def refresh_access_token(refresh_token: str) -> Optional[dict]:
@@ -275,16 +307,36 @@ def refresh_access_token(refresh_token: str) -> Optional[dict]:
 
 
 # ===============================
-# 🔐 비밀번호 재설정
+# 이메일 힌트 조회 (user_id → email masking)
 # ===============================
+def get_email_hint(db: Session, user_id: str) -> Optional[str]:
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user or not user.email:
+        return None
 
-def generate_reset_token(db: Session, email: str) -> Optional[str]:
-    user = db.query(User).filter(User.email == email).first()
+    email = user.email
+    try:
+        local, domain = email.split("@")
+        domain_name, domain_ext = domain.split(".")
+    except ValueError:
+        return None
+
+    # ex) te******@g****.com
+    masked_local = local[:2] + "*" * max(0, len(local) - 2)
+    masked_domain = domain_name[0] + "*" * (len(domain_name) - 1)
+    return f"{masked_local}@{masked_domain}.{domain_ext}"
+
+
+# ===============================
+# 아이디 기반 비밀번호 재설정 토큰 발급
+# ===============================
+def generate_reset_token_by_user_id(db: Session, user_id: str) -> Optional[str]:
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        logger.warning("비밀번호 재설정 실패: 존재하지 않는 이메일 %s", email)
+        logger.warning("비밀번호 재설정 실패: 존재하지 않는 아이디 %s", user_id)
         return None
     if not user.password_hash:
-        logger.warning("비밀번호 재설정 실패: 소셜 계정 %s", email)
+        logger.warning("비밀번호 재설정 실패: 소셜 계정 %s", user_id)
         return None
 
     reset_token = create_reset_token(data={"sub": str(user.id)})
@@ -292,10 +344,19 @@ def generate_reset_token(db: Session, email: str) -> Optional[str]:
     return reset_token
 
 
+# ===============================
+# 🔹 비밀번호 재설정 실행
+# ===============================
+
 def reset_password(db: Session, reset_token: str, new_password: str) -> bool:
     payload = verify_token(reset_token, expected_type="reset")
     if not payload:
         logger.warning("비밀번호 재설정 실패: 잘못된 토큰")
+        return False
+
+    # ✅ 비밀번호 형식 검사 추가
+    if not validate_password(new_password):
+        logger.warning("비밀번호 형식 오류 (8~20자, 영문/숫자/특수문자 조합 아님)")
         return False
 
     user_id = payload.get("sub")
@@ -449,3 +510,29 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> dict:
         "refresh_token": refresh_token,
         "token_type": "bearer",
     }
+
+# ===============================
+# 🔹 현재 로그인된 사용자 조회 (JWT 기반)
+# ===============================
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> User:
+    """JWT Access Token 기반으로 현재 로그인된 사용자 조회"""
+    payload = verify_token(token, expected_type="access")
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="유효하지 않은 인증 토큰입니다.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="토큰에 사용자 정보가 없습니다.")
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    return user

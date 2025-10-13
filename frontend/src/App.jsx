@@ -15,12 +15,11 @@ import ProfileCreate from "./features/profile/profileCreate_pages";
 // pages
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
-
 import FindAccount from "./features/auth/FindAccount"; // ✅ 아이디/비밀번호 찾기
 import SocialCallback from "./features/auth/SocialCallback"; // ✅ 소셜 로그인 콜백 추가
 import AccountSettings from "./features/account/AccountSettings";
 import AccountLayout from "./features/account/AccountLayout";
-
+import ChangePassword from "./features/account/ChangePassword"; // ✅ 비밀번호 변경 페이지 추가
 
 // 홈
 function Home() {
@@ -53,7 +52,6 @@ function MainLayout() {
   );
 }
 
-
 // ✅ 레이아웃 2: Navbar 없음 (로그인/회원가입/아이디찾기 전용)
 function AuthLayout() {
   return <Outlet />;
@@ -80,7 +78,7 @@ export default function App() {
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-
+          {/* 🔹 중복 제거: FindAccount 라우트 한 번만 유지 */}
           <Route path="/find-account" element={<FindAccount />} />
           <Route path="/social/callback" element={<SocialCallback />} /> {/* ✅ 소셜 로그인 콜백 추가 */}
         </Route>
@@ -147,9 +145,7 @@ export default function App() {
             {/* 기본 접속 시 /account/settings로 리다이렉트 */}
             <Route index element={<Navigate to="settings" replace />} />
             <Route path="settings" element={<AccountSettings />} />
-            {/* 필요 시 확장 */}
-            {/* <Route path="password" element={<PasswordChange />} /> */}
-            {/* <Route path="notifications" element={<NotificationSettings />} /> */}
+            <Route path="change-password" element={<ChangePassword />} /> {/* ✅ 비밀번호 변경 추가 */}
           </Route>
         </Route>
       </Routes>
