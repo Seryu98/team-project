@@ -2,9 +2,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from datetime import datetime
 import re
+from fastapi.responses import JSONResponse
 
 from app.core.database import get_db
 from app.auth import auth_service
@@ -14,11 +15,13 @@ from app.users.user_model import User, UserStatus
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# 🚩 tokenUrl 앞에 / 제거
+# 🚩 tokenUrl 앞에 "/" 제거 (FastAPI 권장 방식)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
-# === Request Schemas ===
+# ===============================
+# 📦 Request Schemas
+# ===============================
 class RefreshRequest(BaseModel):
     refresh_token: str
 
@@ -28,8 +31,12 @@ class FindIdRequest(BaseModel):
     phone_number: str
 
 
+class EmailHintRequest(BaseModel):
+    user_id: str  # ✅ 아이디로 이메일 힌트 요청
+
+
 class PasswordResetRequest(BaseModel):
-    email: EmailStr
+    user_id: str  # ✅ 이메일 대신 user_id 기준으로 요청
 
 
 class PasswordResetConfirm(BaseModel):
@@ -43,15 +50,12 @@ class UpdateUserRequest(BaseModel):
     password: str | None = None
 
 
-# === Routes ===
-
+# ===============================
+# ✅ 일반 회원 기능
+# ===============================
 @router.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
-    """
-    회원가입
-    - 이메일/아이디/닉네임 중복 체크
-    - 성공 시 user_id 반환
-    """
+    """🧩 일반 회원가입"""
     try:
         new_user = auth_service.register_user(db, user)
         return {"msg": "회원가입 성공", "user_id": new_user.user_id}
@@ -60,13 +64,8 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends(),
-          db: Session = Depends(get_db)):
-    """
-    로그인
-    - username 필드에는 user_id를 넣어야 함
-    - 성공 시 access_token(30분) + refresh_token(1일) 반환
-    """
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """🔐 일반 로그인 (Access + Refresh Token 발급)"""
     tokens = auth_service.login_user(db, form_data)
     if not tokens:
         raise HTTPException(status_code=401, detail="로그인 실패")
@@ -75,10 +74,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(),
 
 @router.post("/refresh")
 def refresh_token(req: RefreshRequest):
-    """
-    Refresh Token으로 새로운 Access Token 발급
-    - 서버 재시작/버전 상승 시 기존 리프레시는 자동 무효
-    """
+    """♻️ Refresh Token으로 Access Token 재발급"""
     new_token = auth_service.refresh_access_token(req.refresh_token)
     if not new_token:
         raise HTTPException(status_code=401, detail="리프레시 토큰이 유효하지 않습니다.")
@@ -86,12 +82,8 @@ def refresh_token(req: RefreshRequest):
 
 
 @router.get("/me")
-def get_me(token: str = Depends(oauth2_scheme),
-           db: Session = Depends(get_db)):
-    """
-    현재 로그인된 사용자 정보 반환
-    - Access Token 필요
-    """
+def get_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """👤 현재 로그인된 사용자 정보 조회"""
     payload = verify_token(token, expected_type="access")
     if not payload:
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
@@ -103,7 +95,6 @@ def get_me(token: str = Depends(oauth2_scheme),
     user: User = db.query(User).filter(User.id == int(user_id)).first()
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
-
     if user.status == UserStatus.DELETED:
         raise HTTPException(status_code=403, detail="탈퇴한 사용자입니다.")
 
@@ -120,20 +111,18 @@ def get_me(token: str = Depends(oauth2_scheme),
 
 
 @router.patch("/me")
-def update_me(req: UpdateUserRequest,
-              token: str = Depends(oauth2_scheme),
-              db: Session = Depends(get_db)):
-    """
-    개인정보 수정
-    - 닉네임, 전화번호, 비밀번호 변경 가능
-    - 이름/이메일/user_id는 수정 불가
-    """
+def update_me(req: UpdateUserRequest, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """✏️ 개인정보 수정 (닉네임/전화번호/비밀번호)"""
     payload = verify_token(token, expected_type="access")
     if not payload:
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
 
     user_id = payload.get("sub")
-    user = db.query(User).filter(User.id == int(user_id), User.status != UserStatus.DELETED).first()
+    user = db.query(User).filter(
+        User.id == int(user_id),
+        User.status != UserStatus.DELETED
+    ).first()
+
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
@@ -146,23 +135,12 @@ def update_me(req: UpdateUserRequest,
 
     db.commit()
     db.refresh(user)
-
-    return {
-        "msg": "개인정보가 수정되었습니다.",
-        "nickname": user.nickname,
-        "phone_number": user.phone_number
-    }
+    return {"msg": "개인정보가 수정되었습니다."}
 
 
 @router.delete("/delete-account")
-def delete_account(token: str = Depends(oauth2_scheme),
-                   db: Session = Depends(get_db)):
-    """
-    회원 탈퇴 (Soft Delete)
-    - User.deleted_at = 현재시간
-    - User.status = DELETED
-    - 로그인 불가 상태로 전환
-    """
+def delete_account(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """💀 회원 탈퇴 (Soft Delete)"""
     payload = verify_token(token, expected_type="access")
     if not payload:
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
@@ -171,48 +149,45 @@ def delete_account(token: str = Depends(oauth2_scheme),
     user = db.query(User).filter(User.id == int(user_id)).first()
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
-
     if user.status == UserStatus.DELETED:
         raise HTTPException(status_code=400, detail="이미 탈퇴한 계정입니다.")
 
     user.status = UserStatus.DELETED
     user.deleted_at = datetime.utcnow()
     db.commit()
-    db.refresh(user)
-
     return {"msg": "회원 탈퇴가 완료되었습니다."}
 
 
-# === 아이디/비밀번호 찾기 ===
-
+# ===============================
+# ✅ 아이디 / 비밀번호 찾기
+# ===============================
 @router.post("/find-id")
 def find_id(req: FindIdRequest, db: Session = Depends(get_db)):
-    """
-    아이디 찾기 (이름 + 전화번호)
-    - 전화번호 비교 시 숫자만 추출해서 비교
-    """
+    """🔍 아이디 찾기 (이름 + 전화번호 일치 확인)"""
     input_name = req.name.strip()
     input_phone = re.sub(r"\D", "", req.phone_number)
-
     user = db.query(User).filter(User.name == input_name).first()
     if not user:
         raise HTTPException(status_code=404, detail="등록된 정보가 없습니다.")
-
     db_phone = re.sub(r"\D", "", user.phone_number or "")
     if input_phone != db_phone:
         raise HTTPException(status_code=404, detail="등록된 정보가 없습니다.")
-
     return {"user_id": user.user_id}
+
+
+@router.post("/email-hint")
+async def get_email_hint(req: EmailHintRequest, db: Session = Depends(get_db)):
+    """✉️ 이메일 힌트 조회 (user_id 기준)"""
+    email_hint = auth_service.get_email_hint(db, req.user_id)
+    if not email_hint:
+        raise HTTPException(status_code=404, detail="등록된 이메일이 없습니다.")
+    return {"email_hint": email_hint}
 
 
 @router.post("/request-password-reset")
 def request_password_reset(req: PasswordResetRequest, db: Session = Depends(get_db)):
-    """
-    비밀번호 재설정 요청
-    - LOCAL 계정만 가능
-    - 이메일로 reset_token 발급 (이메일 전송은 추후 구현 예정)
-    """
-    token = auth_service.generate_reset_token(db, req.email)
+    """🪄 비밀번호 재설정 토큰 발급 (user_id 기반)"""
+    token = auth_service.generate_reset_token_by_user_id(db, req.user_id)
     if not token:
         raise HTTPException(status_code=400, detail="계정을 찾을 수 없거나 소셜 계정입니다.")
     return {"msg": "비밀번호 재설정 토큰 발급됨", "reset_token": token}
@@ -220,11 +195,37 @@ def request_password_reset(req: PasswordResetRequest, db: Session = Depends(get_
 
 @router.post("/reset-password")
 def reset_password(req: PasswordResetConfirm, db: Session = Depends(get_db)):
-    """
-    비밀번호 재설정 완료
-    - reset_token 확인 후 새 비밀번호 해시 저장
-    """
+    """🔑 비밀번호 재설정 완료"""
     success = auth_service.reset_password(db, req.reset_token, req.new_password)
     if not success:
         raise HTTPException(status_code=400, detail="토큰이 유효하지 않거나 만료됨")
     return {"msg": "비밀번호가 성공적으로 변경되었습니다."}
+
+
+# ===============================
+# ✅ 소셜 로그인 (OAuth)
+# ===============================
+@router.get("/social/{provider}/login")
+def social_login(provider: str):
+    """🌍 소셜 로그인 URL 요청"""
+    try:
+        login_url = auth_service.get_oauth_login_url(provider)
+        return {"login_url": login_url}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/social/callback/{provider}")
+def social_callback(provider: str, code: str, db: Session = Depends(get_db)):
+    """
+    🔁 OAuth Callback 처리
+    - code → access_token 교환 → userinfo 조회
+    - 기존/탈퇴 계정 처리 (auth_service._upsert_social_user 내부 로직)
+    """
+    try:
+        tokens = auth_service.handle_oauth_callback(db, provider, code)
+        return tokens
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="소셜 로그인 중 오류가 발생했습니다.")

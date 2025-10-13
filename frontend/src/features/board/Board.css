@@ -1,0 +1,579 @@
+/*frontend/src/features/board/Board.css*/
+/* =============================== */
+/* 🧭 전체 구조 */
+/* =============================== */
+.board-wrapper {
+  display: flex;
+  gap: 24px;
+  padding: 20px;
+}
+
+.board-filter-panel {
+  width: 240px;
+  flex-shrink: 0;
+  background: #fafafa;
+  border: 1px solid #eee;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.filter-search {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.filter-search input {
+  flex: 1;
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.filter-section {
+  margin-bottom: 20px;
+}
+
+.filter-section h4 {
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.filter-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.board-content {
+  flex: 1;
+}
+
+.board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.write-btn {
+  background: #2563eb;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.write-btn:hover {
+  background: #1e40af;
+}
+
+/* =============================== */
+/* 🏆 Top3 영역 */
+/* =============================== */
+.board-top3 {
+  margin-bottom: 20px;
+}
+
+.board-top3 h3 {
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.top3-list-horizontal {
+  display: flex;
+  gap: 12px;
+}
+
+/* ✅ Top3 본문 요약 */
+.top3-preview {
+  font-size: 13px;
+  color: #555;
+  margin: 6px 0;
+  line-height: 1.4;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+
+.top3-card {
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  width: 30%;
+  transition: 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.top3-card:hover {
+  background: #f6f9ff;
+  transform: translateY(-2px);
+}
+
+.top3-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.rank {
+  font-weight: bold;
+  color: #e11d48;
+  font-size: 15px;
+}
+
+.top3-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.top3-stats {
+  font-size: 12px;
+  color: #666;
+}
+
+/* ✅ Top3 프로필 이미지 원형 */
+.top3-profile-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #ddd;
+}
+
+/* =============================== */
+/* 게시글 카드 */
+/* =============================== */
+.board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.board-preview {
+  font-size: 14px;
+  color: #444;
+  margin-top: 4px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.board-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.board-card:hover {
+  background: #f9fafb;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.board-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.profile-thumb-small {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #ddd;
+}
+
+.nickname {
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+}
+.nickname:hover {
+  text-decoration: underline;
+}
+
+.board-date {
+  font-size: 0.85rem;
+  color: #888;
+  margin-left: auto;
+}
+
+.board-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 4px;
+}
+.board-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111;
+}
+.board-meta {
+  font-size: 13px;
+  color: #555;
+}
+
+/* =============================== */
+/* 상세 페이지 */
+/* =============================== */
+.board-detail-container {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px;
+}
+.back-btn {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 14px;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+.board-detail-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.author-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #ddd;
+  cursor: pointer;
+}
+
+.detail-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.detail-content {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #222;
+  white-space: pre-wrap;
+  margin-bottom: 16px;
+}
+.detail-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.detail-actions button {
+  background: #f1f5f9;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.detail-actions button:hover {
+  background: #e0e7ff;
+}
+
+.post-owner-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.edit-btn,
+.delete-btn {
+  border: none;
+  background: #2563eb;
+  color: white;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.delete-btn {
+  background: #ef4444;
+}
+.delete-btn:hover {
+  background: #b91c1c;
+}
+.edit-btn:hover {
+  background: #1e3a8a;
+}
+
+/* =============================== */
+/* 댓글 */
+/* =============================== */
+.comments-section {
+  margin-top: 24px;
+}
+
+.comment-input textarea {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  margin-bottom: 8px;
+}
+.comment-input button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.comment-input button:hover {
+  background: #1e40af;
+}
+
+.comment-item {
+  border-top: 1px solid #eee;
+  padding: 12px 0;
+}
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.comment-author {
+  font-weight: 600;
+  color: #2563eb;
+}
+.comment-content {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.comment-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.reply-list {
+  margin-left: 36px;
+  border-left: 2px solid #eee;
+  padding-left: 12px;
+  margin-top: 8px;
+}
+
+.report-btn {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #b91c1c;
+}
+.report-btn:hover {
+  background: #fee2e2;
+}
+
+.reply-input {
+  margin-top: 8px;
+  margin-left: 36px;
+}
+.reply-input textarea {
+  width: 100%;
+  min-height: 60px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px;
+  resize: vertical;
+  margin-bottom: 6px;
+}
+.reply-buttons {
+  display: flex;
+  gap: 6px;
+}
+.cancel-reply {
+  background: #9ca3af;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.cancel-reply:hover {
+  background: #6b7280;
+}
+
+.deleted-comment {
+  color: #888;
+  font-style: italic;
+  margin-left: 8px;
+  opacity: 0.8;
+}
+
+/* =============================== */
+/* ✏️ 댓글/대댓글 수정 모드 스타일 */
+/* =============================== */
+.edit-input,
+.reply-input {
+  margin-top: 8px;
+  margin-left: 36px;
+}
+
+.edit-input textarea,
+.reply-input textarea {
+  width: 100%;
+  min-height: 60px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px;
+  resize: vertical;
+  margin-bottom: 6px;
+}
+
+.edit-buttons,
+.reply-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.edit-buttons button,
+.reply-buttons button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: 0.2s;
+}
+
+.edit-buttons button:hover,
+.reply-buttons button:hover {
+  background: #1d4ed8;
+}
+
+.cancel-reply {
+  background: #9ca3af;
+}
+.cancel-reply:hover {
+  background: #6b7280;
+}
+
+/* 수정 중 하이라이트 */
+.editing-active {
+  background: #f9fafb;
+  border-left: 3px solid #2563eb;
+  padding-left: 6px;
+  transition: 0.3s;
+}
+
+/* =============================== */
+/* 🧩 게시글 작성/수정 폼 스타일 */
+/* =============================== */
+.board-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.form-label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  margin-top: 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  outline: none;
+}
+
+.form-textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+.form-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.submit-btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.submit-btn:hover {
+  background: #1d4ed8;
+}
+
+.cancel-btn {
+  background: #9ca3af;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.cancel-btn:hover {
+  background: #6b7280;
+}
