@@ -16,6 +16,7 @@ import ProfileCreate from "./features/profile/profileCreate_pages";
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
 import FindAccount from "./features/auth/FindAccount"; // ✅ 아이디/비밀번호 찾기
+import SocialCallback from "./features/auth/SocialCallback"; // ✅ 소셜 로그인 콜백 추가
 import AccountSettings from "./features/account/AccountSettings";
 import AccountLayout from "./features/account/AccountLayout";
 import ChangePassword from "./features/account/ChangePassword"; // ✅ 비밀번호 변경 페이지 추가
@@ -73,12 +74,13 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기) */}
+        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기/소셜콜백) */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           {/* 🔹 중복 제거: FindAccount 라우트 한 번만 유지 */}
           <Route path="/find-account" element={<FindAccount />} />
+          <Route path="/social/callback" element={<SocialCallback />} /> {/* ✅ 소셜 로그인 콜백 추가 */}
         </Route>
 
         {/* ✅ Navbar 있는 그룹 */}
