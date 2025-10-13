@@ -6,6 +6,8 @@ import { getCurrentUser, clearTokens } from "../features/auth/api";
 import "./Navbar.css";
 import logoImg from "../shared/assets/logo/logo.png";
 import api from "../features/profile/api";
+import defaultProfile from "../shared/assets/profile/default_profile.png";
+
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -40,6 +42,17 @@ export default function Navbar() {
       }
     }
     fetchUser();
+    // ✅ refreshProfile flag 감지해서 다시 유저 불러오기
+    const handleStorageChange = () => {
+      if (localStorage.getItem("refreshProfile") === "true") {
+        fetchUser();
+        localStorage.removeItem("refreshProfile"); // 플래그 초기화
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+
   }, []);
 
   // 로그아웃
@@ -75,7 +88,7 @@ export default function Navbar() {
         <Link to="/board" className="nav-link">
           유저게시판
         </Link>
-        <Link to="/ranking" className="nav-link">
+        <Link to="/users/ranking" className="nav-link">
           랭킹게시판
         </Link>
       </div>
@@ -97,7 +110,13 @@ export default function Navbar() {
               label="메시지"
             />
             <div className="profile-wrapper">
-              <div
+              <img
+                src={
+                  profileImage
+                    ? `http://localhost:8000${profileImage}`
+                    : defaultProfile
+                }
+                alt="프로필"
                 className="profile-avatar"
                 title={currentUser?.nickname}
                 onClick={() => setMenuOpen(!menuOpen)}

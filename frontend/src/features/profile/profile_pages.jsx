@@ -27,8 +27,12 @@ export default function ProfilePage() {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState("followers");
   const [list, setList] = useState([]);
-  const [portfolios, setPortfolios] = useState([]);
-  const [comments, setComments] = useState([]);
+
+  // 프로젝트 상태
+  const [ongoingProjects, setOngoingProjects] = useState([]);
+  const [endedProjects, setEndedProjects] = useState([]);
+  const [pendingProjects, setPendingProjects] = useState([]);
+  const [activeTab, setActiveTab] = useState("ongoing");
 
   const SKILL_ICONS = useMemo(
     () => ({ ...buildIconMap(skillGlob1), ...buildIconMap(skillGlob2) }),
@@ -73,13 +77,11 @@ export default function ProfilePage() {
   const fetchProfile = async () => {
     try {
       const token = localStorage.getItem("access_token");
-      
+
       let endpoint;
       if (userId) {
-        // 다른 사람 프로필 - 로그인 선택적
         endpoint = `/profiles/${userId}`;
       } else {
-        // 내 프로필 - 로그인 필수
         if (!token) {
           alert("로그인이 필요합니다.");
           navigate("/login");
@@ -91,11 +93,10 @@ export default function ProfilePage() {
         endpoint = `/profiles/${me.data.id}`;
       }
 
-      // 토큰이 있으면 헤더 추가
-      const config = token 
+      const config = token
         ? { headers: { Authorization: `Bearer ${token}` } }
         : {};
-      
+
       const res = await api.get(endpoint, config);
       setProfile(res.data);
     } catch {
@@ -103,37 +104,33 @@ export default function ProfilePage() {
     }
   };
 
-  const fetchPortfolios = async () => {
+  const fetchProjects = async () => {
     try {
       const token = localStorage.getItem("access_token");
-      const targetUserId = userId || currentUser?.id;
-      if (!targetUserId) return;
+      if (!token) return;
 
-      const config = token 
-        ? { headers: { Authorization: `Bearer ${token}` } }
-        : {};
+      const isMyProfile = !userId || (currentUser && currentUser.id === profile?.id);
 
-      const res = await api.get(`/portfolios/user/${targetUserId}`, config);
-      setPortfolios(res.data);
-    } catch {
-      setPortfolios([]);
-    }
-  };
+      if (isMyProfile) {
+        // 내 프로필 - 진행중, 종료, 대기중 프로젝트 조회
+        const [ongoingRes, endedRes, pendingRes] = await Promise.all([
+          api.get("/recipe/my-projects?status=ONGOING", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          api.get("/recipe/my-projects?status=ENDED", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          api.get("/recipe/my-applications", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
 
-  const fetchComments = async () => {
-    try {
-      const token = localStorage.getItem("access_token");
-      const targetUserId = userId || currentUser?.id;
-      if (!targetUserId) return;
-
-      const config = token 
-        ? { headers: { Authorization: `Bearer ${token}` } }
-        : {};
-
-      const res = await api.get(`/comments/user/${targetUserId}`, config);
-      setComments(res.data);
-    } catch {
-      setComments([]);
+        setOngoingProjects(ongoingRes.data);
+        setEndedProjects(endedRes.data);
+        setPendingProjects(pendingRes.data);
+      }
+    } catch (err) {
+      console.error("프로젝트 조회 실패:", err);
     }
   };
 
@@ -144,10 +141,9 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (profile) {
-      fetchPortfolios();
-      fetchComments();
+      fetchProjects();
     }
-  }, [profile]);
+  }, [profile, currentUser]);
 
   const handleFollowToggle = async () => {
     try {
@@ -223,6 +219,48 @@ export default function ProfilePage() {
     alert("메시지 기능은 준비 중입니다.");
   };
 
+  const renderProjectList = (projects) => {
+    if (projects.length === 0) {
+      return (
+        <div style={{ textAlign: "center", padding: "24px", background: "#f9fafb", borderRadius: "8px", color: "#9ca3af" }}>
+          프로젝트가 없습니다
+        </div>
+      );
+    }
+
+    return projects.map((project) => (
+      <div
+        key={project.id}
+        onClick={() => navigate(`/recipe/${project.id}`)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          padding: "12px",
+          border: "1px solid #e5e7eb",
+          borderRadius: "8px",
+          cursor: "pointer",
+          background: "#fff",
+          marginBottom: "8px",
+        }}
+      >
+        {project.image_url && (
+          <img
+            src={`http://localhost:8000${project.image_url}`}
+            alt={project.title}
+            style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "6px" }}
+          />
+        )}
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: "14px", fontWeight: "500", marginBottom: "4px" }}>{project.title}</p>
+          <p style={{ fontSize: "12px", color: "#6b7280" }}>
+            {project.type === "PROJECT" ? "프로젝트" : "스터디"} · {project.field || "분야 미정"}
+          </p>
+        </div>
+      </div>
+    ));
+  };
+
   if (!profile) return <div style={{ textAlign: "center", marginTop: "40px" }}>로딩 중...</div>;
 
   const isMyProfile = currentUser && currentUser.id === profile.id;
@@ -240,8 +278,10 @@ export default function ProfilePage() {
             <img
               src={
                 profile.profile_image
-                  ? `http://localhost:8000${profile.profile_image}`
-                  : "/assets/default_profile.png"
+                  ? profile.profile_image.startsWith("/assets")
+                    ? `http://localhost:8000${profile.profile_image}`
+                    : `http://localhost:8000${profile.profile_image}`
+                  : "/assets/profile/default_profile.png"
               }
               alt="프로필"
               style={{
@@ -441,92 +481,68 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            포트폴리오
-          </label>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {portfolios.length > 0 ? (
-              portfolios.map((portfolio) => (
-                <div
-                  key={portfolio.id}
-                  onClick={() => navigate(`/portfolio/${portfolio.id}`)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    padding: "12px",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    background: "#fff",
-                  }}
-                >
-                  {portfolio.thumbnail && (
-                    <img
-                      src={`http://localhost:8000${portfolio.thumbnail}`}
-                      alt={portfolio.title}
-                      style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "6px" }}
-                    />
-                  )}
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: "14px", fontWeight: "500" }}>{portfolio.title}</p>
-                    <p style={{ fontSize: "12px", color: "#6b7280" }}>{portfolio.description}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div style={{ textAlign: "center", padding: "24px", background: "#f9fafb", borderRadius: "8px", color: "#9ca3af" }}>
-                아직 연동 정보가 없습니다
-              </div>
-            )}
-          </div>
-        </div>
+        {/* ✅ 프로젝트 섹션 (내 프로필일 때만 표시) */}
+        {isMyProfile && (
+          <div style={{ marginBottom: "40px" }}>
+            <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "12px" }}>
+              프로젝트
+            </label>
 
-        <div style={{ marginBottom: "40px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            함께한 사람들이 남긴 말
-          </label>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "16px", borderBottom: "1px solid #e5e7eb" }}>
+              <button
+                onClick={() => setActiveTab("ongoing")}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: "13px",
+                  background: activeTab === "ongoing" ? "#3b82f6" : "transparent",
+                  color: activeTab === "ongoing" ? "#fff" : "#6b7280",
+                  border: "none",
+                  borderBottom: activeTab === "ongoing" ? "2px solid #3b82f6" : "none",
+                  cursor: "pointer",
+                  fontWeight: activeTab === "ongoing" ? "500" : "normal",
+                }}
+              >
+                진행중 ({ongoingProjects.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("pending")}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: "13px",
+                  background: activeTab === "pending" ? "#3b82f6" : "transparent",
+                  color: activeTab === "pending" ? "#fff" : "#6b7280",
+                  border: "none",
+                  borderBottom: activeTab === "pending" ? "2px solid #3b82f6" : "none",
+                  cursor: "pointer",
+                  fontWeight: activeTab === "pending" ? "500" : "normal",
+                }}
+              >
+                대기중 ({pendingProjects.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("ended")}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: "13px",
+                  background: activeTab === "ended" ? "#3b82f6" : "transparent",
+                  color: activeTab === "ended" ? "#fff" : "#6b7280",
+                  border: "none",
+                  borderBottom: activeTab === "ended" ? "2px solid #3b82f6" : "none",
+                  cursor: "pointer",
+                  fontWeight: activeTab === "ended" ? "500" : "normal",
+                }}
+              >
+                종료 ({endedProjects.length})
+              </button>
+            </div>
 
-          <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
-            <button style={{ padding: "6px 12px", fontSize: "12px", background: "#ef4444", color: "#fff", borderRadius: "16px", border: "none" }}>
-              😊 커뮤션 0
-            </button>
-            <button style={{ padding: "6px 12px", fontSize: "12px", background: "#e5e7eb", color: "#374151", borderRadius: "16px", border: "none" }}>
-              👍 포트폴리오 0
-            </button>
-            <button style={{ padding: "6px 12px", fontSize: "12px", background: "#e5e7eb", color: "#374151", borderRadius: "16px", border: "none" }}>
-              💡 프로젝트 0
-            </button>
+            <div>
+              {activeTab === "ongoing" && renderProjectList(ongoingProjects)}
+              {activeTab === "pending" && renderProjectList(pendingProjects)}
+              {activeTab === "ended" && renderProjectList(endedProjects)}
+            </div>
           </div>
-
-          <div>
-            {comments.length > 0 ? (
-              comments.map((comment) => (
-                <div key={comment.id} style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: "12px", marginBottom: "12px" }}>
-                  <div style={{ display: "flex", gap: "12px" }}>
-                    <img
-                      src={comment.author_profile_image ? `http://localhost:8000${comment.author_profile_image}` : "/assets/default_profile.png"}
-                      alt={comment.author_name}
-                      style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                        <span style={{ fontSize: "13px", fontWeight: "500" }}>{comment.author_name}</span>
-                        <span style={{ fontSize: "11px", color: "#9ca3af" }}>{comment.created_at}</span>
-                      </div>
-                      <p style={{ fontSize: "13px", color: "#374151" }}>{comment.content}</p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div style={{ textAlign: "center", padding: "24px", background: "#f9fafb", borderRadius: "8px", color: "#9ca3af" }}>
-                아직 후기가 등록되지 않았습니다
-              </div>
-            )}
-          </div>
-        </div>
+        )}
 
         {showModal && (
           <div style={{
@@ -579,7 +595,13 @@ export default function ProfilePage() {
                         }}
                       >
                         <img
-                          src={user.profile_image ? `http://localhost:8000${user.profile_image}` : "/assets/default_profile.png"}
+                          src={
+                            user.profile_image
+                              ? user.profile_image.startsWith("/assets")
+                                ? `http://localhost:8000${user.profile_image}`
+                                : `http://localhost:8000${user.profile_image}`
+                              : "/assets/profile/default_profile.png"
+                          }
                           alt={user.nickname}
                           style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }}
                         />

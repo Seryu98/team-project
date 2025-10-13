@@ -22,16 +22,18 @@ import { clearTokens } from "./features/auth/api";
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
 import FindAccount from "./features/auth/FindAccount"; // ✅ 아이디/비밀번호 찾기
-import SocialCallback from "./features/auth/SocialCallback"; // ✅ 소셜 로그인 콜백 추가
+import SocialCallback from "./features/auth/SocialCallback"; // ✅ 소셜 로그인 콜백
 
 // ---------------------------------------
 // Profile
 // ---------------------------------------
 import ProfilePage from "./features/profile/profile_pages";
 import ProfileCreate from "./features/profile/profileCreate_pages";
+import ProfileTutorial from "./features/profile/ProfileTutorial"; // ✅ 튜토리얼
+import UserRanking from "./features/users/UserRanking";
 
 // ---------------------------------------
-// 프로젝트/스터디 게시판
+// 프로젝트/스터디 게시판 (Recipe* + Post*)
 // ---------------------------------------
 import RecipeCreate from "./features/project_post/RecipeCreate";
 import RecipeEdit from "./features/project_post/RecipeEdit";
@@ -43,7 +45,7 @@ import ProjectPostDetail from "./features/project_post/ProjectPostDetail";
 // ---------------------------------------
 import AccountSettings from "./features/account/AccountSettings";
 import AccountLayout from "./features/account/AccountLayout";
-import ChangePassword from "./features/account/ChangePassword"; // ✅ 비밀번호 변경 페이지 추가
+import ChangePassword from "./features/account/ChangePassword"; // ✅ 비번 변경
 
 // ---------------------------------------
 // 유저 게시판
@@ -66,7 +68,7 @@ function Home() {
 }
 
 // ---------------------------------------
-// 🧭 랭킹 (유지)
+// 🧭 랭킹 (placeholder 유지)
 // ---------------------------------------
 function Ranking() {
   return <div style={{ padding: 24 }}>랭킹게시판 (준비중)</div>;
@@ -84,7 +86,7 @@ function MainLayout() {
   );
 }
 
-// ✅ 레이아웃 2: Navbar 없음 (로그인/회원가입/아이디찾기 전용)
+// ✅ 레이아웃 2: Navbar 없음 (로그인/회원가입/아이디찾기/소셜콜백/튜토리얼)
 function AuthLayout() {
   return <Outlet />;
 }
@@ -110,12 +112,13 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기/소셜콜백) */}
+        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기/소셜콜백/튜토리얼) */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/find-account" element={<FindAccount />} /> {/* 🔹 중복 제거 후 유지 */}
-          <Route path="/social/callback" element={<SocialCallback />} /> {/* ✅ 소셜 로그인 콜백 추가 */}
+          <Route path="/find-account" element={<FindAccount />} />
+          <Route path="/social/callback" element={<SocialCallback />} />
+          <Route path="/tutorial" element={<ProfileTutorial />} />
         </Route>
 
         {/* ✅ Navbar 포함된 그룹 */}
@@ -167,9 +170,10 @@ export default function App() {
           />
 
           {/* ---------------------------------------
-              🧭 랭킹 (유지)
+              🧭 랭킹 + 유저 랭킹 페이지
           --------------------------------------- */}
           <Route path="/ranking" element={<Ranking />} />
+          <Route path="/users/ranking" element={<UserRanking />} />
 
           {/* ---------------------------------------
               🔒 프로필 관련
@@ -205,7 +209,7 @@ export default function App() {
           >
             <Route index element={<Navigate to="settings" replace />} />
             <Route path="settings" element={<AccountSettings />} />
-            <Route path="change-password" element={<ChangePassword />} /> {/* ✅ 비밀번호 변경 추가 */}
+            <Route path="change-password" element={<ChangePassword />} />
           </Route>
         </Route>
       </Routes>

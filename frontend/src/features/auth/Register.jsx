@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Modal from "../../components/Modal";
-import { register } from "./api";
+import { register, login } from "./api"; // ✅ login 추가
 
 function Register() {
   const navigate = useNavigate();
@@ -40,19 +40,25 @@ function Register() {
 
     setSubmitting(true);
     try {
+      // 1. 회원가입
       await register(form);
+      
+      // 2. 자동 로그인 (기존 login 함수 사용)
+      await login(form.user_id, form.password);
+      
       setShowDone(true);
-    } catch {
+    } catch (error) {
+      console.error("회원가입/로그인 실패:", error);
       setMsg("❌ 회원가입 실패");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const goLogin = () => {
-    navigate("/login", {
+  // ✅ 튜토리얼로 이동
+  const goTutorial = () => {
+    navigate("/tutorial", {
       replace: true,
-      state: { justRegistered: true, email: form.email },
     });
   };
 
@@ -183,16 +189,17 @@ function Register() {
         {msg && <p style={{ marginTop: "12px", textAlign: "center" }}>{msg}</p>}
       </div>
 
+      {/* ✅ 튜토리얼로 연결 */}
       {showDone && (
         <Modal
           title="회원가입 완료"
-          confirmText="로그인 하러 가기"
-          onConfirm={goLogin}
-          onClose={goLogin}
+          confirmText="프로필 만들러 가기"
+          onConfirm={goTutorial}
+          onClose={goTutorial}
         >
           회원가입이 정상적으로 완료되었습니다.
           <br />
-          다음 화면에서 로그인해 주세요.
+          프로필을 만들어볼까요? 🚀
         </Modal>
       )}
     </div>

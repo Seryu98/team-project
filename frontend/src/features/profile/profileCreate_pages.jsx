@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "./api";
 
+
 function buildIconMap(globs) {
   const map = {};
   for (const [path, url] of Object.entries(globs)) {
@@ -118,6 +119,7 @@ export default function ProfileCreate() {
         headers: { Authorization: `Bearer ${token}` },
       });
       alert("프로필이 저장되었습니다.");
+      localStorage.setItem("refreshProfile", "true");
       navigate(`/profile/${meRes.data.id}`);
     } catch (error) {
       console.error("저장 실패:", error.response?.data);
@@ -265,13 +267,18 @@ export default function ProfileCreate() {
             <img
               src={
                 previewImage
-                  ? (previewImage.startsWith('blob:') || previewImage.startsWith('http'))
+                  ? (previewImage.startsWith("blob:") || previewImage.startsWith("http"))
                     ? previewImage
-                    : `http://localhost:8000${previewImage}`
+                    : previewImage.startsWith("/assets")
+                      ? `http://localhost:8000${previewImage}`
+                      : `http://localhost:8000${previewImage}`
                   : profile?.profile_image
-                    ? `http://localhost:8000${profile.profile_image}`
-                    : "/assets/default_profile.png"
+                    ? profile.profile_image.startsWith("/assets")
+                      ? `http://localhost:8000${profile.profile_image}`
+                      : `http://localhost:8000${profile.profile_image}`
+                    : "/assets/profile/default_profile.png"
               }
+
               alt="프로필 이미지"
               style={{
                 width: "100px",
