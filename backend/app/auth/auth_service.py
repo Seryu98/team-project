@@ -1,6 +1,7 @@
 # app/auth/auth_service.py
 from datetime import datetime, timedelta
 import logging
+import re
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -35,7 +36,19 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
 # ===============================
-# 🔹 회원가입 처리
+# 비밀번호 유효성 검사 함수 추가 ✅
+# ===============================
+def validate_password(password: str) -> bool:
+    """
+    비밀번호 유효성 검사
+    - 영문, 숫자, 특수문자 포함 8~20자
+    """
+    pattern = r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$'
+    return bool(re.match(pattern, password))
+
+
+# ===============================
+# 회원가입 처리
 # ===============================
 def register_user(db: Session, user: UserRegister) -> User:
     if db.query(User).filter(User.email == user.email).first():
@@ -44,6 +57,10 @@ def register_user(db: Session, user: UserRegister) -> User:
         raise ValueError("이미 존재하는 아이디입니다.")
     if db.query(User).filter(User.nickname == user.nickname).first():
         raise ValueError("이미 존재하는 닉네임입니다.")
+
+    # ✅ 비밀번호 유효성 검사 추가
+    if not validate_password(user.password):
+        raise ValueError("비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.")
 
     new_user = User(
         email=user.email,
@@ -176,15 +193,36 @@ def refresh_access_token(refresh_token: str) -> Optional[dict]:
 
 
 # ===============================
-# 🔹 비밀번호 재설정 토큰 발급
+# 이메일 힌트 조회 (user_id → email masking)
 # ===============================
-def generate_reset_token(db: Session, email: str) -> Optional[str]:
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        logger.warning("비밀번호 재설정 실패: 존재하지 않는 이메일 %s", email)
+def get_email_hint(db: Session, user_id: str) -> Optional[str]:
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user or not user.email:
         return None
-    if not user.password_hash:  # 소셜 계정은 password_hash 없음
-        logger.warning("비밀번호 재설정 실패: 소셜 계정 %s", email)
+
+    email = user.email
+    try:
+        local, domain = email.split("@")
+        domain_name, domain_ext = domain.split(".")
+    except ValueError:
+        return None
+
+    # ex) te******@g****.com
+    masked_local = local[:2] + "*" * max(0, len(local) - 2)
+    masked_domain = domain_name[0] + "*" * (len(domain_name) - 1)
+    return f"{masked_local}@{masked_domain}.{domain_ext}"
+
+
+# ===============================
+# 아이디 기반 비밀번호 재설정 토큰 발급
+# ===============================
+def generate_reset_token_by_user_id(db: Session, user_id: str) -> Optional[str]:
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        logger.warning("비밀번호 재설정 실패: 존재하지 않는 아이디 %s", user_id)
+        return None
+    if not user.password_hash:
+        logger.warning("비밀번호 재설정 실패: 소셜 계정 %s", user_id)
         return None
 
     reset_token = create_reset_token(data={"sub": str(user.id)})
@@ -199,6 +237,11 @@ def reset_password(db: Session, reset_token: str, new_password: str) -> bool:
     payload = verify_token(reset_token, expected_type="reset")
     if not payload:
         logger.warning("비밀번호 재설정 실패: 잘못된 토큰")
+        return False
+
+    # ✅ 비밀번호 형식 검사 추가
+    if not validate_password(new_password):
+        logger.warning("비밀번호 형식 오류 (8~20자, 영문/숫자/특수문자 조합 아님)")
         return False
 
     user_id = payload.get("sub")
