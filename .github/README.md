@@ -23,7 +23,9 @@ frontend/
     app/           // 전역 설정 (라우팅, 상태관리, 환경설정)
     components/    // 공용 컴포넌트 (Header, Footer, Modal 등)
     features/      // 기능(도메인) 단위 모듈
+      account/     // 개인정보 수정쪽 UI + API
       auth/        // 로그인, 회원가입 UI + API
+      board/       // 유저 게시판 UI + API
       notify/      // 알림 관련 UI + API
       profile/     // 프로필 페이지, 편집 UI
       project_post // 프로젝트/스터디 게시판 UI + 필터
@@ -37,14 +39,16 @@ frontend/
 backend/
   app/
     auth/          // 로그인, 회원가입, JWT 인증
-    meta/          // 스킬관련
-    users/         // 유저 관련 모델 + API
-    project_post/  // 프로젝트/스터디 생성, 승인, 게시판
-    profile/       // 프로필 관련 API
-    notify/        // 알림 관련 API
+    board/         // 유저 게시판 기능 폴더
     core/          // DB 연결, 보안, 설정
+    files/         // 첨부파일기능 관련 코드
+    meta/          // 스킬관련
     models/        // Base + 모델 모음 (__init__)
+    notify/        // 알림 관련 API
+    profile/       // 프로필 관련 API
+    project_post/  // 프로젝트/스터디 생성, 승인, 게시판
     test/          // DB 연결 테스트 등
+    users/         // 유저 관련 모델 + API
     main.py        // FastAPI 진입점
 ```
 

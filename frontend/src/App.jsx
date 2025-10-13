@@ -1,27 +1,61 @@
 // src/App.jsx
 import React, { useEffect, useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Outlet, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Outlet,
+  Navigate,
+} from "react-router-dom";
+
+// ---------------------------------------
+// 공용 컴포넌트
+// ---------------------------------------
 import Navbar from "./components/Navbar";
-import RecipeCreate from "./features/project_post/RecipeCreate";
-import RecipeEdit from "./features/project_post/RecipeEdit";  // ✅ 추가
-import ProjectPostList from "./features/project_post/ProjectPostList";
-import ProjectPostDetail from "./features/project_post/ProjectPostDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SessionExpiredModal from "./components/SessionExpiredModal";
-import { clearTokens } from "./features/auth/api";
-import ProfilePage from "./features/profile/profile_pages";
-import ProfileCreate from "./features/profile/profileCreate_pages";
 
-// pages
+// ---------------------------------------
+// Auth
+// ---------------------------------------
+import { clearTokens } from "./features/auth/api";
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
 import FindAccount from "./features/auth/FindAccount"; // ✅ 아이디/비밀번호 찾기
 import SocialCallback from "./features/auth/SocialCallback"; // ✅ 소셜 로그인 콜백 추가
+
+// ---------------------------------------
+// Profile
+// ---------------------------------------
+import ProfilePage from "./features/profile/profile_pages";
+import ProfileCreate from "./features/profile/profileCreate_pages";
+
+// ---------------------------------------
+// 프로젝트/스터디 게시판
+// ---------------------------------------
+import RecipeCreate from "./features/project_post/RecipeCreate";
+import RecipeEdit from "./features/project_post/RecipeEdit";
+import ProjectPostList from "./features/project_post/ProjectPostList";
+import ProjectPostDetail from "./features/project_post/ProjectPostDetail";
+
+// ---------------------------------------
+// 계정관리
+// ---------------------------------------
 import AccountSettings from "./features/account/AccountSettings";
 import AccountLayout from "./features/account/AccountLayout";
 import ChangePassword from "./features/account/ChangePassword"; // ✅ 비밀번호 변경 페이지 추가
 
-// 홈
+// ---------------------------------------
+// 유저 게시판
+// ---------------------------------------
+import BoardListPage from "./features/board/BoardListPage";
+import BoardDetailPage from "./features/board/BoardDetailPage";
+import BoardCreatePage from "./features/board/BoardCreatePage";
+import BoardEditPage from "./features/board/BoardEditPage";
+
+// ---------------------------------------
+// 🏠 홈 페이지
+// ---------------------------------------
 function Home() {
   return (
     <div style={{ textAlign: "center", marginTop: 50 }}>
@@ -31,18 +65,16 @@ function Home() {
   );
 }
 
-// 🔹 게시판 페이지들 (준비중)
-function Board() {
-  return <div style={{ padding: 24 }}>유저게시판 (준비중)</div>;
-}
+// ---------------------------------------
+// 🧭 랭킹 (유지)
+// ---------------------------------------
 function Ranking() {
   return <div style={{ padding: 24 }}>랭킹게시판 (준비중)</div>;
 }
-function Profile() {
-  return <div style={{ padding: 24 }}>내 프로필 (준비중)</div>;
-}
 
-// ✅ 레이아웃 1: Navbar 포함
+// ---------------------------------------
+// 🧩 레이아웃 1: Navbar 포함
+// ---------------------------------------
 function MainLayout() {
   return (
     <>
@@ -57,10 +89,14 @@ function AuthLayout() {
   return <Outlet />;
 }
 
+// ---------------------------------------
+// 🚀 App 컴포넌트
+// ---------------------------------------
 export default function App() {
   const [showSessionModal, setShowSessionModal] = useState(false);
 
   useEffect(() => {
+    // ✅ 세션 만료 처리
     if (localStorage.getItem("session_expired") === "true") {
       localStorage.removeItem("session_expired");
       clearTokens("auto");
@@ -78,23 +114,67 @@ export default function App() {
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          {/* 🔹 중복 제거: FindAccount 라우트 한 번만 유지 */}
-          <Route path="/find-account" element={<FindAccount />} />
+          <Route path="/find-account" element={<FindAccount />} /> {/* 🔹 중복 제거 후 유지 */}
           <Route path="/social/callback" element={<SocialCallback />} /> {/* ✅ 소셜 로그인 콜백 추가 */}
         </Route>
 
-        {/* ✅ Navbar 있는 그룹 */}
+        {/* ✅ Navbar 포함된 그룹 */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
 
-          {/* 🔹 조회는 누구나 가능 */}
+          {/* ---------------------------------------
+              🔹 프로젝트/스터디 게시판
+          --------------------------------------- */}
           <Route path="/posts" element={<ProjectPostList />} />
           <Route path="/recipe/:postId" element={<ProjectPostDetail />} />
-          <Route path="/board" element={<Board />} />
-          <Route path="/ranking" element={<Ranking />} />
-          <Route path="/profile/:userId" element={<ProfilePage />} />
+          <Route
+            path="/recipe/create"
+            element={
+              <ProtectedRoute>
+                <RecipeCreate />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recipe/:postId/edit"
+            element={
+              <ProtectedRoute>
+                <RecipeEdit />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* 🔹 로그인 필요 - 내 프로필 */}
+          {/* ---------------------------------------
+              ✅ 유저 게시판
+          --------------------------------------- */}
+          <Route path="/board" element={<BoardListPage />} />
+          <Route path="/board/:id" element={<BoardDetailPage />} />
+          <Route
+            path="/board/write"
+            element={
+              <ProtectedRoute>
+                <BoardCreatePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/board/:postId/edit"
+            element={
+              <ProtectedRoute>
+                <BoardEditPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ---------------------------------------
+              🧭 랭킹 (유지)
+          --------------------------------------- */}
+          <Route path="/ranking" element={<Ranking />} />
+
+          {/* ---------------------------------------
+              🔒 프로필 관련
+          --------------------------------------- */}
+          <Route path="/profile/:userId" element={<ProfilePage />} />
           <Route
             path="/profile"
             element={
@@ -103,8 +183,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
-          {/* 🔹 로그인 필요 - 프로필 수정 */}
           <Route
             path="/profile/create"
             element={
@@ -114,26 +192,9 @@ export default function App() {
             }
           />
 
-          {/* 🔹 로그인 필요 - 모집공고 생성 */}
-          <Route
-            path="/recipe/create"
-            element={
-              <ProtectedRoute>
-                <RecipeCreate />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/recipe/:postId/edit"   // ✅ 수정 페이지 라우트 추가
-            element={
-              <ProtectedRoute>
-                <RecipeEdit />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ✅ 계정 관리 (중첩 라우트) */}
+          {/* ---------------------------------------
+              ✅ 계정 관리 (중첩 라우트)
+          --------------------------------------- */}
           <Route
             path="/account"
             element={
@@ -142,7 +203,6 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            {/* 기본 접속 시 /account/settings로 리다이렉트 */}
             <Route index element={<Navigate to="settings" replace />} />
             <Route path="settings" element={<AccountSettings />} />
             <Route path="change-password" element={<ChangePassword />} /> {/* ✅ 비밀번호 변경 추가 */}
@@ -150,7 +210,7 @@ export default function App() {
         </Route>
       </Routes>
 
-      {/* 세션 만료 모달 */}
+      {/* ⏰ 세션 만료 모달 */}
       {showSessionModal && (
         <SessionExpiredModal onClose={() => setShowSessionModal(false)} />
       )}
