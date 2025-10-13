@@ -22,6 +22,7 @@ import { clearTokens } from "./features/auth/api";
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
 import FindAccount from "./features/auth/FindAccount"; // ✅ 아이디/비밀번호 찾기
+import SocialCallback from "./features/auth/SocialCallback"; // ✅ 소셜 로그인 콜백 추가
 
 // ---------------------------------------
 // Profile
@@ -30,18 +31,19 @@ import ProfilePage from "./features/profile/profile_pages";
 import ProfileCreate from "./features/profile/profileCreate_pages";
 
 // ---------------------------------------
-// Account
-// ---------------------------------------
-import AccountSettings from "./features/account/AccountSettings";
-import AccountLayout from "./features/account/AccountLayout";
-
-// ---------------------------------------
 // 프로젝트/스터디 게시판
 // ---------------------------------------
 import RecipeCreate from "./features/project_post/RecipeCreate";
 import RecipeEdit from "./features/project_post/RecipeEdit";
 import ProjectPostList from "./features/project_post/ProjectPostList";
 import ProjectPostDetail from "./features/project_post/ProjectPostDetail";
+
+// ---------------------------------------
+// 계정관리
+// ---------------------------------------
+import AccountSettings from "./features/account/AccountSettings";
+import AccountLayout from "./features/account/AccountLayout";
+import ChangePassword from "./features/account/ChangePassword"; // ✅ 비밀번호 변경 페이지 추가
 
 // ---------------------------------------
 // 유저 게시판
@@ -64,14 +66,14 @@ function Home() {
 }
 
 // ---------------------------------------
-// 🧭 랭킹 (유지) 나중에 랭킹코드 만들면 없애고 아래 라우트수정
+// 🧭 랭킹 (유지)
 // ---------------------------------------
 function Ranking() {
   return <div style={{ padding: 24 }}>랭킹게시판 (준비중)</div>;
 }
 
 // ---------------------------------------
-// 🧩 레이아웃
+// 🧩 레이아웃 1: Navbar 포함
 // ---------------------------------------
 function MainLayout() {
   return (
@@ -82,6 +84,7 @@ function MainLayout() {
   );
 }
 
+// ✅ 레이아웃 2: Navbar 없음 (로그인/회원가입/아이디찾기 전용)
 function AuthLayout() {
   return <Outlet />;
 }
@@ -107,11 +110,12 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기) */}
+        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기/소셜콜백) */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/find-account" element={<FindAccount />} />
+          <Route path="/find-account" element={<FindAccount />} /> {/* 🔹 중복 제거 후 유지 */}
+          <Route path="/social/callback" element={<SocialCallback />} /> {/* ✅ 소셜 로그인 콜백 추가 */}
         </Route>
 
         {/* ✅ Navbar 포함된 그룹 */}
@@ -201,6 +205,7 @@ export default function App() {
           >
             <Route index element={<Navigate to="settings" replace />} />
             <Route path="settings" element={<AccountSettings />} />
+            <Route path="change-password" element={<ChangePassword />} /> {/* ✅ 비밀번호 변경 추가 */}
           </Route>
         </Route>
       </Routes>

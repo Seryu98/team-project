@@ -1,6 +1,8 @@
 // src/features/account/AccountLayout.jsx
-import { Outlet, NavLink } from "react-router-dom";
-import "./AccountLayout.css"; // 필요시 스타일 분리
+import { Routes, Route, NavLink } from "react-router-dom";
+import "./AccountLayout.css"; // 계정관리 공통 스타일
+import AccountSettings from "./AccountSettings";
+import ChangePassword from "./ChangePassword";
 
 export default function AccountLayout() {
   return (
@@ -10,20 +12,39 @@ export default function AccountLayout() {
         <h3>계정 관리</h3>
         <ul>
           <li>
-            <NavLink to="settings">개인정보 수정</NavLink>
+            <NavLink
+              to="settings"
+              className={({ isActive }) => (isActive ? "active" : "")}
+            >
+              개인정보 수정
+            </NavLink>
           </li>
           <li>
-            <NavLink to="password">비밀번호 변경</NavLink>
+            <NavLink
+              to="change-password"
+              className={({ isActive }) => (isActive ? "active" : "")}
+            >
+              비밀번호 변경
+            </NavLink>
           </li>
           <li>
-            <NavLink to="notifications">알림 설정</NavLink>
+            <NavLink
+              to="notifications"
+              className={({ isActive }) => (isActive ? "active" : "")}
+            >
+              알림 설정
+            </NavLink>
           </li>
         </ul>
       </aside>
 
-      {/* 오른쪽 메인 */}
+      {/* 오른쪽 메인 영역 */}
       <main className="account-content">
-        <Outlet />
+        <Routes>
+          <Route path="settings" element={<AccountSettings />} />
+          <Route path="change-password" element={<ChangePassword />} />
+          {/* 향후 알림 설정 페이지 연결 예정 */}
+        </Routes>
       </main>
     </div>
   );
