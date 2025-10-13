@@ -124,13 +124,13 @@ def get_followers(
     ]
 
 
-@router.get("/{user_id}/following")
-def get_following(
+@router.get("/{user_id}/followings")  
+def get_followings(  
     user_id: int,
     db: Session = Depends(get_db),
 ):
     """특정 유저가 팔로우하는 목록"""
-    following = (
+    followings = (  
         db.query(User)
         .join(Follow, Follow.following_id == User.id)
         .filter(
@@ -146,5 +146,5 @@ def get_following(
             "nickname": user.nickname,
             "profile_image": db.query(Profile).filter(Profile.id == user.id).first().profile_image
         }
-        for user in following
+        for user in followings  
     ]
