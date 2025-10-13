@@ -1,7 +1,6 @@
-# app/project_post/recipe_service.py
+#app/project_post/recipe_service.py
 from sqlalchemy.orm import Session
 from app import models
-from app.project_post.post_member_model import PostMember  # ✅ 추가
 from datetime import date
 from typing import Optional
 
@@ -15,8 +14,8 @@ def create_recipe_post(
     field: Optional[str],
     start_date: Optional[date],
     end_date: Optional[date],
-    project_start: Optional[date],
-    project_end: Optional[date],
+    project_start: Optional[date],   # ✅ 추가
+    project_end: Optional[date],     # ✅ 추가
     skills: list[int],
     application_fields: list[int],
     image_url: Optional[str] = None,
@@ -30,17 +29,17 @@ def create_recipe_post(
         description=description,
         start_date=start_date,
         end_date=end_date,
-        project_start=project_start,
-        project_end=project_end,
+        project_start=project_start,   # ✅ 추가
+        project_end=project_end,       # ✅ 추가
         image_url=image_url,
-        current_members=1,
+        current_members=1,  # 리더 포함
     )
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
 
     # 리더 자동 등록
-    leader_member = PostMember(  # ✅ 수정
+    leader_member = models.PostMember(
         post_id=new_post.id, user_id=leader_id, role="LEADER"
     )
     db.add(leader_member)
