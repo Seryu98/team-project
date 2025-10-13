@@ -1,22 +1,19 @@
 # app/auth/auth_service.py
 from datetime import datetime, timedelta
 import logging
-
-from typing import Optional, Tuple
-from fastapi.security import OAuth2PasswordRequestForm
-
+import os
 import re
-from typing import Optional
+import secrets
+import requests
+from urllib.parse import urlencode, quote_plus
+from typing import Optional, Tuple
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
-import os
-import requests
-from urllib.parse import urlencode, quote_plus
 
-from app.users.user_model import User
+from app.users.user_model import User, UserStatus
 from app.auth.auth_schema import UserRegister
 from app.core.security import (
     hash_password,
@@ -28,7 +25,8 @@ from app.core.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
-from app.core.database import get_db  # ✅ DB 의존성 주입용
+from app.core.database import get_db
+
 
 # ===============================
 # ⚙️ 정책 상수
@@ -36,19 +34,21 @@ from app.core.database import get_db  # ✅ DB 의존성 주입용
 MAX_LOGIN_FAILS = 5
 LOCK_TIME_MINUTES = 15
 RESET_TOKEN_EXPIRE_MINUTES = 30
-HTTP_TIMEOUT = 8
+HTTP_TIMEOUT = 8  # 외부 API 타임아웃(초)
 
 logger = logging.getLogger(__name__)
+
 
 # ===============================
 # 🌐 공통 유틸
 # ===============================
-
 def _frontend_origin() -> str:
+    """프론트엔드 오리진 (.env FRONTEND_ORIGIN)"""
     return os.getenv("FRONTEND_ORIGIN", "http://localhost:5173").rstrip("/")
 
 
 def _oauth_base_redirect() -> str:
+    """백엔드 콜백 루트 (.env OAUTH_REDIRECT_URI)"""
     return os.getenv(
         "OAUTH_REDIRECT_URI",
         "http://localhost:8000/auth/social/callback",
@@ -56,6 +56,7 @@ def _oauth_base_redirect() -> str:
 
 
 def build_frontend_redirect_url(access_token: str, refresh_token: str) -> str:
+    """프론트엔드로 토큰 전달용 URL 구성"""
     base = f"{_frontend_origin()}/social/callback"
     return (
         f"{base}?access_token={quote_plus(access_token)}"
@@ -64,6 +65,7 @@ def build_frontend_redirect_url(access_token: str, refresh_token: str) -> str:
 
 
 def _safe_name(provider: str, default: Optional[str]) -> str:
+    """제공된 이름이 없을 때 provider별 기본 이름"""
     if default and default.strip():
         return default.strip()
     return {
@@ -74,6 +76,7 @@ def _safe_name(provider: str, default: Optional[str]) -> str:
 
 
 def _token_exchange(url: str, data: dict) -> dict:
+    """OAuth 토큰 교환 (POST)"""
     try:
         res = requests.post(url, data=data, timeout=HTTP_TIMEOUT)
         res.raise_for_status()
@@ -84,6 +87,7 @@ def _token_exchange(url: str, data: dict) -> dict:
 
 
 def _get_json(url: str, headers: dict) -> dict:
+    """GET JSON 요청 공통 함수"""
     try:
         res = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT)
         res.raise_for_status()
@@ -92,25 +96,30 @@ def _get_json(url: str, headers: dict) -> dict:
         logger.exception("OAuth userinfo request failed: %s", e)
         raise ValueError("사용자 정보 조회 실패")
 
-# OAuth2 설정
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
 
 # ===============================
-# 비밀번호 유효성 검사 함수 추가 ✅
+# 🔐 비밀번호 유효성 검사
 # ===============================
 def validate_password(password: str) -> bool:
-    """
-    비밀번호 유효성 검사
-    - 영문, 숫자, 특수문자 포함 8~20자
-    """
+    """비밀번호: 영문, 숫자, 특수문자 포함 8~20자"""
     pattern = r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$'
     return bool(re.match(pattern, password))
+    
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
+# ===============================
+# 🔹 랜덤 닉네임 생성 (중복 방지)
+# ===============================
+def _generate_unique_nickname(db: Session, provider: str) -> str:
+    """랜덤 닉네임 생성 (예: google_user_ab12cd)"""
+    while True:
+        nickname = f"{provider}_user_{secrets.token_hex(3)}"
+        if not db.query(User).filter(User.nickname == nickname).first():
+            return nickname
 
 
 # ===============================
-# 👇 수정된 부분 (닉네임 중복 방지)
+# 👇 소셜 사용자 등록 / 복귀 처리 (⭐ 수정된 핵심 부분)
 # ===============================
 def _upsert_social_user(
     db: Session,
@@ -119,26 +128,52 @@ def _upsert_social_user(
     email: Optional[str],
     name: Optional[str],
 ) -> User:
-    """소셜 사용자 조회/생성 통합 로직 (닉네임 중복 자동 처리)"""
+    """
+    ✅ 소셜 사용자 조회/생성/복귀 통합 처리
+    - Google/Naver → 실명 유지, 닉네임 새 랜덤
+    - Kakao → 이름 = 닉네임 동일
+    - 탈퇴 유저 복귀 시 → 새 닉네임 부여 + 상태 복구
+    """
     user = (
         db.query(User)
         .filter(User.social_id == social_id, User.auth_provider == provider)
         .first()
     )
+
+    # 🔁 기존 유저 존재 시
     if user:
+        # 🔹 탈퇴된 유저 복귀 처리
+        if user.status == UserStatus.DELETED:
+            new_nickname = _generate_unique_nickname(db, provider)
+            user.nickname = new_nickname
+            user.status = UserStatus.ACTIVE
+            user.deleted_at = None
+            user.last_login_at = datetime.utcnow()
+
+            # Kakao는 이름도 랜덤 닉네임으로 변경
+            if provider == "kakao":
+                user.name = new_nickname
+
+            db.commit()
+            db.refresh(user)
+            return user
+
+        # ✅ 이미 활성 유저면 그대로 반환
         return user
 
-    # 기본 값 설정
+    # 🆕 신규가입 처리
     safe_email = email or f"{provider}_{social_id}@example.com"
-    base_name = _safe_name(provider, name)
     safe_user_id = f"{provider}_{social_id}"
 
-    # ✅ 닉네임 중복 방지 로직
-    nickname = base_name
-    suffix = 1
-    while db.query(User).filter(User.nickname == nickname).first():
-        nickname = f"{base_name}_{suffix}"
-        suffix += 1
+    if provider in ["google", "naver"]:
+        base_name = _safe_name(provider, name)
+        nickname = _generate_unique_nickname(db, provider)
+    elif provider == "kakao":
+        nickname = _generate_unique_nickname(db, provider)
+        base_name = nickname
+    else:
+        base_name = _safe_name(provider, name)
+        nickname = _generate_unique_nickname(db, provider)
 
     user = User(
         email=safe_email,
@@ -147,6 +182,7 @@ def _upsert_social_user(
         nickname=nickname,
         auth_provider=provider,
         social_id=social_id,
+        status=UserStatus.ACTIVE,
     )
     db.add(user)
     db.commit()
@@ -154,7 +190,11 @@ def _upsert_social_user(
     return user
 
 
+# ===============================
+# 🔑 JWT 발급
+# ===============================
 def _issue_jwt_pair(user_id: int) -> Tuple[str, str]:
+    """JWT Access/Refresh Token 발급"""
     access_token = create_access_token(
         data={"sub": str(user_id)},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -166,8 +206,8 @@ def _issue_jwt_pair(user_id: int) -> Tuple[str, str]:
 # ===============================
 # 🧩 회원가입 처리
 # ===============================
-
 def register_user(db: Session, user: UserRegister) -> User:
+    """신규 회원 등록"""
     if db.query(User).filter(User.email == user.email).first():
         raise ValueError("이미 존재하는 이메일입니다.")
     if db.query(User).filter(User.user_id == user.user_id).first():
@@ -175,7 +215,6 @@ def register_user(db: Session, user: UserRegister) -> User:
     if db.query(User).filter(User.nickname == user.nickname).first():
         raise ValueError("이미 존재하는 닉네임입니다.")
 
-    # ✅ 비밀번호 유효성 검사 추가
     if not validate_password(user.password):
         raise ValueError("비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.")
 
@@ -195,10 +234,10 @@ def register_user(db: Session, user: UserRegister) -> User:
 
 
 # ===============================
-# 🔹 계정 잠금 관련
+# 🔒 계정 잠금 관련
 # ===============================
-
 def _is_locked(u: User) -> bool:
+    """계정 잠금 여부 확인"""
     if not u:
         return False
     now = datetime.utcnow()
@@ -212,6 +251,7 @@ def _is_locked(u: User) -> bool:
 
 
 def _on_login_fail(u: User) -> None:
+    """로그인 실패 시 처리"""
     if not u:
         return
     u.login_fail_count = (u.login_fail_count or 0) + 1
@@ -223,6 +263,7 @@ def _on_login_fail(u: User) -> None:
 
 
 def _on_login_success(u: User) -> None:
+    """로그인 성공 시 초기화"""
     u.login_fail_count = 0
     u.account_locked = False
     u.banned_until = None
@@ -230,10 +271,10 @@ def _on_login_success(u: User) -> None:
 
 
 # ===============================
-# 🔹 사용자 인증
+# 👤 로그인 / 인증 / 토큰 재발급
 # ===============================
-
 def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User]:
+    """아이디+비밀번호 검증"""
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         return None
@@ -241,14 +282,12 @@ def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User
         return None
     return user
 
-# ===============================
-# 🔹 로그인 처리 (Access + Refresh 발급)
-# ===============================
 
 def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
+    """일반 로그인"""
     login_id = form_data.username
-    user = db.query(User).filter(User.user_id == login_id).first()
 
+    user = db.query(User).filter(User.user_id == login_id).first()
     if user and _is_locked(user):
         db.commit()
         logger.warning("잠금 상태 로그인 시도: user_id=%s", login_id)
@@ -277,11 +316,8 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
     }
 
 
-# ===============================
-# 🔹 Refresh Token → 새 Access Token 발급
-# ===============================
-
 def refresh_access_token(refresh_token: str) -> Optional[dict]:
+    """Refresh Token으로 Access Token 재발급"""
     payload = verify_token(refresh_token, expected_type="refresh")
     if not payload:
         logger.warning("잘못된 리프레시 토큰 사용")
@@ -307,78 +343,10 @@ def refresh_access_token(refresh_token: str) -> Optional[dict]:
 
 
 # ===============================
-# 이메일 힌트 조회 (user_id → email masking)
+# 🌍 소셜 로그인 URL 발급 + Callback
 # ===============================
-def get_email_hint(db: Session, user_id: str) -> Optional[str]:
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user or not user.email:
-        return None
-
-    email = user.email
-    try:
-        local, domain = email.split("@")
-        domain_name, domain_ext = domain.split(".")
-    except ValueError:
-        return None
-
-    # ex) te******@g****.com
-    masked_local = local[:2] + "*" * max(0, len(local) - 2)
-    masked_domain = domain_name[0] + "*" * (len(domain_name) - 1)
-    return f"{masked_local}@{masked_domain}.{domain_ext}"
-
-
-# ===============================
-# 아이디 기반 비밀번호 재설정 토큰 발급
-# ===============================
-def generate_reset_token_by_user_id(db: Session, user_id: str) -> Optional[str]:
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        logger.warning("비밀번호 재설정 실패: 존재하지 않는 아이디 %s", user_id)
-        return None
-    if not user.password_hash:
-        logger.warning("비밀번호 재설정 실패: 소셜 계정 %s", user_id)
-        return None
-
-    reset_token = create_reset_token(data={"sub": str(user.id)})
-    logger.info("비밀번호 재설정 토큰 발급: user_id=%s", user.user_id)
-    return reset_token
-
-
-# ===============================
-# 🔹 비밀번호 재설정 실행
-# ===============================
-
-def reset_password(db: Session, reset_token: str, new_password: str) -> bool:
-    payload = verify_token(reset_token, expected_type="reset")
-    if not payload:
-        logger.warning("비밀번호 재설정 실패: 잘못된 토큰")
-        return False
-
-    # ✅ 비밀번호 형식 검사 추가
-    if not validate_password(new_password):
-        logger.warning("비밀번호 형식 오류 (8~20자, 영문/숫자/특수문자 조합 아님)")
-        return False
-
-    user_id = payload.get("sub")
-    if not user_id:
-        return False
-
-    user = db.query(User).filter(User.id == int(user_id)).first()
-    if not user or not user.password_hash:
-        return False
-
-    user.password_hash = hash_password(new_password)
-    db.commit()
-    db.refresh(user)
-    logger.info("비밀번호 재설정 성공: user_id=%s", user.user_id)
-    return True
-
-
-# ===============================
-# 🌍 ✅ 소셜 로그인
-# ===============================
-
 def get_oauth_login_url(provider: str) -> str:
+    """각 provider별 OAuth 로그인 URL 생성"""
     base_redirect = _oauth_base_redirect()
 
     if provider == "google":
@@ -413,6 +381,7 @@ def get_oauth_login_url(provider: str) -> str:
 
 
 def handle_oauth_callback(db: Session, provider: str, code: str) -> dict:
+    """OAuth 인증 후 사용자 정보 조회 및 JWT 발급"""
     base_redirect = _oauth_base_redirect()
 
     try:
@@ -488,28 +457,24 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> dict:
         else:
             raise ValueError("지원하지 않는 provider입니다.")
 
-    except ValueError as e:
-        logger.warning("소셜 로그인 처리 오류(%s): %s", provider, e)
-        raise
     except Exception as e:
-        logger.exception("소셜 로그인 처리 예기치 못한 오류(%s): %s", provider, e)
-        raise ValueError("소셜 로그인 처리 중 오류")
+        logger.exception("소셜 로그인 오류(%s): %s", provider, e)
+        raise ValueError("소셜 로그인 처리 실패")
 
     if not social_id:
         raise ValueError("소셜 사용자 ID를 확인할 수 없습니다.")
 
-    # 사용자 upsert
+    # 🔹 통합 사용자 등록/복귀 처리
     user = _upsert_social_user(db, provider, social_id, email, name)
 
     # JWT 발급
     access_token, refresh_token = _issue_jwt_pair(user.id)
     logger.info("%s 로그인 성공: user_id=%s email=%s", provider.capitalize(), user.id, user.email)
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-    }
+    redirect_url = build_frontend_redirect_url(access_token, refresh_token)
+    return RedirectResponse(url=redirect_url)
+
+
 
 # ===============================
 # 🔹 현재 로그인된 사용자 조회 (JWT 기반)
@@ -536,3 +501,5 @@ def get_current_user(
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
     return user
+
+
