@@ -1,4 +1,3 @@
-# app/project_post/recipe_router.py
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -18,7 +17,7 @@ from app.project_post.recipe_model import Application
 from app.users.user_model import User
 from app.meta.meta_schema import SkillResponse, ApplicationFieldResponse
 
-# ✅ models에 동적으로 할당 (기존 코드에서 models.PostMember 사용 가능하도록)
+# ✅ models에 동적으로 할당
 models.PostMember = PostMember
 models.Application = Application
 
@@ -26,25 +25,34 @@ router = APIRouter(prefix="/recipe", tags=["recipe"])
 
 
 # ---------------------------------------------------------------------
-# ✅ 내부 유틸: 조회 시점에 상태 자동 갱신
+# ✅ 내부 유틸: 상태 자동 갱신
 # ---------------------------------------------------------------------
 def _apply_auto_state_updates_for_posts(db: Session, posts: List[models.RecipePost]):
     today = date.today()
     changed = False
 
     for post in posts:
-        # 모집 자동 마감 처리
+        # 모집 기간 종료 시 자동 마감
         if post.end_date and post.end_date < today and post.recruit_status == "OPEN":
             post.recruit_status = "CLOSED"
             changed = True
 
-        # 프로젝트 자동 종료 처리
+        # 프로젝트 기간 종료 시 자동 종료
         if (
             post.project_end
             and post.project_end < today
             and post.project_status == "ONGOING"
         ):
             post.project_status = "ENDED"
+            changed = True
+
+        # 정원 자동 마감 처리
+        if len(post.members) >= post.capacity and post.recruit_status == "OPEN":
+            post.recruit_status = "CLOSED"
+            changed = True
+        # 정원 늘린 경우 자동 재개
+        elif len(post.members) < post.capacity and post.recruit_status == "CLOSED":
+            post.recruit_status = "OPEN"
             changed = True
 
     if changed:
@@ -109,7 +117,7 @@ async def create_post(
 
 
 # ---------------------------------------------------------------------
-# ✅ 모집공고 수정 (리더/관리자만 가능)
+# ✅ 모집공고 수정
 # ---------------------------------------------------------------------
 @router.put("/{post_id}", response_model=RecipePostResponse)
 async def update_post(
@@ -128,7 +136,7 @@ async def update_post(
     if current_user.id != post.leader_id and current_user.role != "ADMIN":
         raise HTTPException(status_code=403, detail="수정 권한 없음")
 
-    # 기본 필드 갱신
+    # 필드 갱신
     post.title = payload.title
     post.description = payload.description
     post.capacity = payload.capacity
@@ -140,25 +148,27 @@ async def update_post(
     post.project_end = payload.project_end
     post.image_url = payload.image_url
 
-    # ✅ skills 갱신
+    # skill 갱신
     db.query(models.RecipePostSkill).filter(models.RecipePostSkill.post_id == post.id).delete()
     for skill_id in payload.skills:
         db.add(models.RecipePostSkill(post_id=post.id, skill_id=skill_id))
 
-    # ✅ application_fields 갱신
+    # field 갱신
     db.query(models.RecipePostRequiredField).filter(models.RecipePostRequiredField.post_id == post.id).delete()
     for field_id in payload.application_fields:
         db.add(models.RecipePostRequiredField(post_id=post.id, field_id=field_id))
 
+    # ✅ 정원 변경 시 상태 자동 업데이트
     db.commit()
+    _apply_auto_state_updates_for_single(db, post)
     db.refresh(post)
     return to_dto(post)
 
 
 # ---------------------------------------------------------------------
-# ✅ 모집공고 목록 조회
+# ✅ 모집공고 목록 조회 (페이지네이션 포함)
 # ---------------------------------------------------------------------
-@router.get("/list", response_model=List[RecipePostResponse])
+@router.get("/list")
 async def get_posts(
     db: Session = Depends(get_db),
     type: Optional[str] = Query(None),
@@ -172,16 +182,13 @@ async def get_posts(
     page: int = 1,
     page_size: int = 10,
 ):
-    # 상태 갱신을 위한 pre-scan
-    prescan_posts = (
-        db.query(models.RecipePost)
-        .filter(models.RecipePost.status == status)
-        .filter(models.RecipePost.deleted_at.is_(None))
-        .all()
-    )
-    _apply_auto_state_updates_for_posts(db, prescan_posts)
+    # 상태 업데이트
+    prescan = db.query(models.RecipePost).filter(
+        models.RecipePost.status == status,
+        models.RecipePost.deleted_at.is_(None)
+    ).all()
+    _apply_auto_state_updates_for_posts(db, prescan)
 
-    # 실제 조회 쿼리
     query = (
         db.query(models.RecipePost)
         .options(
@@ -194,7 +201,6 @@ async def get_posts(
         .filter(getattr(models.RecipePost, "project_status") != "ENDED")
     )
 
-    # 조건 필터링
     if recruit_status:
         query = query.filter(models.RecipePost.recruit_status == recruit_status)
     if type:
@@ -222,22 +228,32 @@ async def get_posts(
             (models.RecipePost.description.contains(search))
         )
 
+    total = query.count()
     posts = query.offset((page - 1) * page_size).limit(page_size).all()
-    return [to_dto(post) for post in posts]
+    has_next = page * page_size < total
+
+    return {
+        "items": [to_dto(post) for post in posts],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "has_next": has_next,
+    }
 
 
 # ---------------------------------------------------------------------
-# ✅ 내 프로젝트 목록 조회 (⚠️ /{post_id} 앞으로 이동!)
+# ✅ (⚠️ 라우팅 충돌 방지용) 내 프로젝트 / 내 지원 목록을
+#    반드시 /{post_id} 보다 위에 둔다.
 # ---------------------------------------------------------------------
 @router.get("/my-projects", response_model=List[RecipePostResponse])
 async def get_my_projects(
-    status: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    status: Optional[str] = None,  # ← Query 제거, 단순 Optional string
 ):
     """
     내가 참여 중인 프로젝트 목록 조회
-    - status=ONGOING: 진행 중인 프로젝트
+    - status=ONGOING: 진행 중 프로젝트
     - status=ENDED: 종료된 프로젝트
     """
     query = (
@@ -253,25 +269,22 @@ async def get_my_projects(
             joinedload(models.RecipePost.members),
         )
     )
-    
+
     if status:
         query = query.filter(models.RecipePost.project_status == status)
-    
+
     posts = query.all()
     _apply_auto_state_updates_for_posts(db, posts)
     return [to_dto(post) for post in posts]
 
 
-# ---------------------------------------------------------------------
-# ✅ 내가 지원한 프로젝트 목록 (⚠️ /{post_id} 앞으로 이동!)
-# ---------------------------------------------------------------------
 @router.get("/my-applications", response_model=List[RecipePostResponse])
 async def get_my_applications(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    내가 지원한 프로젝트 중 아직 승인/거절 처리되지 않은 목록
+    내가 지원한 프로젝트 중 아직 승인/거절 처리되지 않은 목록 (PENDING)
     """
     applications = (
         db.query(models.Application)
@@ -281,12 +294,12 @@ async def get_my_applications(
         )
         .all()
     )
-    
+
     if not applications:
         return []
-    
+
     post_ids = [app.post_id for app in applications]
-    
+
     posts = (
         db.query(models.RecipePost)
         .filter(
@@ -300,13 +313,13 @@ async def get_my_applications(
         )
         .all()
     )
-    
+
     _apply_auto_state_updates_for_posts(db, posts)
     return [to_dto(post) for post in posts]
 
 
 # ---------------------------------------------------------------------
-# ✅ 상세 조회 (⚠️ 이제 구체적 경로들 뒤에 위치!)
+# ✅ 상세 조회 (프로필/상세 페이지 공통 사용)
 # ---------------------------------------------------------------------
 @router.get("/{post_id}", response_model=RecipePostResponse)
 async def get_post_detail(post_id: int, db: Session = Depends(get_db)):
@@ -329,87 +342,9 @@ async def get_post_detail(post_id: int, db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------
-# ✅ 모집 상태 변경
-# ---------------------------------------------------------------------
-@router.post("/{post_id}/recruit-status")
-async def update_recruit_status(
-    post_id: int,
-    payload: dict = Body(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    status_value = payload.get("status")
-    if status_value not in ["OPEN", "CLOSED"]:
-        raise HTTPException(status_code=400, detail="유효하지 않은 상태입니다")
-
-    post = db.query(models.RecipePost).filter(
-        models.RecipePost.id == post_id,
-        models.RecipePost.deleted_at.is_(None)
-    ).first()
-    if not post:
-        raise HTTPException(status_code=404, detail="게시글 없음")
-
-    if current_user.id != post.leader_id:
-        raise HTTPException(status_code=403, detail="리더만 변경 가능")
-
-    post.recruit_status = status_value
-    db.commit()
-    return {"message": f"✅ 모집 상태가 {status_value}로 변경되었습니다."}
-
-
-# ---------------------------------------------------------------------
-# ✅ 프로젝트 종료
-# ---------------------------------------------------------------------
-@router.post("/{post_id}/end")
-async def end_project(
-    post_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    post = db.query(models.RecipePost).filter(
-        models.RecipePost.id == post_id,
-        models.RecipePost.deleted_at.is_(None)
-    ).first()
-    if not post:
-        raise HTTPException(status_code=404, detail="게시글 없음")
-
-    if current_user.id != post.leader_id:
-        raise HTTPException(status_code=403, detail="리더만 종료 가능")
-
-    post.project_status = "ENDED"
-    if post.recruit_status != "CLOSED":
-        post.recruit_status = "CLOSED"
-
-    db.commit()
-    return {"message": "✅ 프로젝트가 종료되었습니다."}
-
-
-# ---------------------------------------------------------------------
-# ✅ 게시글 삭제 (Soft Delete)
-# ---------------------------------------------------------------------
-@router.delete("/{post_id}")
-async def delete_post(
-    post_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    post = db.query(models.RecipePost).filter(
-        models.RecipePost.id == post_id,
-        models.RecipePost.deleted_at.is_(None)
-    ).first()
-    if not post:
-        raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
-
-    if current_user.id != post.leader_id and current_user.role != "ADMIN":
-        raise HTTPException(status_code=403, detail="삭제 권한이 없습니다.")
-
-    post.deleted_at = datetime.utcnow()
-    db.commit()
-    return {"message": "🗑 게시글이 삭제 처리되었습니다."}
-
-
-# ---------------------------------------------------------------------
-# ✅ 지원서 제출
+# ✅ 지원서 제출 (중복신청 방지 + 정원 체크 + 모집상태 체크)
+#     - PENDING/APPROVED 상태만 재신청 차단 (REJECTED/WITHDRAWN 은 재신청 허용)
+#     - 정원 가득/모집마감이면 신청 불가
 # ---------------------------------------------------------------------
 @router.post("/{post_id}/apply")
 async def apply_post(
@@ -418,29 +353,66 @@ async def apply_post(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    post = db.query(models.RecipePost).filter(
-        models.RecipePost.id == post_id,
-        models.RecipePost.deleted_at.is_(None)
-    ).first()
+    post = (
+        db.query(models.RecipePost)
+        .filter(models.RecipePost.id == post_id, models.RecipePost.deleted_at.is_(None))
+        .first()
+    )
     if not post:
         raise HTTPException(status_code=404, detail="게시글 없음")
 
-    application = models.Application(post_id=post_id, user_id=current_user.id)
+    # 1) 모집 상태 확인 (모집중이 아니면 신청 불가)
+    if post.recruit_status != "OPEN":
+        raise HTTPException(status_code=400, detail="모집이 마감되었습니다.")
+
+    # 2) 정원 확인 (안전장치) - 현재 멤버 수가 정원 이상이면 차단
+    current_members = (
+        db.query(models.PostMember)
+        .filter(models.PostMember.post_id == post_id)
+        .count()
+    )
+    if current_members >= post.capacity:
+        # 상태 불일치 보정
+        if post.recruit_status != "CLOSED":
+            post.recruit_status = "CLOSED"
+            db.commit()
+        raise HTTPException(status_code=400, detail="정원이 가득 찼습니다.")
+
+    # 3) 중복 신청 방지
+    existing_app = (
+        db.query(models.Application)
+        .filter(
+            models.Application.post_id == post_id,
+            models.Application.user_id == current_user.id,
+            models.Application.status.in_(["PENDING", "APPROVED"]),
+        )
+        .first()
+    )
+    if existing_app:
+        raise HTTPException(status_code=400, detail="이미 지원 진행 중입니다.")
+
+    # 4) 신청 생성 (PENDING)
+    application = models.Application(
+        post_id=post_id,
+        user_id=current_user.id,
+        status="PENDING",
+    )
     db.add(application)
     db.commit()
     db.refresh(application)
 
-    # 지원자 답변 저장
+    # 5) 지원자 답변 저장
     for ans in answers:
-        db.add(models.ApplicationAnswer(
-            application_id=application.id,
-            field_id=ans["field_id"],
-            answer_text=ans["answer_text"]
-        ))
-
+        db.add(
+            models.ApplicationAnswer(
+                application_id=application.id,
+                field_id=ans["field_id"],
+                answer_text=ans["answer_text"],
+            )
+        )
     db.commit()
 
-    # ✅ 지원서 제출 시 리더 알림/메시지 전송
+    # 6) 이벤트 (있으면 호출)
     try:
         from app.events.events import on_application_submitted
         on_application_submitted(
@@ -449,8 +421,8 @@ async def apply_post(
             leader_id=post.leader_id,
             applicant_id=current_user.id,
         )
-    except ImportError:
-        pass  # events 모듈이 없으면 스킵
+    except Exception:
+        pass  # events 모듈 미존재/오류 시 무시
 
     return {"message": "✅ 지원 완료", "application_id": application.id}
 
@@ -472,18 +444,32 @@ async def approve_application(
     if current_user.id != post.leader_id:
         raise HTTPException(status_code=403, detail="리더만 승인 가능")
 
+    # 정원 초과 방지
+    member_count = db.query(models.PostMember).filter(models.PostMember.post_id == post_id).count()
+    if member_count >= post.capacity:
+        post.recruit_status = "CLOSED"
+        db.commit()
+        raise HTTPException(status_code=400, detail="정원이 가득 찼습니다.")
+
     application = db.query(models.Application).filter(
         models.Application.id == application_id,
-        models.Application.post_id == post_id
+        models.Application.post_id == post_id,
     ).first()
     if not application:
         raise HTTPException(status_code=404, detail="지원서 없음")
 
+    # 승인 처리
     application.status = "APPROVED"
     db.add(models.PostMember(post_id=post_id, user_id=application.user_id, role="MEMBER"))
     db.commit()
 
-    # ✅ 지원 승인 알림
+    # 승인 후 정원 확인
+    member_count = db.query(models.PostMember).filter(models.PostMember.post_id == post_id).count()
+    if member_count >= post.capacity:
+        post.recruit_status = "CLOSED"
+        db.commit()
+
+    # 이벤트 알림
     try:
         from app.events.events import on_application_decided
         on_application_decided(
@@ -491,8 +477,8 @@ async def approve_application(
             applicant_id=application.user_id,
             accepted=True,
         )
-    except ImportError:
-        pass  # events 모듈이 없으면 스킵
+    except Exception:
+        pass
 
     return {"message": "✅ 승인 완료"}
 
@@ -516,7 +502,7 @@ async def reject_application(
 
     application = db.query(models.Application).filter(
         models.Application.id == application_id,
-        models.Application.post_id == post_id
+        models.Application.post_id == post_id,
     ).first()
     if not application:
         raise HTTPException(status_code=404, detail="지원서 없음")
@@ -524,7 +510,7 @@ async def reject_application(
     application.status = "REJECTED"
     db.commit()
 
-    # ✅ 지원 거절 알림
+    # 이벤트 알림
     try:
         from app.events.events import on_application_decided
         on_application_decided(
@@ -532,14 +518,98 @@ async def reject_application(
             applicant_id=application.user_id,
             accepted=False,
         )
-    except ImportError:
-        pass  # events 모듈이 없으면 스킵
-    
+    except Exception:
+        pass
+
     return {"message": "🚫 거절 처리 완료"}
 
 
 # ---------------------------------------------------------------------
-# ✅ 탈퇴하기
+# ✅ 모집 상태 수동 변경 (리더 전용)
+# ---------------------------------------------------------------------
+@router.post("/{post_id}/recruit-status")
+async def update_recruit_status(
+    post_id: int,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    status_value = payload.get("status")
+    if status_value not in ["OPEN", "CLOSED"]:
+        raise HTTPException(status_code=400, detail="유효하지 않은 상태입니다")
+
+    post = db.query(models.RecipePost).filter(
+        models.RecipePost.id == post_id,
+        models.RecipePost.deleted_at.is_(None),
+    ).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="게시글 없음")
+
+    if current_user.id != post.leader_id:
+        raise HTTPException(status_code=403, detail="리더만 변경 가능")
+
+    # 정원 체크
+    member_count = db.query(models.PostMember).filter(models.PostMember.post_id == post_id).count()
+    if status_value == "OPEN" and member_count >= post.capacity:
+        raise HTTPException(status_code=403, detail="정원이 가득 차서 모집을 열 수 없습니다.")
+
+    post.recruit_status = status_value
+    db.commit()
+
+    return {"message": f"✅ 모집 상태가 {status_value}로 변경되었습니다."}
+
+
+# ---------------------------------------------------------------------
+# ✅ 프로젝트 종료
+# ---------------------------------------------------------------------
+@router.post("/{post_id}/end")
+async def end_project(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    post = db.query(models.RecipePost).filter(
+        models.RecipePost.id == post_id, models.RecipePost.deleted_at.is_(None)
+    ).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="게시글 없음")
+
+    if current_user.id != post.leader_id:
+        raise HTTPException(status_code=403, detail="리더만 종료 가능")
+
+    post.project_status = "ENDED"
+    if post.recruit_status != "CLOSED":
+        post.recruit_status = "CLOSED"
+    db.commit()
+
+    return {"message": "✅ 프로젝트가 종료되었습니다."}
+
+
+# ---------------------------------------------------------------------
+# ✅ 게시글 삭제 (Soft Delete)
+# ---------------------------------------------------------------------
+@router.delete("/{post_id}")
+async def delete_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    post = db.query(models.RecipePost).filter(
+        models.RecipePost.id == post_id, models.RecipePost.deleted_at.is_(None)
+    ).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
+
+    if current_user.id != post.leader_id and current_user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="삭제 권한이 없습니다.")
+
+    post.deleted_at = datetime.utcnow()
+    db.commit()
+    return {"message": "🗑 게시글이 삭제 처리되었습니다."}
+
+
+# ---------------------------------------------------------------------
+# ✅ 탈퇴하기 (정원 자동 open 포함)
 # ---------------------------------------------------------------------
 @router.post("/{post_id}/leave")
 async def leave_post(
@@ -547,24 +617,32 @@ async def leave_post(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    post = db.query(models.RecipePost).filter(
-        models.RecipePost.id == post_id,
-        models.RecipePost.deleted_at.is_(None)
-    ).first()
+    post = (
+        db.query(models.RecipePost)
+        .filter(models.RecipePost.id == post_id, models.RecipePost.deleted_at.is_(None))
+        .first()
+    )
     if not post:
         raise HTTPException(status_code=404, detail="게시글 없음")
 
     if current_user.id == post.leader_id:
         raise HTTPException(status_code=400, detail="리더는 탈퇴할 수 없습니다")
 
-    membership = db.query(models.PostMember).filter(
-        models.PostMember.post_id == post_id,
-        models.PostMember.user_id == current_user.id
-    ).first()
-
+    membership = (
+        db.query(models.PostMember)
+        .filter(models.PostMember.post_id == post_id, models.PostMember.user_id == current_user.id)
+        .first()
+    )
     if not membership:
         raise HTTPException(status_code=400, detail="참여중인 멤버가 아닙니다")
 
     db.delete(membership)
     db.commit()
+
+    # 탈퇴 후 인원 감소 → 자동 OPEN
+    current_count = db.query(models.PostMember).filter(models.PostMember.post_id == post_id).count()
+    if current_count < post.capacity and post.recruit_status == "CLOSED":
+        post.recruit_status = "OPEN"
+        db.commit()
+
     return {"message": "✅ 탈퇴 완료"}
