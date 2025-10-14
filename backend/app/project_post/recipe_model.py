@@ -3,6 +3,7 @@ from sqlalchemy import Column, BigInteger, String, Text, Date, DateTime, Enum, F
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.base import Base
+from app.project_post.post_member_model import PostMember
 
 class RecipePost(Base):
     __tablename__ = "posts"
@@ -93,3 +94,5 @@ class ApplicationAnswer(Base):
 
     application = relationship("Application", back_populates="answers")
     field = relationship("ApplicationField")
+
+   

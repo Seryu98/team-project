@@ -25,7 +25,7 @@ from app.core.security import (
     create_reset_token,
     verify_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
-    REFRESH_TOKEN_EXPIRE_DAYS,  # 사용 안 하더라도 유지
+    REFRESH_TOKEN_EXPIRE_DAYS,
 )
 from app.core.database import get_db
 
@@ -136,9 +136,12 @@ def _upsert_social_user(
     social_id: str,
     email: Optional[str],
     name: Optional[str],
-) -> Tuple[User, bool]:  # ✅ 반환 타입 변경
+) -> Tuple[User, bool]:
     """
-    소셜 사용자 조회/생성/복귀 통합 처리
+    ✅ 소셜 사용자 조회/생성/복귀 통합 처리
+    - Google/Naver → 실명 유지, 닉네임 새 랜덤
+    - Kakao → 이름 = 닉네임 동일
+    - 탈퇴 유저 복귀 시 → 새 닉네임 부여 + 상태 복구
     반환: (User, is_new_user)
     """
     user = (
@@ -147,22 +150,28 @@ def _upsert_social_user(
         .first()
     )
 
+    # 🔁 기존 유저 존재 시
     if user:
-        # 탈퇴 복귀
+        # 🔹 탈퇴된 유저 복귀 처리
         if user.status == UserStatus.DELETED:
             new_nickname = _generate_unique_nickname(db, provider)
             user.nickname = new_nickname
             user.status = UserStatus.ACTIVE
             user.deleted_at = None
             user.last_login_at = datetime.utcnow()
+
+            # Kakao는 이름도 랜덤 닉네임으로 변경
             if provider == "kakao":
                 user.name = new_nickname
+
             db.commit()
             db.refresh(user)
             return user, False  # ✅ 복귀 유저는 신규 아님
-        return user, False  # ✅ 기존 유저
 
-    # 신규가입
+        # ✅ 이미 활성 유저면 그대로 반환
+        return user, False
+
+    # 🆕 신규가입 처리
     safe_email = email or f"{provider}_{social_id}@example.com"
     safe_user_id = f"{provider}_{social_id}"
 
@@ -190,7 +199,7 @@ def _upsert_social_user(
     db.commit()
     db.refresh(user)
     
-    # ✅ Profile 자동 생성 추가
+    # ✅ Profile 자동 생성
     new_profile = Profile(
         id=user.id,
         profile_image="/assets/profile/default_profile.png",
@@ -198,7 +207,7 @@ def _upsert_social_user(
     db.add(new_profile)
     db.commit()
     
-    return user, True
+    return user, True  # ✅ 신규 가입자
 
 # ===============================
 # 🔑 JWT 발급
@@ -257,6 +266,16 @@ def _is_locked(u: Optional[User]) -> bool:
     """계정 잠금 여부 확인"""
     if not u:
         return False
+
+    # ✅ 관리자 계정은 잠금 예외
+    if u.role == "ADMIN":
+        if u.account_locked or u.banned_until:
+            # 혹시라도 이전에 잠긴 적 있으면 자동 해제
+            u.account_locked = False
+            u.login_fail_count = 0
+            u.banned_until = None
+        return False
+
     now = datetime.utcnow()
     if u.account_locked and u.banned_until and u.banned_until > now:
         return True
@@ -271,6 +290,12 @@ def _on_login_fail(u: Optional[User]) -> None:
     """로그인 실패 시 처리"""
     if not u:
         return
+
+    # ✅ 관리자 계정은 잠금 제외 (로그만 기록)
+    if u.role == "ADMIN":
+        logger.warning("⚠️ 관리자 로그인 실패 감지: user_id=%s", u.user_id)
+        return
+
     u.login_fail_count = (u.login_fail_count or 0) + 1
     u.last_fail_time = datetime.utcnow()
     if u.login_fail_count >= MAX_LOGIN_FAILS:
@@ -485,7 +510,7 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
     access_token, refresh_token = _issue_jwt_pair(user.id)
     logger.info(
         "%s 로그인 성공: user_id=%s email=%s is_new=%s", 
-        provider.capitalize(), user.id, user.email, is_new_user  # ✅ 로그에 신규 여부 추가
+        provider.capitalize(), user.id, user.email, is_new_user
     )
 
     # ✅ 신규 가입자 정보 포함하여 리다이렉트
@@ -542,10 +567,14 @@ def get_email_hint(db: Session, user_id: str) -> Optional[str]:
     아이디(user_id)로 이메일 일부 힌트와 인증번호(6자리) 발송 처리
     - 실제 메일 전송 대신 콘솔(log)에 6자리 코드 출력
     """
+    logger.debug("email-hint called with user_id=%s", user_id)
+    
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
+        logger.warning("User not found: user_id=%s", user_id)
         raise HTTPException(status_code=404, detail="등록된 계정을 찾을 수 없습니다.")
     if not user.email:
+        logger.warning("User email is None: user_id=%s", user_id)
         raise HTTPException(status_code=404, detail="등록된 이메일이 없습니다.")
 
     # 이메일 힌트 마스킹 (예: ex*****@g****.com)

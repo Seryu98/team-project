@@ -13,8 +13,8 @@ from app.project_post.recipe_schema import (
     PostMemberResponse,
 )
 from app.project_post import recipe_service, recipe_model as models
-from app.project_post.post_member_model import PostMember  # ✅ 추가
-from app.project_post.recipe_model import Application  # ✅ 추가
+from app.project_post.post_member_model import PostMember
+from app.project_post.recipe_model import Application
 from app.users.user_model import User
 from app.meta.meta_schema import SkillResponse, ApplicationFieldResponse
 
@@ -33,10 +33,12 @@ def _apply_auto_state_updates_for_posts(db: Session, posts: List[models.RecipePo
     changed = False
 
     for post in posts:
+        # 모집 자동 마감 처리
         if post.end_date and post.end_date < today and post.recruit_status == "OPEN":
             post.recruit_status = "CLOSED"
             changed = True
 
+        # 프로젝트 자동 종료 처리
         if (
             post.project_end
             and post.project_end < today
@@ -107,7 +109,7 @@ async def create_post(
 
 
 # ---------------------------------------------------------------------
-# ✅ 모집공고 수정
+# ✅ 모집공고 수정 (리더/관리자만 가능)
 # ---------------------------------------------------------------------
 @router.put("/{post_id}", response_model=RecipePostResponse)
 async def update_post(
@@ -126,6 +128,7 @@ async def update_post(
     if current_user.id != post.leader_id and current_user.role != "ADMIN":
         raise HTTPException(status_code=403, detail="수정 권한 없음")
 
+    # 기본 필드 갱신
     post.title = payload.title
     post.description = payload.description
     post.capacity = payload.capacity
@@ -137,10 +140,12 @@ async def update_post(
     post.project_end = payload.project_end
     post.image_url = payload.image_url
 
+    # ✅ skills 갱신
     db.query(models.RecipePostSkill).filter(models.RecipePostSkill.post_id == post.id).delete()
     for skill_id in payload.skills:
         db.add(models.RecipePostSkill(post_id=post.id, skill_id=skill_id))
 
+    # ✅ application_fields 갱신
     db.query(models.RecipePostRequiredField).filter(models.RecipePostRequiredField.post_id == post.id).delete()
     for field_id in payload.application_fields:
         db.add(models.RecipePostRequiredField(post_id=post.id, field_id=field_id))
@@ -167,6 +172,7 @@ async def get_posts(
     page: int = 1,
     page_size: int = 10,
 ):
+    # 상태 갱신을 위한 pre-scan
     prescan_posts = (
         db.query(models.RecipePost)
         .filter(models.RecipePost.status == status)
@@ -175,6 +181,7 @@ async def get_posts(
     )
     _apply_auto_state_updates_for_posts(db, prescan_posts)
 
+    # 실제 조회 쿼리
     query = (
         db.query(models.RecipePost)
         .options(
@@ -187,6 +194,7 @@ async def get_posts(
         .filter(getattr(models.RecipePost, "project_status") != "ENDED")
     )
 
+    # 조건 필터링
     if recruit_status:
         query = query.filter(models.RecipePost.recruit_status == recruit_status)
     if type:
@@ -377,7 +385,7 @@ async def end_project(
 
 
 # ---------------------------------------------------------------------
-# ✅ 게시글 삭제
+# ✅ 게시글 삭제 (Soft Delete)
 # ---------------------------------------------------------------------
 @router.delete("/{post_id}")
 async def delete_post(
@@ -422,6 +430,7 @@ async def apply_post(
     db.commit()
     db.refresh(application)
 
+    # 지원자 답변 저장
     for ans in answers:
         db.add(models.ApplicationAnswer(
             application_id=application.id,
@@ -430,6 +439,19 @@ async def apply_post(
         ))
 
     db.commit()
+
+    # ✅ 지원서 제출 시 리더 알림/메시지 전송
+    try:
+        from app.events.events import on_application_submitted
+        on_application_submitted(
+            application_id=application.id,
+            post_id=post.id,
+            leader_id=post.leader_id,
+            applicant_id=current_user.id,
+        )
+    except ImportError:
+        pass  # events 모듈이 없으면 스킵
+
     return {"message": "✅ 지원 완료", "application_id": application.id}
 
 
@@ -460,6 +482,18 @@ async def approve_application(
     application.status = "APPROVED"
     db.add(models.PostMember(post_id=post_id, user_id=application.user_id, role="MEMBER"))
     db.commit()
+
+    # ✅ 지원 승인 알림
+    try:
+        from app.events.events import on_application_decided
+        on_application_decided(
+            application_id=application.id,
+            applicant_id=application.user_id,
+            accepted=True,
+        )
+    except ImportError:
+        pass  # events 모듈이 없으면 스킵
+
     return {"message": "✅ 승인 완료"}
 
 
@@ -489,6 +523,18 @@ async def reject_application(
 
     application.status = "REJECTED"
     db.commit()
+
+    # ✅ 지원 거절 알림
+    try:
+        from app.events.events import on_application_decided
+        on_application_decided(
+            application_id=application.id,
+            applicant_id=application.user_id,
+            accepted=False,
+        )
+    except ImportError:
+        pass  # events 모듈이 없으면 스킵
+    
     return {"message": "🚫 거절 처리 완료"}
 
 
