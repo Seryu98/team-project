@@ -136,3 +136,13 @@
 .login-button:hover {
     background: #1748b3;
 }
+
+/*알림 메세지*/
+.notification-popup {
+  animation: fadeIn 0.15s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}

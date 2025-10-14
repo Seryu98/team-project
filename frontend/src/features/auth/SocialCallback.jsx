@@ -10,18 +10,31 @@ function SocialCallback() {
     const urlParams = new URLSearchParams(window.location.search);
     const accessToken = urlParams.get("access_token");
     const refreshToken = urlParams.get("refresh_token");
+    const isNewUser = urlParams.get("new_user") === "true";  // ✅ 신규 사용자 확인
 
     if (accessToken && refreshToken) {
       // ✅ 토큰 저장
       localStorage.setItem("access_token", accessToken);
       localStorage.setItem("refresh_token", refreshToken);
 
-      setMessage("✅ 로그인 성공! 메인 페이지로 이동합니다...");
-
-      // ✅ 1초 후 메인으로 이동
-      setTimeout(() => {
-        navigate("/", { replace: true });
-      }, 1000);
+      // ✅ 신규 사용자 여부에 따라 메시지 변경
+      if (isNewUser) {
+        setMessage("🎉 회원가입 완료! 튜토리얼로 이동합니다...");
+        console.log("✅ 신규 사용자 - 튜토리얼로 이동");
+        
+        // ✅ 1초 후 튜토리얼로 이동
+        setTimeout(() => {
+          navigate("/tutorial", { replace: true });
+        }, 1000);
+      } else {
+        setMessage("✅ 로그인 성공! 메인 페이지로 이동합니다...");
+        console.log("✅ 기존 사용자 - 메인으로 이동");
+        
+        // ✅ 1초 후 메인으로 이동
+        setTimeout(() => {
+          navigate("/", { replace: true });
+        }, 1000);
+      }
     } else {
       setMessage("❌ 로그인 정보가 없습니다. 다시 시도해주세요.");
       setTimeout(() => {

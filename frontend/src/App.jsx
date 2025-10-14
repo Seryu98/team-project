@@ -21,19 +21,19 @@ import SessionExpiredModal from "./components/SessionExpiredModal";
 import { clearTokens } from "./features/auth/api";
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
-import FindAccount from "./features/auth/FindAccount"; // ✅ 아이디/비밀번호 찾기
-import SocialCallback from "./features/auth/SocialCallback"; // ✅ 소셜 로그인 콜백
+import FindAccount from "./features/auth/FindAccount";
+import SocialCallback from "./features/auth/SocialCallback";
 
 // ---------------------------------------
 // Profile
 // ---------------------------------------
 import ProfilePage from "./features/profile/profile_pages";
 import ProfileCreate from "./features/profile/profileCreate_pages";
-import ProfileTutorial from "./features/profile/ProfileTutorial"; // ✅ 튜토리얼
+import ProfileTutorial from "./features/profile/ProfileTutorial";
 import UserRanking from "./features/users/UserRanking";
 
 // ---------------------------------------
-// 프로젝트/스터디 게시판 (Recipe* + Post*)
+// 프로젝트/스터디 게시판
 // ---------------------------------------
 import RecipeCreate from "./features/project_post/RecipeCreate";
 import RecipeEdit from "./features/project_post/RecipeEdit";
@@ -45,7 +45,7 @@ import ProjectPostDetail from "./features/project_post/ProjectPostDetail";
 // ---------------------------------------
 import AccountSettings from "./features/account/AccountSettings";
 import AccountLayout from "./features/account/AccountLayout";
-import ChangePassword from "./features/account/ChangePassword"; // ✅ 비번 변경
+import ChangePassword from "./features/account/ChangePassword";
 
 // ---------------------------------------
 // 유저 게시판
@@ -54,6 +54,13 @@ import BoardListPage from "./features/board/BoardListPage";
 import BoardDetailPage from "./features/board/BoardDetailPage";
 import BoardCreatePage from "./features/board/BoardCreatePage";
 import BoardEditPage from "./features/board/BoardEditPage";
+
+// ---------------------------------------
+// 알림, 메시지, 관리자 페이지
+// ---------------------------------------
+import AdminDashboard from "./features/admin/AdminDashboard";
+import MessageInbox from "./features/message/MessageInbox";
+import MessageDetail from "./features/message/MessageDetail";
 
 // ---------------------------------------
 // 🏠 홈 페이지
@@ -86,7 +93,9 @@ function MainLayout() {
   );
 }
 
-// ✅ 레이아웃 2: Navbar 없음 (로그인/회원가입/아이디찾기/소셜콜백/튜토리얼)
+// ---------------------------------------
+// 레이아웃 2: Navbar 없음
+// ---------------------------------------
 function AuthLayout() {
   return <Outlet />;
 }
@@ -211,6 +220,38 @@ export default function App() {
             <Route path="settings" element={<AccountSettings />} />
             <Route path="change-password" element={<ChangePassword />} />
           </Route>
+
+          {/* ---------------------------------------
+              ✅ 관리자 대시보드
+          --------------------------------------- */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ---------------------------------------
+              ✅ 메시지
+          --------------------------------------- */}
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <MessageInbox />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages/:id"
+            element={
+              <ProtectedRoute>
+                <MessageDetail />
+              </ProtectedRoute>
+            }
+          />
         </Route>
       </Routes>
 

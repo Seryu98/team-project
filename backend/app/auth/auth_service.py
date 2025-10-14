@@ -53,12 +53,20 @@ def _oauth_base_redirect() -> str:
     ).rstrip("/")
 
 
-def build_frontend_redirect_url(access_token: str, refresh_token: str) -> str:
+def build_frontend_redirect_url(
+    access_token: str,
+    refresh_token: str,
+    is_new_user: bool = False,
+) -> str:
+    """프론트엔드로 토큰 전달용 URL 구성"""
     base = f"{_frontend_origin()}/social/callback"
-    return (
+    url = (
         f"{base}?access_token={quote_plus(access_token)}"
         f"&refresh_token={quote_plus(refresh_token)}"
     )
+    if is_new_user:
+        url += "&new_user=true"
+    return url
 
 
 def _safe_name(provider: str, default: Optional[str]) -> str:
@@ -118,27 +126,42 @@ def _upsert_social_user(
     social_id: str,
     email: Optional[str],
     name: Optional[str],
-) -> User:
+) -> Tuple[User, bool]:
+    """
+    ✅ 소셜 사용자 조회/생성/복귀 통합 처리
+    - Google/Naver → 실명 유지, 닉네임 새 랜덤
+    - Kakao → 이름 = 닉네임 동일
+    - 탈퇴 유저 복귀 시 → 새 닉네임 부여 + 상태 복구
+    반환: (User, is_new_user)
+    """
     user = (
         db.query(User)
         .filter(User.social_id == social_id, User.auth_provider == provider)
         .first()
     )
 
+    # 🔁 기존 유저 존재 시
     if user:
+        # 🔹 탈퇴된 유저 복귀 처리
         if user.status == UserStatus.DELETED:
             new_nickname = _generate_unique_nickname(db, provider)
             user.nickname = new_nickname
             user.status = UserStatus.ACTIVE
             user.deleted_at = None
             user.last_login_at = datetime.utcnow()
+
+            # Kakao는 이름도 랜덤 닉네임으로 변경
             if provider == "kakao":
                 user.name = new_nickname
+
             db.commit()
             db.refresh(user)
-            return user
-        return user
+            return user, False  # 복귀 유저는 신규 아님
 
+        # 이미 활성 유저면 그대로 반환
+        return user, False
+
+    # 🆕 신규가입 처리
     safe_email = email or f"{provider}_{social_id}@example.com"
     safe_user_id = f"{provider}_{social_id}"
 
@@ -160,11 +183,21 @@ def _upsert_social_user(
         auth_provider=provider,
         social_id=social_id,
         status=UserStatus.ACTIVE,
+        is_tutorial_completed=False,  # 튜토리얼 미완료
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+
+    # Profile 자동 생성
+    new_profile = Profile(
+        id=user.id,
+        profile_image="/assets/profile/default_profile.png",
+    )
+    db.add(new_profile)
+    db.commit()
+
+    return user, True  # 신규 가입자
 
 # ===============================
 # 🔑 JWT 발급
@@ -218,6 +251,15 @@ def register_user(db: Session, user: UserRegister) -> User:
 def _is_locked(u: Optional[User]) -> bool:
     if not u:
         return False
+
+    # 관리자 계정은 잠금 예외
+    if u.role == "ADMIN":
+        if u.account_locked or u.banned_until:
+            u.account_locked = False
+            u.login_fail_count = 0
+            u.banned_until = None
+        return False
+
     now = datetime.utcnow()
     if u.account_locked and u.banned_until and u.banned_until > now:
         return True
@@ -231,6 +273,12 @@ def _is_locked(u: Optional[User]) -> bool:
 def _on_login_fail(u: Optional[User]) -> None:
     if not u:
         return
+
+    # 관리자 계정은 잠금 제외 (로그만 기록)
+    if u.role == "ADMIN":
+        logger.warning("⚠️ 관리자 로그인 실패 감지: user_id=%s", u.user_id)
+        return
+
     u.login_fail_count = (u.login_fail_count or 0) + 1
     u.last_fail_time = datetime.utcnow()
     if u.login_fail_count >= MAX_LOGIN_FAILS:
@@ -432,11 +480,17 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
     if not social_id:
         raise ValueError("소셜 사용자 ID를 확인할 수 없습니다.")
 
-    user = _upsert_social_user(db, provider, social_id, email, name)
-    access_token, refresh_token = _issue_jwt_pair(user.id)
-    logger.info("%s 로그인 성공: user_id=%s email=%s", provider.capitalize(), user.id, user.email)
+    # 사용자 등록/복귀 + 신규 가입자 여부 확인
+    user, is_new_user = _upsert_social_user(db, provider, social_id, email, name)
 
-    redirect_url = build_frontend_redirect_url(access_token, refresh_token)
+    # JWT 발급 및 프론트로 리다이렉트
+    access_token, refresh_token = _issue_jwt_pair(user.id)
+    logger.info(
+        "%s 로그인 성공: user_id=%s email=%s is_new=%s",
+        provider.capitalize(), user.id, user.email, is_new_user
+    )
+
+    redirect_url = build_frontend_redirect_url(access_token, refresh_token, is_new_user)
     return RedirectResponse(url=redirect_url)
 
 # ===============================
@@ -486,10 +540,14 @@ def get_email_hint(db: Session, user_id: str) -> Optional[str]:
     EMAIL_MODE=dev → 콘솔 출력
     EMAIL_MODE=prod → 실제 Gmail SMTP 발송
     """
+    logger.debug("email-hint called with user_id=%s", user_id)
+
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
+        logger.warning("User not found: user_id=%s", user_id)
         raise HTTPException(status_code=404, detail="등록된 계정을 찾을 수 없습니다.")
     if not user.email:
+        logger.warning("User email is None: user_id=%s", user_id)
         raise HTTPException(status_code=404, detail="등록된 이메일이 없습니다.")
 
     email = user.email
