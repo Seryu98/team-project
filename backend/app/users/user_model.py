@@ -40,6 +40,7 @@ class User(Base):
     last_fail_time = Column(DateTime, nullable=True)
     account_locked = Column(Boolean, nullable=False, default=False)
     banned_until = Column(DateTime, nullable=True)
+    is_tutorial_completed = Column(Boolean, default=False)
 
     # ✅ Relationships
     joined_posts = relationship("PostMember", back_populates="user", cascade="all, delete-orphan")

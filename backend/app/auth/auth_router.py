@@ -229,3 +229,20 @@ def social_callback(provider: str, code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="소셜 로그인 중 오류가 발생했습니다.")
+    
+@router.patch("/tutorial-complete")
+def complete_tutorial(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """튜토리얼 완료 처리"""
+    payload = verify_token(token, expected_type="access")
+    if not payload:
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+
+    user_id = payload.get("sub")
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    user.is_tutorial_completed = True
+    db.commit()
+
+    return {"message": "튜토리얼 완료"}
