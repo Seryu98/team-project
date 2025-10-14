@@ -20,7 +20,8 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const [unreadMessages] = useState(5); // 메시지 카운트 (추후 API로 대체)
+  // 메시지 카운트 (추후 API로 대체 예정)
+  const [unreadMessages] = useState(5);
 
   // 로그인 상태 확인 및 프로필 이미지 가져오기
   useEffect(() => {
@@ -70,11 +71,14 @@ export default function Navbar() {
         });
         if (data?.data) setNotifications(data.data);
 
-        const unreadRes = await axios.get("http://localhost:8000/notifications/unread_count", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
+        const unreadRes = await axios.get(
+          "http://localhost:8000/notifications/unread_count",
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          }
+        );
         if (unreadRes?.data?.data?.count !== undefined)
           setUnreadCount(unreadRes.data.data.count);
       } catch (e) {

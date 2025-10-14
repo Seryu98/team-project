@@ -1,4 +1,4 @@
-# ✅ backend/app/project_post/recipe_router.py (with event hooks)
+# app/project_post/recipe_router.py
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -13,14 +13,20 @@ from app.project_post.recipe_schema import (
     PostMemberResponse,
 )
 from app.project_post import recipe_service, recipe_model as models
+from app.project_post.post_member_model import PostMember
+from app.project_post.recipe_model import Application
 from app.users.user_model import User
 from app.meta.meta_schema import SkillResponse, ApplicationFieldResponse
 
+# ✅ models에 동적으로 할당 (기존 코드에서 models.PostMember 사용 가능하도록)
+models.PostMember = PostMember
+models.Application = Application
+
 router = APIRouter(prefix="/recipe", tags=["recipe"])
+
 
 # ---------------------------------------------------------------------
 # ✅ 내부 유틸: 조회 시점에 상태 자동 갱신
-#    - 게시글 조회할 때 모집기간/프로젝트 기간이 지났으면 상태 자동 변경
 # ---------------------------------------------------------------------
 def _apply_auto_state_updates_for_posts(db: Session, posts: List[models.RecipePost]):
     today = date.today()
@@ -34,10 +40,10 @@ def _apply_auto_state_updates_for_posts(db: Session, posts: List[models.RecipePo
 
         # 프로젝트 자동 종료 처리
         if (
-    post.project_end
-    and post.project_end < today
-    and post.project_status == "ONGOING"
-):
+            post.project_end
+            and post.project_end < today
+            and post.project_status == "ONGOING"
+        ):
             post.project_status = "ENDED"
             changed = True
 
@@ -53,7 +59,6 @@ def _apply_auto_state_updates_for_single(db: Session, post: models.RecipePost):
 
 # ---------------------------------------------------------------------
 # ✅ DTO 변환
-#    - SQLAlchemy 모델 객체를 API 응답 DTO로 변환
 # ---------------------------------------------------------------------
 def to_dto(post: models.RecipePost) -> RecipePostResponse:
     return RecipePostResponse(
@@ -63,21 +68,17 @@ def to_dto(post: models.RecipePost) -> RecipePostResponse:
         capacity=post.capacity,
         type=post.type,
         field=post.field,
-        # 모집 기간
         start_date=post.start_date,
         end_date=post.end_date,
-        # 프로젝트 기간
         project_start=getattr(post, "project_start", None),
         project_end=getattr(post, "project_end", None),
-        # 상태
         project_status=getattr(post, "project_status", None),
         status=post.status,
         recruit_status=post.recruit_status,
         created_at=post.created_at,
-        current_members=len(post.members),  # 현재 인원
+        current_members=len(post.members),
         image_url=post.image_url,
         leader_id=post.leader_id,
-        # skills, application_fields, members를 DTO 변환
         skills=[SkillResponse(id=s.skill.id, name=s.skill.name) for s in post.skills],
         application_fields=[
             ApplicationFieldResponse(id=f.field.id, name=f.field.name)
@@ -91,8 +92,6 @@ def to_dto(post: models.RecipePost) -> RecipePostResponse:
 
 # ---------------------------------------------------------------------
 # ✅ 모집공고 생성
-#    - 리더 자동 등록
-#    - skills, application_fields 연결
 # ---------------------------------------------------------------------
 @router.post("/", response_model=RecipePostResponse)
 async def create_post(
@@ -102,7 +101,7 @@ async def create_post(
 ):
     new_post = recipe_service.create_recipe_post(
         db=db,
-        leader_id=current_user.id,  # 생성한 유저를 리더로 등록
+        leader_id=current_user.id,
         **payload.dict()
     )
     db.refresh(new_post)
@@ -111,8 +110,6 @@ async def create_post(
 
 # ---------------------------------------------------------------------
 # ✅ 모집공고 수정 (리더/관리자만 가능)
-#    - PUT /recipe/{id}
-#    - 기존 skills, application_fields 관계는 DB에서 삭제 후 새로 등록
 # ---------------------------------------------------------------------
 @router.put("/{post_id}", response_model=RecipePostResponse)
 async def update_post(
@@ -123,12 +120,11 @@ async def update_post(
 ):
     post = db.query(models.RecipePost).filter(
         models.RecipePost.id == post_id,
-        models.RecipePost.deleted_at.is_(None)  # Soft Delete 제외
+        models.RecipePost.deleted_at.is_(None)
     ).first()
     if not post:
         raise HTTPException(status_code=404, detail="게시글 없음")
 
-    # 리더 또는 관리자만 수정 가능
     if current_user.id != post.leader_id and current_user.role != "ADMIN":
         raise HTTPException(status_code=403, detail="수정 권한 없음")
 
@@ -161,8 +157,6 @@ async def update_post(
 
 # ---------------------------------------------------------------------
 # ✅ 모집공고 목록 조회
-#    - 필터링(유형, 모집 상태, 기간, 기술 AND/OR, 검색) 지원
-#    - 조회 시 상태 자동 갱신 반영
 # ---------------------------------------------------------------------
 @router.get("/list", response_model=List[RecipePostResponse])
 async def get_posts(
@@ -171,7 +165,7 @@ async def get_posts(
     status: Optional[str] = Query("APPROVED"),
     recruit_status: Optional[str] = Query("OPEN"),
     skill_ids: Optional[List[int]] = Query(None),
-    match_mode: Optional[str] = Query("OR"),  # AND/OR 모드
+    match_mode: Optional[str] = Query("OR"),
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     search: Optional[str] = None,
@@ -207,7 +201,6 @@ async def get_posts(
         query = query.filter(models.RecipePost.type == type)
     if skill_ids:
         if match_mode == "AND":
-            # 모든 skill을 포함하는 게시글만 조회
             query = (
                 query.join(models.RecipePostSkill)
                 .filter(models.RecipePostSkill.skill_id.in_(skill_ids))
@@ -215,7 +208,6 @@ async def get_posts(
                 .having(func.count(models.RecipePostSkill.skill_id) == len(skill_ids))
             )
         else:
-            # OR 조건: 하나라도 포함하면 조회
             query = query.join(models.RecipePostSkill).filter(
                 models.RecipePostSkill.skill_id.in_(skill_ids)
             )
@@ -235,8 +227,86 @@ async def get_posts(
 
 
 # ---------------------------------------------------------------------
-# ✅ 상세 조회
-#    - 단일 게시글 조회 시 상태 자동 갱신 반영
+# ✅ 내 프로젝트 목록 조회 (⚠️ /{post_id} 앞으로 이동!)
+# ---------------------------------------------------------------------
+@router.get("/my-projects", response_model=List[RecipePostResponse])
+async def get_my_projects(
+    status: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    내가 참여 중인 프로젝트 목록 조회
+    - status=ONGOING: 진행 중인 프로젝트
+    - status=ENDED: 종료된 프로젝트
+    """
+    query = (
+        db.query(models.RecipePost)
+        .join(models.PostMember)
+        .filter(
+            models.PostMember.user_id == current_user.id,
+            models.RecipePost.deleted_at.is_(None)
+        )
+        .options(
+            joinedload(models.RecipePost.skills).joinedload(models.RecipePostSkill.skill),
+            joinedload(models.RecipePost.application_fields).joinedload(models.RecipePostRequiredField.field),
+            joinedload(models.RecipePost.members),
+        )
+    )
+    
+    if status:
+        query = query.filter(models.RecipePost.project_status == status)
+    
+    posts = query.all()
+    _apply_auto_state_updates_for_posts(db, posts)
+    return [to_dto(post) for post in posts]
+
+
+# ---------------------------------------------------------------------
+# ✅ 내가 지원한 프로젝트 목록 (⚠️ /{post_id} 앞으로 이동!)
+# ---------------------------------------------------------------------
+@router.get("/my-applications", response_model=List[RecipePostResponse])
+async def get_my_applications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    내가 지원한 프로젝트 중 아직 승인/거절 처리되지 않은 목록
+    """
+    applications = (
+        db.query(models.Application)
+        .filter(
+            models.Application.user_id == current_user.id,
+            models.Application.status == "PENDING"
+        )
+        .all()
+    )
+    
+    if not applications:
+        return []
+    
+    post_ids = [app.post_id for app in applications]
+    
+    posts = (
+        db.query(models.RecipePost)
+        .filter(
+            models.RecipePost.id.in_(post_ids),
+            models.RecipePost.deleted_at.is_(None)
+        )
+        .options(
+            joinedload(models.RecipePost.skills).joinedload(models.RecipePostSkill.skill),
+            joinedload(models.RecipePost.application_fields).joinedload(models.RecipePostRequiredField.field),
+            joinedload(models.RecipePost.members),
+        )
+        .all()
+    )
+    
+    _apply_auto_state_updates_for_posts(db, posts)
+    return [to_dto(post) for post in posts]
+
+
+# ---------------------------------------------------------------------
+# ✅ 상세 조회 (⚠️ 이제 구체적 경로들 뒤에 위치!)
 # ---------------------------------------------------------------------
 @router.get("/{post_id}", response_model=RecipePostResponse)
 async def get_post_detail(post_id: int, db: Session = Depends(get_db)):
@@ -260,7 +330,6 @@ async def get_post_detail(post_id: int, db: Session = Depends(get_db)):
 
 # ---------------------------------------------------------------------
 # ✅ 모집 상태 변경
-#    - OPEN ↔ CLOSED 전환
 # ---------------------------------------------------------------------
 @router.post("/{post_id}/recruit-status")
 async def update_recruit_status(
@@ -290,7 +359,6 @@ async def update_recruit_status(
 
 # ---------------------------------------------------------------------
 # ✅ 프로젝트 종료
-#    - project_status=ENDED, recruit_status=CLOSED로 변경
 # ---------------------------------------------------------------------
 @router.post("/{post_id}/end")
 async def end_project(
@@ -318,7 +386,6 @@ async def end_project(
 
 # ---------------------------------------------------------------------
 # ✅ 게시글 삭제 (Soft Delete)
-#    - 실제 삭제 대신 deleted_at에 시간 기록
 # ---------------------------------------------------------------------
 @router.delete("/{post_id}")
 async def delete_post(
@@ -343,7 +410,6 @@ async def delete_post(
 
 # ---------------------------------------------------------------------
 # ✅ 지원서 제출
-#    - Application + ApplicationAnswer 생성
 # ---------------------------------------------------------------------
 @router.post("/{post_id}/apply")
 async def apply_post(
@@ -375,18 +441,23 @@ async def apply_post(
     db.commit()
 
     # ✅ 지원서 제출 시 리더 알림/메시지 전송
-    from app.events.events import on_application_submitted
-    on_application_submitted(
-        application_id=application.id,
-        post_id=post.id,
-        leader_id=post.leader_id,
-        applicant_id=current_user.id,
-    )
+    try:
+        from app.events.events import on_application_submitted
+        on_application_submitted(
+            application_id=application.id,
+            post_id=post.id,
+            leader_id=post.leader_id,
+            applicant_id=current_user.id,
+        )
+    except ImportError:
+        pass  # events 모듈이 없으면 스킵
 
     return {"message": "✅ 지원 완료", "application_id": application.id}
 
 
+# ---------------------------------------------------------------------
 # ✅ 지원서 승인
+# ---------------------------------------------------------------------
 @router.post("/{post_id}/applications/{application_id}/approve")
 async def approve_application(
     post_id: int,
@@ -413,17 +484,22 @@ async def approve_application(
     db.commit()
 
     # ✅ 지원 승인 알림
-    from app.events.events import on_application_decided
-    on_application_decided(
-        application_id=application.id,
-        applicant_id=application.user_id,
-        accepted=True,
-    )
+    try:
+        from app.events.events import on_application_decided
+        on_application_decided(
+            application_id=application.id,
+            applicant_id=application.user_id,
+            accepted=True,
+        )
+    except ImportError:
+        pass  # events 모듈이 없으면 스킵
 
     return {"message": "✅ 승인 완료"}
 
 
+# ---------------------------------------------------------------------
 # ✅ 지원서 거절
+# ---------------------------------------------------------------------
 @router.post("/{post_id}/applications/{application_id}/reject")
 async def reject_application(
     post_id: int,
@@ -449,19 +525,21 @@ async def reject_application(
     db.commit()
 
     # ✅ 지원 거절 알림
-    from app.events.events import on_application_decided
-    on_application_decided(
-        application_id=application.id,
-        applicant_id=application.user_id,
-        accepted=False,
-    )
+    try:
+        from app.events.events import on_application_decided
+        on_application_decided(
+            application_id=application.id,
+            applicant_id=application.user_id,
+            accepted=False,
+        )
+    except ImportError:
+        pass  # events 모듈이 없으면 스킵
     
     return {"message": "🚫 거절 처리 완료"}
 
+
 # ---------------------------------------------------------------------
 # ✅ 탈퇴하기
-#    - 멤버는 탈퇴 가능
-#    - 리더는 탈퇴 불가
 # ---------------------------------------------------------------------
 @router.post("/{post_id}/leave")
 async def leave_post(

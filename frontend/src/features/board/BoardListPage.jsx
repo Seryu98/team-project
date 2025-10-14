@@ -138,7 +138,11 @@ export default function BoardListPage() {
 
                   <div className="top3-author">
                     <img
-                      src={p.author?.profile_image || "/default_profile.png"}
+                      src={
+                        p.author?.profile_image
+                          ? `http://localhost:8000${p.author.profile_image}`
+                          : "http://localhost:8000/assets/profile/default_profile.png"
+                      }
                       alt="프로필"
                       className="top3-profile-img"
                       onClick={(e) => {
@@ -183,7 +187,11 @@ export default function BoardListPage() {
               >
                 <div className="board-card-header">
                   <img
-                    src={post.author.profile_image || "/default_profile.png"}
+                    src={
+                      post.author.profile_image
+                        ? `http://localhost:8000${post.author.profile_image}`
+                        : "http://localhost:8000/assets/profile/default_profile.png"
+                    }
                     alt="프로필"
                     className="profile-thumb-small"
                     onClick={(e) => {

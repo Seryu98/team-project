@@ -105,34 +105,35 @@ export default function ProfilePage() {
   };
 
   const fetchProjects = async () => {
-    try {
-      const token = localStorage.getItem("access_token");
-      if (!token) return;
+  try {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
 
-      const isMyProfile = !userId || (currentUser && currentUser.id === profile?.id);
+    const config = { headers: { Authorization: `Bearer ${token}` } };
 
-      if (isMyProfile) {
-        // 내 프로필 - 진행중, 종료, 대기중 프로젝트 조회
-        const [ongoingRes, endedRes, pendingRes] = await Promise.all([
-          api.get("/recipe/my-projects?status=ONGOING", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          api.get("/recipe/my-projects?status=ENDED", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          api.get("/recipe/my-applications", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
+    // 내 프로젝트 전부 가져오기
+    const res = await api.get("/recipe/my-projects", config);
+    const allProjects = Array.isArray(res.data) ? res.data : [];
 
-        setOngoingProjects(ongoingRes.data);
-        setEndedProjects(endedRes.data);
-        setPendingProjects(pendingRes.data);
-      }
-    } catch (err) {
-      console.error("프로젝트 조회 실패:", err);
-    }
-  };
+    // 승인된 + 진행중
+    setOngoingProjects(
+      allProjects.filter(
+        (p) => p.status === "APPROVED" && p.project_status === "ONGOING"
+      )
+    );
+
+    // 승인 보류 (대기중)
+    setPendingProjects(allProjects.filter((p) => p.status === "PENDING"));
+
+    // 종료된 프로젝트
+    setEndedProjects(allProjects.filter((p) => p.project_status === "ENDED"));
+  } catch (err) {
+    console.error("❌ 프로젝트 불러오기 에러:", err.response?.data || err.message);
+    setOngoingProjects([]);
+    setPendingProjects([]);
+    setEndedProjects([]);
+  }
+};
 
   useEffect(() => {
     fetchCurrentUser();
@@ -278,10 +279,8 @@ export default function ProfilePage() {
             <img
               src={
                 profile.profile_image
-                  ? profile.profile_image.startsWith("/assets")
-                    ? `http://localhost:8000${profile.profile_image}`
-                    : `http://localhost:8000${profile.profile_image}`
-                  : "/assets/profile/default_profile.png"
+                  ? `http://localhost:8000${profile.profile_image}`
+                  : "http://localhost:8000/assets/profile/default_profile.png"
               }
               alt="프로필"
               style={{
@@ -597,10 +596,8 @@ export default function ProfilePage() {
                         <img
                           src={
                             user.profile_image
-                              ? user.profile_image.startsWith("/assets")
-                                ? `http://localhost:8000${user.profile_image}`
-                                : `http://localhost:8000${user.profile_image}`
-                              : "/assets/profile/default_profile.png"
+                              ? `http://localhost:8000${user.profile_image}`
+                              : "http://localhost:8000/assets/profile/default_profile.png"
                           }
                           alt={user.nickname}
                           style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }}
