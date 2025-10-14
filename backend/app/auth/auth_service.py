@@ -25,7 +25,7 @@ from app.core.security import (
     create_reset_token,
     verify_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
-    REFRESH_TOKEN_EXPIRE_DAYS,  # 사용 안 하더라도 유지
+    REFRESH_TOKEN_EXPIRE_DAYS,
 )
 from app.core.database import get_db
 
@@ -35,7 +35,7 @@ from app.core.database import get_db
 MAX_LOGIN_FAILS = 5
 LOCK_TIME_MINUTES = 15
 RESET_TOKEN_EXPIRE_MINUTES = 30
-HTTP_TIMEOUT = 8  # 외부 API 타임아웃(초)
+HTTP_TIMEOUT = 8
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +43,10 @@ logger = logging.getLogger(__name__)
 # 🌐 공통 유틸
 # ===============================
 def _frontend_origin() -> str:
-    """프론트엔드 오리진 (.env FRONTEND_ORIGIN)"""
     return os.getenv("FRONTEND_ORIGIN", "http://localhost:5173").rstrip("/")
 
 
 def _oauth_base_redirect() -> str:
-    """백엔드 콜백 루트 (.env OAUTH_REDIRECT_URI)"""
     return os.getenv(
         "OAUTH_REDIRECT_URI",
         "http://localhost:8000/auth/social/callback",
@@ -56,7 +54,6 @@ def _oauth_base_redirect() -> str:
 
 
 def build_frontend_redirect_url(access_token: str, refresh_token: str) -> str:
-    """프론트엔드로 토큰 전달용 URL 구성"""
     base = f"{_frontend_origin()}/social/callback"
     return (
         f"{base}?access_token={quote_plus(access_token)}"
@@ -65,7 +62,6 @@ def build_frontend_redirect_url(access_token: str, refresh_token: str) -> str:
 
 
 def _safe_name(provider: str, default: Optional[str]) -> str:
-    """제공된 이름이 없을 때 provider별 기본 이름"""
     if default and default.strip():
         return default.strip()
     return {
@@ -76,7 +72,6 @@ def _safe_name(provider: str, default: Optional[str]) -> str:
 
 
 def _token_exchange(url: str, data: dict) -> dict:
-    """OAuth 토큰 교환 (POST)"""
     try:
         res = requests.post(url, data=data, timeout=HTTP_TIMEOUT)
         res.raise_for_status()
@@ -87,7 +82,6 @@ def _token_exchange(url: str, data: dict) -> dict:
 
 
 def _get_json(url: str, headers: dict) -> dict:
-    """GET JSON 요청 공통 함수"""
     try:
         res = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT)
         res.raise_for_status()
@@ -100,7 +94,6 @@ def _get_json(url: str, headers: dict) -> dict:
 # 🔐 비밀번호 유효성 검사
 # ===============================
 def validate_password(password: str) -> bool:
-    """비밀번호: 영문, 숫자, 특수문자 포함 8~20자"""
     pattern = r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$'
     return bool(re.match(pattern, password))
 
@@ -108,17 +101,16 @@ def validate_password(password: str) -> bool:
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 # ===============================
-# 🔹 랜덤 닉네임 생성 (중복 방지)
+# 🔹 랜덤 닉네임 생성
 # ===============================
 def _generate_unique_nickname(db: Session, provider: str) -> str:
-    """랜덤 닉네임 생성 (예: google_user_ab12cd)"""
     while True:
         nickname = f"{provider}_user_{secrets.token_hex(3)}"
         if not db.query(User).filter(User.nickname == nickname).first():
             return nickname
 
 # ===============================
-# 👇 소셜 사용자 등록 / 복귀 처리
+# 👇 소셜 사용자 등록 / 복귀
 # ===============================
 def _upsert_social_user(
     db: Session,
@@ -127,12 +119,6 @@ def _upsert_social_user(
     email: Optional[str],
     name: Optional[str],
 ) -> User:
-    """
-    소셜 사용자 조회/생성/복귀 통합 처리
-    - Google/Naver → 실명 유지, 닉네임 새 랜덤
-    - Kakao → 이름 = 닉네임 동일
-    - 탈퇴 유저 복귀 시 → 새 닉네임 부여 + 상태 복구
-    """
     user = (
         db.query(User)
         .filter(User.social_id == social_id, User.auth_provider == provider)
@@ -140,7 +126,6 @@ def _upsert_social_user(
     )
 
     if user:
-        # 탈퇴 복귀
         if user.status == UserStatus.DELETED:
             new_nickname = _generate_unique_nickname(db, provider)
             user.nickname = new_nickname
@@ -154,7 +139,6 @@ def _upsert_social_user(
             return user
         return user
 
-    # 신규가입
     safe_email = email or f"{provider}_{social_id}@example.com"
     safe_user_id = f"{provider}_{social_id}"
 
@@ -186,7 +170,6 @@ def _upsert_social_user(
 # 🔑 JWT 발급
 # ===============================
 def _issue_jwt_pair(user_id: int) -> Tuple[str, str]:
-    """JWT Access/Refresh Token 발급"""
     access_token = create_access_token(
         data={"sub": str(user_id)},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -198,14 +181,12 @@ def _issue_jwt_pair(user_id: int) -> Tuple[str, str]:
 # 🧩 회원가입 처리
 # ===============================
 def register_user(db: Session, user: UserRegister) -> User:
-    """신규 회원 등록"""
     if db.query(User).filter(User.email == user.email).first():
         raise ValueError("이미 존재하는 이메일입니다.")
     if db.query(User).filter(User.user_id == user.user_id).first():
         raise ValueError("이미 존재하는 아이디입니다.")
     if db.query(User).filter(User.nickname == user.nickname).first():
         raise ValueError("이미 존재하는 닉네임입니다.")
-
     if not validate_password(user.password):
         raise ValueError("비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.")
 
@@ -221,7 +202,6 @@ def register_user(db: Session, user: UserRegister) -> User:
     db.commit()
     db.refresh(new_user)
 
-    # Profile 자동 생성
     new_profile = Profile(
         id=new_user.id,
         profile_image="/assets/profile/default_profile.png",
@@ -233,10 +213,9 @@ def register_user(db: Session, user: UserRegister) -> User:
     return new_user
 
 # ===============================
-# 🔒 계정 잠금 관련
+# 🔒 계정 잠금
 # ===============================
 def _is_locked(u: Optional[User]) -> bool:
-    """계정 잠금 여부 확인"""
     if not u:
         return False
     now = datetime.utcnow()
@@ -250,7 +229,6 @@ def _is_locked(u: Optional[User]) -> bool:
 
 
 def _on_login_fail(u: Optional[User]) -> None:
-    """로그인 실패 시 처리"""
     if not u:
         return
     u.login_fail_count = (u.login_fail_count or 0) + 1
@@ -262,17 +240,13 @@ def _on_login_fail(u: Optional[User]) -> None:
 
 
 def _on_login_success(u: User) -> None:
-    """로그인 성공 시 초기화"""
     u.login_fail_count = 0
     u.account_locked = False
     u.banned_until = None
     u.last_login_at = datetime.utcnow()
 
-# ===============================
-# 👤 로그인 / 인증 / 토큰 재발급
-# ===============================
+
 def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User]:
-    """아이디+비밀번호 검증"""
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         return None
@@ -280,9 +254,10 @@ def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User
         return None
     return user
 
-
+# ===============================
+# 👤 로그인 / 인증 / 토큰 재발급
+# ===============================
 def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
-    """일반 로그인"""
     login_id = form_data.username
 
     user = db.query(User).filter(User.user_id == login_id).first()
@@ -315,7 +290,6 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
 
 
 def refresh_access_token(refresh_token: str) -> Optional[dict]:
-    """Refresh Token으로 Access Token 재발급"""
     payload = verify_token(refresh_token, expected_type="refresh")
     if not payload:
         logger.warning("잘못된 리프레시 토큰 사용")
@@ -343,7 +317,6 @@ def refresh_access_token(refresh_token: str) -> Optional[dict]:
 # 🌍 소셜 로그인 URL 발급 + Callback
 # ===============================
 def get_oauth_login_url(provider: str) -> str:
-    """각 provider별 OAuth 로그인 URL 생성"""
     base_redirect = _oauth_base_redirect()
 
     if provider == "google":
@@ -377,7 +350,6 @@ def get_oauth_login_url(provider: str) -> str:
 
 
 def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResponse:
-    """OAuth 인증 후 사용자 정보 조회 및 JWT 발급"""
     base_redirect = _oauth_base_redirect()
 
     try:
@@ -460,10 +432,7 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
     if not social_id:
         raise ValueError("소셜 사용자 ID를 확인할 수 없습니다.")
 
-    # 사용자 등록/복귀
     user = _upsert_social_user(db, provider, social_id, email, name)
-
-    # JWT 발급 및 프론트로 리다이렉트
     access_token, refresh_token = _issue_jwt_pair(user.id)
     logger.info("%s 로그인 성공: user_id=%s email=%s", provider.capitalize(), user.id, user.email)
 
@@ -471,13 +440,12 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
     return RedirectResponse(url=redirect_url)
 
 # ===============================
-# 🔹 현재 로그인된 사용자 조회 (JWT 기반)
+# 🔹 현재 로그인된 사용자 조회 (JWT)
 # ===============================
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    """JWT Access Token 기반으로 현재 로그인된 사용자 조회"""
     payload = verify_token(token, expected_type="access")
     if not payload:
         raise HTTPException(
@@ -493,14 +461,12 @@ def get_current_user(
     user = db.query(User).filter(User.id == int(user_id)).first()
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
-
     return user
 
 # ===============================
-# 🔑 비밀번호 재설정 토큰 발급 (user_id 기준)
+# 🔑 비밀번호 재설정 토큰 발급
 # ===============================
 def generate_reset_token_by_user_id(db: Session, user_id: str) -> Optional[str]:
-    """user_id로 비밀번호 재설정 토큰 생성"""
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user or user.auth_provider != "LOCAL":
         return None
@@ -517,8 +483,8 @@ def generate_reset_token_by_user_id(db: Session, user_id: str) -> Optional[str]:
 # ===============================
 def get_email_hint(db: Session, user_id: str) -> Optional[str]:
     """
-    아이디(user_id)로 이메일 일부 힌트와 인증번호(6자리) 발송 처리
-    - 실제 메일 전송 대신 콘솔(log)에 6자리 코드 출력
+    EMAIL_MODE=dev → 콘솔 출력
+    EMAIL_MODE=prod → 실제 Gmail SMTP 발송
     """
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
@@ -526,27 +492,49 @@ def get_email_hint(db: Session, user_id: str) -> Optional[str]:
     if not user.email:
         raise HTTPException(status_code=404, detail="등록된 이메일이 없습니다.")
 
-    # 이메일 힌트 마스킹 (예: ex*****@g****.com)
     email = user.email
     at_index = email.find("@")
-    if at_index > 2:
-        email_hint = f"{email[:2]}*****@{email[at_index+1:at_index+2]}****.{email.split('.')[-1]}"
-    else:
-        email_hint = "****"
+    email_hint = (
+        f"{email[:2]}*****@{email[at_index+1:at_index+2]}****.{email.split('.')[-1]}"
+        if at_index > 2
+        else "****"
+    )
 
-    # 6자리 인증번호 생성 (콘솔/로그 출력)
     code = "".join([str(random.randint(0, 9)) for _ in range(6)])
-    logger.info("🔐 인증번호(미발송): %s (user_id=%s)", code, user_id)
+    logger.info("🔐 인증번호(테스트용 콘솔): %s (user_id=%s)", code, user_id)
+
+    if os.getenv("EMAIL_MODE", "dev") == "prod":
+        try:
+            from smtplib import SMTP
+            from email.mime.text import MIMEText
+
+            smtp_user = os.getenv("EMAIL_USER")
+            smtp_pass = os.getenv("EMAIL_PASS")
+            smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+            smtp_port = int(os.getenv("SMTP_PORT", 587))
+
+            msg = MIMEText(
+                f"비밀번호 재설정을 위한 인증번호는 [{code}] 입니다.\n\n"
+                f"요청하신 분이 본인이 아닐 경우 이 메일을 무시하셔도 됩니다."
+            )
+            msg["Subject"] = "🔐 비밀번호 재설정 인증번호"
+            msg["From"] = smtp_user
+            msg["To"] = user.email
+
+            with SMTP(smtp_server, smtp_port) as smtp:
+                smtp.starttls()
+                smtp.login(smtp_user, smtp_pass)
+                smtp.send_message(msg)
+            logger.info("✅ 이메일 전송 완료 → %s", user.email)
+        except Exception as e:
+            logger.warning("⚠️ 이메일 전송 실패: %s", e)
 
     return email_hint
 
 # ===============================
-# 🔑 비밀번호 재설정 (Reset Token 기반)
+# 🔑 비밀번호 재설정 (Reset Token)
 # ===============================
 def reset_password(db: Session, reset_token: str, new_password: str) -> bool:
-    """
-    Reset 토큰 검증 후 비밀번호 변경
-    """
     payload = verify_token(reset_token, expected_type="reset")
     if not payload:
         logger.warning("reset_password: invalid token")
@@ -567,6 +555,5 @@ def reset_password(db: Session, reset_token: str, new_password: str) -> bool:
     user.reset_token_expire = None
     db.commit()
     db.refresh(user)
-
     logger.info("비밀번호 재설정 성공: user_id=%s", user.user_id)
     return True

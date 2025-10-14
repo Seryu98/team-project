@@ -1,6 +1,7 @@
 # app/auth/auth_router.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from pydantic import BaseModel
 from datetime import datetime
@@ -14,8 +15,6 @@ from app.core.security import verify_token, hash_password
 from app.users.user_model import User, UserStatus
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-# 🚩 tokenUrl 앞에 "/" 제거 (FastAPI 권장 방식)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
@@ -32,11 +31,11 @@ class FindIdRequest(BaseModel):
 
 
 class EmailHintRequest(BaseModel):
-    user_id: str  # ✅ 아이디로 이메일 힌트 요청
+    user_id: str
 
 
 class PasswordResetRequest(BaseModel):
-    user_id: str  # ✅ 이메일 대신 user_id 기준으로 요청
+    user_id: str
 
 
 class PasswordResetConfirm(BaseModel):
@@ -51,18 +50,79 @@ class UpdateUserRequest(BaseModel):
 
 
 # ===============================
-# ✅ 일반 회원 기능
+# ✅ 아이디 중복 확인
+# ===============================
+@router.get("/check-id")
+def check_user_id(user_id: str, db: Session = Depends(get_db)):
+    """🔎 아이디 중복 확인 API"""
+    existing_user = db.query(User).filter(User.user_id == user_id).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="이미 사용 중인 아이디입니다.")
+    return {"message": "사용 가능한 아이디입니다."}
+
+
+# ===============================
+# ✅ 회원가입
 # ===============================
 @router.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
-    """🧩 일반 회원가입"""
+    """🧩 일반 회원가입 (비밀번호 확인 + 중복 검증 + 이메일 형식 검사)"""
     try:
+        # ✅ 비밀번호 확인
+        if hasattr(user, "password_confirm") and user.password != user.password_confirm:
+            raise ValueError("비밀번호가 일치하지 않습니다.")
+
+        # ✅ 이메일 유효성 검사
+        email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+        if not user.email or not re.match(email_pattern, user.email):
+            raise ValueError("이메일 형식이 올바르지 않습니다.")
+
+        # ✅ 이메일 중복 확인
+        if db.query(User).filter(User.email == user.email).first():
+            raise ValueError("이미 등록된 이메일입니다.")
+
+        # ✅ 아이디 중복 확인
+        if db.query(User).filter(User.user_id == user.user_id).first():
+            raise ValueError("이미 사용 중인 아이디입니다.")
+
+        # ✅ 닉네임 중복 확인
+        if db.query(User).filter(User.nickname == user.nickname).first():
+            raise ValueError("이미 사용 중인 닉네임입니다.")
+
+        # ✅ 전화번호 중복 확인 (입력된 경우만)
+        if user.phone_number:
+            if db.query(User).filter(User.phone_number == user.phone_number).first():
+                raise ValueError("이미 등록된 전화번호입니다.")
+
+        # ✅ 회원 등록
         new_user = auth_service.register_user(db, user)
         return {"msg": "회원가입 성공", "user_id": new_user.user_id}
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    except IntegrityError as e:
+        db.rollback()
+        err_msg = str(e.orig)
+        if "user_id" in err_msg:
+            raise HTTPException(status_code=400, detail="이미 사용 중인 아이디입니다.")
+        elif "email" in err_msg:
+            raise HTTPException(status_code=400, detail="이미 등록된 이메일입니다.")
+        elif "nickname" in err_msg:
+            raise HTTPException(status_code=400, detail="이미 사용 중인 닉네임입니다.")
+        elif "phone_number" in err_msg:
+            raise HTTPException(status_code=400, detail="이미 등록된 전화번호입니다.")
+        else:
+            raise HTTPException(status_code=400, detail="회원가입 중 중복된 정보가 있습니다.")
 
+    except Exception as e:
+        print("회원가입 중 예외 발생:", e)
+        raise HTTPException(status_code=500, detail="회원가입 처리 중 서버 오류가 발생했습니다.")
+
+
+# ===============================
+# ✅ 로그인 / 토큰
+# ===============================
 @router.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """🔐 일반 로그인 (Access + Refresh Token 발급)"""
@@ -81,6 +141,9 @@ def refresh_token(req: RefreshRequest):
     return new_token
 
 
+# ===============================
+# ✅ 내 정보 조회 / 수정
+# ===============================
 @router.get("/me")
 def get_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """👤 현재 로그인된 사용자 정보 조회"""
@@ -138,6 +201,9 @@ def update_me(req: UpdateUserRequest, token: str = Depends(oauth2_scheme), db: S
     return {"msg": "개인정보가 수정되었습니다."}
 
 
+# ===============================
+# ✅ 회원 탈퇴 (Soft Delete)
+# ===============================
 @router.delete("/delete-account")
 def delete_account(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """💀 회원 탈퇴 (Soft Delete)"""
@@ -217,15 +283,11 @@ def social_login(provider: str):
 
 @router.get("/social/callback/{provider}")
 def social_callback(provider: str, code: str, db: Session = Depends(get_db)):
-    """
-    🔁 OAuth Callback 처리
-    - code → access_token 교환 → userinfo 조회
-    - 기존/탈퇴 계정 처리 (auth_service._upsert_social_user 내부 로직)
-    """
+    """🔁 OAuth Callback 처리"""
     try:
         tokens = auth_service.handle_oauth_callback(db, provider, code)
         return tokens
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="소셜 로그인 중 오류가 발생했습니다.")
