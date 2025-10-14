@@ -56,6 +56,13 @@ import BoardCreatePage from "./features/board/BoardCreatePage";
 import BoardEditPage from "./features/board/BoardEditPage";
 
 // ---------------------------------------
+// 알림 메세지 관리자페이지
+// ---------------------------------------
+import AdminDashboard from "./features/admin/AdminDashboard";
+import MessageInbox from "./features/message/MessageInbox";
+import MessageDetail from "./features/message/MessageDetail";
+
+// ---------------------------------------
 // 🏠 홈 페이지
 // ---------------------------------------
 function Home() {
@@ -112,7 +119,7 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기/소셜콜백/튜토리얼) */}
+        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기/소셜콜백/튜토리얼/알림창) */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -210,6 +217,20 @@ export default function App() {
             <Route index element={<Navigate to="settings" replace />} />
             <Route path="settings" element={<AccountSettings />} />
             <Route path="change-password" element={<ChangePassword />} />
+          </Route>
+
+          <Route>
+            {/* 메세지, 관리자대시보드 */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute requiredRole="ADMIN">
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/messages" element={<ProtectedRoute><MessageInbox /></ProtectedRoute>} />
+            <Route path="/messages/:id" element={<ProtectedRoute><MessageDetail /></ProtectedRoute>} />
           </Route>
         </Route>
       </Routes>

@@ -1,4 +1,4 @@
-# app/project_post/recipe_router.py
+# ✅ backend/app/project_post/recipe_router.py (with event hooks)
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -17,7 +17,6 @@ from app.users.user_model import User
 from app.meta.meta_schema import SkillResponse, ApplicationFieldResponse
 
 router = APIRouter(prefix="/recipe", tags=["recipe"])
-
 
 # ---------------------------------------------------------------------
 # ✅ 내부 유틸: 조회 시점에 상태 자동 갱신
@@ -374,14 +373,20 @@ async def apply_post(
         ))
 
     db.commit()
+
+    # ✅ 지원서 제출 시 리더 알림/메시지 전송
+    from app.events.events import on_application_submitted
+    on_application_submitted(
+        application_id=application.id,
+        post_id=post.id,
+        leader_id=post.leader_id,
+        applicant_id=current_user.id,
+    )
+
     return {"message": "✅ 지원 완료", "application_id": application.id}
 
 
-# ---------------------------------------------------------------------
 # ✅ 지원서 승인
-#    - Application 상태=APPROVED
-#    - PostMember 테이블에 멤버 추가
-# ---------------------------------------------------------------------
 @router.post("/{post_id}/applications/{application_id}/approve")
 async def approve_application(
     post_id: int,
@@ -406,13 +411,19 @@ async def approve_application(
     application.status = "APPROVED"
     db.add(models.PostMember(post_id=post_id, user_id=application.user_id, role="MEMBER"))
     db.commit()
+
+    # ✅ 지원 승인 알림
+    from app.events.events import on_application_decided
+    on_application_decided(
+        application_id=application.id,
+        applicant_id=application.user_id,
+        accepted=True,
+    )
+
     return {"message": "✅ 승인 완료"}
 
 
-# ---------------------------------------------------------------------
 # ✅ 지원서 거절
-#    - Application 상태=REJECTED
-# ---------------------------------------------------------------------
 @router.post("/{post_id}/applications/{application_id}/reject")
 async def reject_application(
     post_id: int,
@@ -436,8 +447,16 @@ async def reject_application(
 
     application.status = "REJECTED"
     db.commit()
-    return {"message": "🚫 거절 처리 완료"}
 
+    # ✅ 지원 거절 알림
+    from app.events.events import on_application_decided
+    on_application_decided(
+        application_id=application.id,
+        applicant_id=application.user_id,
+        accepted=False,
+    )
+    
+    return {"message": "🚫 거절 처리 완료"}
 
 # ---------------------------------------------------------------------
 # ✅ 탈퇴하기

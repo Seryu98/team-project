@@ -6,6 +6,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
+from app.admin.admin_router import router as admin_router
+from app.notifications.notification_router import router as notification_router
+from app.messages.message_router import router as message_router
 
 import os
 import traceback
@@ -101,6 +104,9 @@ app.include_router(meta_router.router)
 app.include_router(upload_router.router)
 app.include_router(board_router.router)
 app.include_router(user_router.router)
+app.include_router(admin_router)
+app.include_router(notification_router)
+app.include_router(message_router)
 
 # ===================================
 # 🏠 기본 라우트

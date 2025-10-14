@@ -1,4 +1,4 @@
-# backend/app/board/board_service.py
+# ✅ backend/app/board/board_service.py (with event hook)
 from datetime import date
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy.orm import Session
@@ -481,7 +481,6 @@ def update_comment(db: Session, comment_id: int, user_id: int, content: str) -> 
     db.commit()
     return True
 
-
 def create_report(
     db: Session, reporter_id: int, target_type: str, target_id: int, reason: str
 ) -> int:
@@ -511,4 +510,9 @@ def create_report(
         },
     )
     db.commit()
+
+    # ✅ 신고 접수 시 관리자 알림 트리거
+    from app.events.events import on_report_created
+    on_report_created(report_id=res.lastrowid, reporter_user_id=reporter_id)
+
     return res.lastrowid
