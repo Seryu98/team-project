@@ -12,8 +12,9 @@ export default function ProjectPostDetail() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [leaderInfo, setLeaderInfo] = useState(null);
 
-  // ✅ 게시글 상세 + 로그인 사용자 정보 불러오기
+  // ✅ 게시글 상세 + 로그인 사용자 정보 + 리더 정보 불러오기
   useEffect(() => {
     async function fetchPost() {
       try {
@@ -23,6 +24,21 @@ export default function ProjectPostDetail() {
           { skipRedirect: true }
         );
         setPost(res);
+
+        // ✅ 리더 정보 별도 조회
+        if (res.leader_id) {
+          try {
+            const leader = await authFetch(
+              `/profiles/${res.leader_id}`,
+              { method: "GET" },
+              { skipRedirect: true }
+            );
+            setLeaderInfo(leader);
+          } catch (err) {
+            console.error("❌ 리더 정보 불러오기 실패:", err);
+            setLeaderInfo(null);
+          }
+        }
       } catch (err) {
         console.error("❌ 상세 불러오기 실패:", err);
       }
@@ -200,8 +216,44 @@ export default function ProjectPostDetail() {
         {/* 오른쪽: 프로젝트 리더 */}
         <div style={{ textAlign: "right" }}>
           <h4>프로젝트 리더</h4>
-          <div>
-            <strong>리더 ID: {post.leader_id}</strong>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: "12px",
+              marginBottom: "15px"
+            }}
+          >
+            <img
+              src={
+                leaderInfo?.profile_image
+                  ? `http://localhost:8000${leaderInfo.profile_image}`
+                  : "http://localhost:8000/assets/profile/default_profile.png"
+              }
+              alt="리더 프로필"
+              style={{
+                width: "70px",
+                height: "70px",
+                borderRadius: "50%",
+                objectFit: "cover",
+                cursor: "pointer",
+                border: "3px solid #ddd",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+              }}
+              onClick={() => navigate(`/profile/${post.leader_id}`)}
+            />
+            <span
+              style={{
+                cursor: "pointer",
+                fontWeight: "bold",
+                fontSize: "18px",
+                color: "#333",
+              }}
+              onClick={() => navigate(`/profile/${post.leader_id}`)}
+            >
+              {leaderInfo?.nickname || "로딩 중..."}
+            </span>
           </div>
 
           {/* ✅ 리더만 보이는 버튼 */}
