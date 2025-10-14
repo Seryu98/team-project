@@ -1,0 +1,207 @@
+/* ===== messages.css : 메시지 3분할 레이아웃 (업그레이드 완성본) ===== */
+
+:root {
+  --msg-font: 'Noto Sans KR', 'Segoe UI', sans-serif;
+}
+
+.msg-layout, .msg-sidebar, .msg-list, .msg-detail {
+  font-family: var(--msg-font) !important;
+  box-sizing: border-box;
+}
+
+.msg-layout {
+  display: flex;
+  height: calc(100vh - 80px);
+  background: #f8fafc;
+  font-family: "Pretendard", "Noto Sans KR", sans-serif;
+}
+
+/* 좌측 사이드바 */
+.msg-sidebar {
+  width: 240px;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.03);
+}
+.msg-sidebar__title {
+  font-weight: 700;
+  font-size: 16px;
+  padding: 18px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #111827;
+  background: #f9fafb;
+}
+.msg-sidebar__btn {
+  text-align: left;
+  padding: 12px 18px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  transition: all 0.2s;
+}
+.msg-sidebar__btn:hover {
+  background: #f3f4f6;
+}
+.msg-sidebar__btn--active {
+  background: #e5e7eb;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* 중앙 목록 */
+.msg-list {
+  flex: 1;
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.msg-list__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  font-size: 15px;
+  color: #111827;
+  background: #f9fafb;
+}
+.msg-list__ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.msg-item {
+  padding: 14px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.15s ease-in-out;
+}
+.msg-item:hover {
+  background: #f3f4f6;
+}
+.msg-item__title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1f2937;
+}
+.msg-item__preview {
+  color: #4b5563;
+  font-size: 13px;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg-item__meta {
+  color: #9ca3af;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+/* 오른쪽 상세 */
+.msg-detail {
+  width: 35%;
+  background: #fff;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e5e7eb;
+}
+.msg-detail__inner {
+  padding: 20px;
+}
+.msg-detail__title {
+  font-weight: 700;
+  font-size: 18px;
+  margin-bottom: 12px;
+  color: #111827;
+}
+.msg-detail__meta {
+  color: #6b7280;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.msg-detail__content {
+  white-space: pre-line;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1f2937;
+  margin: 14px 0;
+}
+.msg-detail__time {
+  color: #9ca3af;
+  font-size: 12px;
+  text-align: right;
+  margin-top: 8px;
+}
+.msg-detail__actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+}
+.msg-btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  color: #fff;
+  border: 0;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.msg-btn--green {
+  background: #16a34a;
+}
+.msg-btn--green:hover {
+  background: #15803d;
+}
+.msg-btn--red {
+  background: #dc2626;
+}
+.msg-btn--red:hover {
+  background: #b91c1c;
+}
+
+/* 쪽지 작성 */
+.msg-compose {
+  padding: 20px;
+  background: #fff;
+}
+.msg-compose__input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+.msg-compose__textarea {
+  width: 100%;
+  height: 160px;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  resize: none;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.msg-compose__textarea:focus,
+.msg-compose__input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+.msg-btn--blue {
+  background: #2563eb;
+}
+.msg-btn--blue:hover {
+  background: #1d4ed8;
+}
+

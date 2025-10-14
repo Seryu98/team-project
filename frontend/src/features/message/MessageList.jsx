@@ -2,31 +2,50 @@
 import React from "react";
 
 export default function MessageList({ messages, selectedTab, onSelect }) {
-  if (messages.length === 0)
-    return <p className="p-4 text-gray-500">쪽지가 없습니다.</p>;
+  if (!messages || messages.length === 0)
+    return (
+      <p className="p-4 text-gray-500 text-center">
+        쪽지가 없습니다.
+      </p>
+    );
 
   return (
-    <ul>
+    <ul className="divide-y">
       {messages.map((m) => (
         <li
           key={m.id}
           onClick={() => onSelect(m)}
-          className="border-b p-3 hover:bg-gray-50 cursor-pointer"
+          className="p-3 hover:bg-gray-100 cursor-pointer transition-colors"
         >
           {selectedTab === "notice" ? (
             <>
-              <p className="font-semibold">📢 {m.title}</p>
-              <p className="text-sm text-gray-500">{m.created_at}</p>
+              <p className="font-semibold text-blue-600 flex items-center gap-1">
+                📢 관리자 공지
+              </p>
+              <p className="text-sm text-gray-700 truncate">
+                {m.title || "(제목 없음)"}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {new Date(m.created_at).toLocaleString()}
+              </p>
             </>
           ) : (
             <>
-              <p className="font-semibold">
+              <p className="font-semibold text-gray-800">
                 {selectedTab === "inbox"
-                  ? `보낸 사람: ${m.sender_id}`
-                  : `받는 사람: ${m.receiver_id}`}
+                  ? `보낸 사람 ID: ${m.sender_id}`
+                  : `받는 사람 ID: ${m.receiver_id}`}
               </p>
-              <p className="text-sm text-gray-600">
-                {m.content.slice(0, 20)}...
+
+              {/* ✅ 쪽지 내용 요약 (앞 20자만 표시) */}
+              <p className="text-sm text-gray-600 mt-1 truncate">
+                {m.content?.slice(0, 20) || ""}
+                {m.content?.length > 20 && "..."}
+              </p>
+
+              {/* ✅ 날짜 */}
+              <p className="text-xs text-gray-400 mt-1">
+                {new Date(m.created_at).toLocaleString()}
               </p>
             </>
           )}

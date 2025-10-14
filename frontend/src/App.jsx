@@ -59,8 +59,8 @@ import BoardEditPage from "./features/board/BoardEditPage";
 // 알림 메세지 관리자페이지
 // ---------------------------------------
 import AdminDashboard from "./features/admin/AdminDashboard";
-import MessageInbox from "./features/message/MessageInbox";
 import MessageDetail from "./features/message/MessageDetail";
+import MessagesPage from "./features/message/MessagePage"; 
 
 // ---------------------------------------
 // 🏠 홈 페이지
@@ -219,19 +219,37 @@ export default function App() {
             <Route path="change-password" element={<ChangePassword />} />
           </Route>
 
-          <Route>
-            {/* 메세지, 관리자대시보드 */}
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute requiredRole="ADMIN">
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/messages" element={<ProtectedRoute><MessageInbox /></ProtectedRoute>} />
-            <Route path="/messages/:id" element={<ProtectedRoute><MessageDetail /></ProtectedRoute>} />
-          </Route>
+          {/* ---------------------------------------
+              📨 쪽지 / 관리자
+          --------------------------------------- */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ✅ 수정: 기존 MessageInbox → MessagesPage로 교체 */}
+          <Route
+            path="/messages/*"
+            element={
+              <ProtectedRoute>
+                <MessagesPage /> {/* ← 삼분할 쪽지함 전체 페이지 */}
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ✅ 유지: 특정 메시지 개별 접근용 (필요 시) */}
+          <Route
+            path="/messages/:id"
+            element={
+              <ProtectedRoute>
+                <MessageDetail />
+              </ProtectedRoute>
+            }
+          />
         </Route>
       </Routes>
 
