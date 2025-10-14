@@ -6,6 +6,8 @@ from sqlalchemy import text
 from fastapi import HTTPException
 from app.core.database import get_db
 from app.events.events import on_post_approved, on_report_resolved
+from app.notifications.notification_service import send_notification
+from app.messages.message_service import send_message
 
 def _get_db(db: Optional[Session] = None):
     close = False
@@ -70,36 +72,113 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
         if close:
             db.close()
 
-
-
-# ✅ 신고 처리
+# ✅ 신고 처리 (승낙 / 거절)
 def resolve_report(report_id: int, admin_id: int, action: str, reason: Optional[str] = None, db: Optional[Session] = None) -> bool:
+    """
+    - action: 'RESOLVE' 또는 'REJECT'
+    - reason: 관리자가 작성한 처리 사유
+    """
     if action not in {"RESOLVE", "REJECT"}:
-        raise HTTPException(status_code=400, detail="action은 RESOLVE/REJECT 중 하나여야 합니다.")
+        raise HTTPException(status_code=400, detail="action은 RESOLVE 또는 REJECT 중 하나여야 합니다.")
+    
     db, close = _get_db(db)
     try:
+        # ✅ 신고 기본 정보 조회
+        report = db.execute(text("""
+            SELECT id, reporter_user_id, reported_user_id, target_type, target_id
+              FROM reports
+             WHERE id = :rid
+        """), {"rid": report_id}).mappings().first()
+
+        if not report:
+            raise HTTPException(status_code=404, detail="신고 내역을 찾을 수 없습니다.")
+
+        reporter_id = report["reporter_user_id"]
+        reported_id = report["reported_user_id"]
+        target_type = report["target_type"]
+        target_id = report["target_id"]
+
+        # ✅ 상태 업데이트
         status = "RESOLVED" if action == "RESOLVE" else "REJECTED"
-        updated = db.execute(text("""
-            UPDATE reports SET status=:st WHERE id=:rid
-        """), {"st": status, "rid": report_id}).rowcount
+        db.execute(
+            text("UPDATE reports SET status=:st WHERE id=:rid"),
+            {"st": status, "rid": report_id},
+        )
 
-        if not updated:
-            raise HTTPException(status_code=404, detail="신고를 찾을 수 없습니다.")
+        # ✅ 관리자 조치 로그 기록
+        db.execute(text("""
+            INSERT INTO report_actions (report_id, admin_id, action, reason)
+            VALUES (:rid, :aid, :act, :reason)
+        """), {
+            "rid": report_id,
+            "aid": admin_id,
+            "act": action,
+            "reason": reason or "(사유 없음)"
+        })
 
-        reporter_id = db.execute(
-            text("SELECT reporter_user_id FROM reports WHERE id=:rid"), {"rid": report_id}
-        ).scalar()
+        # --------------------------------------------------
+        # 🚨 처리 분기
+        # --------------------------------------------------
 
-        db.commit()
+        # 신고 "승낙" → 신고자 + 피신고자 모두에게 알림/쪽지
+        if action == "RESOLVE":
+            # 신고자에게 알림
+            send_notification(
+                user_id=reporter_id,
+                type_="REPORT_RESOLVED",
+                message=f"신고가 승인되어 처리되었습니다.",
+                related_id=report_id,
+                db=db,
+            )
+            send_message(
+                sender_id=admin_id,
+                receiver_id=reporter_id,
+                content=f"당신이 제기한 신고(ID:{report_id})가 승인되었습니다.\n\n사유: {reason or '관리자에 의해 조치가 완료되었습니다.'}",
+                db=db,
+            )
 
-        # ✅ 신고 결과 알림 전송
+            # 피신고자에게 알림
+            send_notification(
+                user_id=reported_id,
+                type_="WARNING",
+                message="귀하의 게시물/댓글/메시지가 신고로 인해 경고 조치를 받았습니다.",
+                related_id=report_id,
+                db=db,
+            )
+            send_message(
+                sender_id=admin_id,
+                receiver_id=reported_id,
+                content=f"귀하의 콘텐츠({target_type}:{target_id})가 신고되어 조치가 이루어졌습니다.\n\n관리자 사유: {reason or '규정 위반에 따른 경고 조치입니다.'}",
+                db=db,
+            )
+
+        # 신고 "거절" → 신고자에게만 알림/쪽지
+        elif action == "REJECT":
+            send_notification(
+                user_id=reporter_id,
+                type_="REPORT_REJECTED",
+                message="신고가 검토되었으나 반려되었습니다.",
+                related_id=report_id,
+                db=db,
+            )
+            send_message(
+                sender_id=admin_id,
+                receiver_id=reporter_id,
+                content=f"당신의 신고(ID:{report_id})가 거절되었습니다.\n\n거절 사유: {reason or '부적절한 신고로 판단되었습니다.'}",
+                db=db,
+            )
+
+        # ✅ 이벤트 트리거 (로그용)
         on_report_resolved(
             report_id=report_id,
-            reporter_user_id=int(reporter_id),
-            resolved=(status == "RESOLVED"),
-            db=db
+            reporter_user_id=reporter_id,
+            resolved=(action == "RESOLVE"),
+            db=db,
         )
+
+        db.commit()
         return True
+
     finally:
         if close:
             db.close()

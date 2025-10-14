@@ -155,20 +155,23 @@ def on_report_created(report_id: int, reporter_user_id: int, db: Optional[Sessio
 
 
 # ✅ 신고 처리 결과 알림
-def on_report_resolved(report_id: int, reporter_user_id: int, resolved: bool, db: Optional[Session] = None):
+def on_report_resolved(
+    report_id: int,
+    reporter_user_id: int,
+    resolved: bool,
+    db: Optional[Session] = None,
+):
+    """
+    🚨 신고 처리 완료 시 내부 로그용 알림 이벤트
+    - 이미 admin_service.resolve_report 에서 알림/쪽지 발송 완료
+    - 여기서는 단순히 기록 및 시스템 로그만 남김
+    """
     db, close = _get_db(db)
     try:
         typ = "REPORT_RESOLVED" if resolved else "REPORT_REJECTED"
-        msg = "신고가 처리되었습니다." if resolved else "신고가 반려되었습니다."
-        send_notification(
-            user_id=reporter_user_id,
-            type_=typ,
-            message=msg,
-            related_id=report_id,
-            db=db,
-        )
+        # ❌ send_notification(...) 호출 제거
+        logger.info(f"✅ 신고 처리 완료 이벤트: report_id={report_id}, type={typ}, reporter={reporter_user_id}")
         db.commit()
-        logger.info(f"✅ 신고 결과 알림 전송 완료: report_id={report_id}, type={typ}")
     finally:
         if close:
             db.close()
