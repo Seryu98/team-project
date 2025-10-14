@@ -2,6 +2,7 @@
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.board import board_service as svc
 from app.board.board_schema import (
@@ -16,7 +17,11 @@ from app.board.board_schema import (
 from app.core.database import get_db
 from app.core.deps import get_current_user
 
+# 🔹 기존 보호 라우터 (작성/수정/삭제 등)
 router = APIRouter(prefix="/board", tags=["Board"])
+
+# 🔹 공개 전용 라우터 (목록/조회 등 비로그인 허용 용도)
+public_router = APIRouter(prefix="/board", tags=["Board Public"])
 
 # ===============================
 # 📚 카테고리 목록
@@ -197,3 +202,56 @@ def report(payload: ReportCreate, db: Session = Depends(get_db), me=Depends(get_
         reason=payload.reason,
     )
     return {"id": rid, "success": True}
+
+# ===============================
+# 📰 게시글 목록 간단 버전 (HomePage용, 공개)
+# ===============================
+@public_router.get("/list")
+def list_posts_simple(
+    skip: int = Query(0, description="건너뛸 개수 (offset)"),
+    limit: int = Query(20, description="가져올 개수 (limit)", ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    total = db.execute(
+        text("SELECT COUNT(*) FROM board_posts WHERE status='VISIBLE'")
+    ).scalar() or 0
+
+    rows = db.execute(
+        text("""
+        SELECT
+            bp.id,
+            bp.title,
+            bp.created_at,
+            bp.view_count,
+            bp.like_count,
+            COALESCE(c.cnt, 0) AS comment_count,
+            ct.name AS category_name,
+            u.nickname AS author_nickname
+        FROM board_posts bp
+        LEFT JOIN categories ct ON ct.id = bp.category_id
+        LEFT JOIN users u ON u.id = bp.author_id
+        LEFT JOIN (
+            SELECT board_post_id, COUNT(*) AS cnt
+            FROM comments
+            WHERE status='VISIBLE'
+            GROUP BY board_post_id
+        ) c ON c.board_post_id = bp.id
+        WHERE bp.status='VISIBLE'
+        ORDER BY bp.created_at DESC
+        LIMIT :limit OFFSET :offset
+        """),
+        {"limit": limit, "offset": skip},
+    ).mappings().all()
+
+    items = [{
+        "id": r["id"],
+        "title": r["title"],
+        "category": r["category_name"] or "일반",
+        "created_at": r["created_at"],
+        "view_count": r["view_count"] or 0,
+        "like_count": r["like_count"] or 0,
+        "comment_count": r["comment_count"] or 0,
+        "author_nickname": r["author_nickname"] or "익명",
+    } for r in rows]
+
+    return {"posts": items, "total": total}

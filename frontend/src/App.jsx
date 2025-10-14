@@ -65,14 +65,7 @@ import MessageDetail from "./features/message/MessageDetail";
 // ---------------------------------------
 // 🏠 홈 페이지
 // ---------------------------------------
-function Home() {
-  return (
-    <div style={{ textAlign: "center", marginTop: 50 }}>
-      <h1>홈 화면</h1>
-      <p>Team Project Frontend</p>
-    </div>
-  );
-}
+import HomePage from "./features/home/HomePage";
 
 // ---------------------------------------
 // 🧭 랭킹 (placeholder 유지)
@@ -132,7 +125,7 @@ export default function App() {
 
         {/* ✅ Navbar 포함된 그룹 */}
         <Route element={<MainLayout />}>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<HomePage />} />
 
           {/* ---------------------------------------
               🔹 프로젝트/스터디 게시판
