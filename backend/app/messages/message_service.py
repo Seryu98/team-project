@@ -32,11 +32,11 @@ def send_message(sender_id: int, receiver_id: int, content: str, db: Optional[Se
         message_id = result.lastrowid if hasattr(result, "lastrowid") and result.lastrowid else \
                      db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
 
-        # 수신자 읽음 상태
+        # ✅ 발신자 / 수신자 상태 모두 등록
         db.execute(text("""
-            INSERT INTO message_user_status(message_id, user_id, is_read)
-            VALUES (:m, :u, 0)
-        """), {"m": message_id, "u": receiver_id})
+            INSERT INTO message_user_status (message_id, user_id, is_read)
+            VALUES (:m, :sender, 1), (:m, :receiver, 0)
+        """), {"m": message_id, "sender": sender_id, "receiver": receiver_id})
 
         db.commit()
 
@@ -81,6 +81,24 @@ def list_inbox(user_id: int, limit: int = 50, db: Optional[Session] = None) -> L
         # --------------------------------------------------------------
 
         return items
+    finally:
+        if close:
+            db.close()
+
+# ---------------------------------------------------------------------
+# ✅ 보낸함 목록 (내가 보낸 쪽지)
+# ---------------------------------------------------------------------
+def list_sent(user_id: int, limit: int = 50, db: Optional[Session] = None) -> List[Dict]:
+    db, close = _get_db(db)
+    try:
+        rows = db.execute(text("""
+            SELECT m.id, m.sender_id, m.receiver_id, m.content, m.is_read, m.created_at
+            FROM messages m
+            WHERE m.sender_id = :u
+            ORDER BY m.id DESC
+            LIMIT :limit
+        """), {"u": user_id, "limit": limit}).mappings().all()
+        return [dict(r) for r in rows]
     finally:
         if close:
             db.close()

@@ -20,6 +20,7 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // ✅ 기존에는 단순히 고정값이던 메시지 수 → 실제 쪽지함 이동용 버튼 유지
   const [unreadMessages] = useState(5); // 메시지 카운트 (추후 API로 대체)
 
   // 로그인 상태 확인 및 프로필 이미지 가져오기
@@ -45,7 +46,6 @@ export default function Navbar() {
 
     fetchUser();
 
-    // ✅ refreshProfile flag 감지해서 다시 유저 불러오기
     const handleStorageChange = () => {
       if (localStorage.getItem("refreshProfile") === "true") {
         fetchUser();
@@ -83,13 +83,10 @@ export default function Navbar() {
     }
 
     fetchNotifications();
-
-    // 일정 주기(30초)마다 갱신
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [currentUser]);
 
-  // 로그아웃
   const handleLogout = () => {
     clearTokens();
     setCurrentUser(null);
@@ -98,19 +95,38 @@ export default function Navbar() {
     navigate("/login");
   };
 
-  // 알림 클릭
   const handleNotificationClick = () => {
     setNotificationOpen((prev) => !prev);
-    setMenuOpen(false); // 프로필 메뉴는 닫기
+    setMenuOpen(false);
   };
 
-  // 알림 항목 클릭
-  const handleNotificationItemClick = (n) => {
+const handleNotificationItemClick = async (n) => {
+  try {
+    const token = localStorage.getItem("access_token");
+    // 1️⃣ 읽음 처리 API 요청
+    await axios.post(
+      "http://localhost:8000/notifications/mark_read",
+      [n.id],
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // 2️⃣ UI에서 바로 제거
+    setNotifications((prev) => prev.filter((item) => item.id !== n.id));
+
+    // ✅ 알림 종류별 이동 처리
     if (n.type === "MESSAGE" && n.related_id) {
       navigate(`/messages/${n.related_id}`);
+    } else if (n.type === "REPORT_RECEIVED") {
+      navigate("/admin/reports");
+    } else if (n.type === "APPLICATION") {
+      navigate("/admin/pending");
     }
+
     setNotificationOpen(false);
-  };
+  } catch (e) {
+    console.error("❌ 알림 읽음 처리 실패:", e);
+  }
+};
 
   const IconButton = ({ icon, count, onClick, label }) => (
     <div className="icon-button relative">
@@ -123,12 +139,10 @@ export default function Navbar() {
 
   return (
     <nav className="navbar">
-      {/* 좌측 로고 */}
       <div className="navbar-logo" onClick={() => navigate("/")}>
         <img src={logoImg} alt="메인으로 이동" className="logo-img" />
       </div>
 
-      {/* 중앙 메뉴 */}
       <div className="navbar-links">
         <Link to="/posts" className="nav-link">
           프로젝트/스터디 게시판
@@ -139,7 +153,6 @@ export default function Navbar() {
         <Link to="/users/ranking" className="nav-link">
           랭킹게시판
         </Link>
-        {/* ✅ 관리자 전용 버튼 */}
         {currentUser?.role === "ADMIN" && (
           <button
             onClick={() => navigate("/admin")}
@@ -151,11 +164,10 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* 우측 */}
       <div className="navbar-right relative">
         {currentUser ? (
           <>
-            {/* 알림 버튼 + 팝업 */}
+            {/* 🔔 알림 버튼 */}
             <div className="relative">
               <IconButton
                 icon={<FaBell />}
@@ -198,15 +210,14 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* 메시지 버튼 */}
+            {/* ✉️ 쪽지 버튼 → 쪽지함 이동 기능 추가됨 ✅ */}
             <IconButton
               icon={<FaEnvelope />}
               count={unreadMessages}
-              onClick={() => navigate("/messages")}
-              label="메시지"
+              onClick={() => navigate("/messages")} // ✅ 추가된 부분
+              label="쪽지함"
             />
 
-            {/* 프로필 */}
             <div className="profile-wrapper relative">
               <img
                 src={
