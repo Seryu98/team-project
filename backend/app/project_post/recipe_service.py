@@ -14,8 +14,8 @@ def create_recipe_post(
     field: Optional[str],
     start_date: Optional[date],
     end_date: Optional[date],
-    project_start: Optional[date],   # ✅ 추가
-    project_end: Optional[date],     # ✅ 추가
+    project_start: Optional[date],
+    project_end: Optional[date],
     skills: list[int],
     application_fields: list[int],
     image_url: Optional[str] = None,
@@ -29,8 +29,8 @@ def create_recipe_post(
         description=description,
         start_date=start_date,
         end_date=end_date,
-        project_start=project_start,   # ✅ 추가
-        project_end=project_end,       # ✅ 추가
+        project_start=project_start,
+        project_end=project_end,
         image_url=image_url,
         current_members=1,  # 리더 포함
     )
@@ -53,4 +53,10 @@ def create_recipe_post(
         db.add(models.RecipePostRequiredField(post_id=new_post.id, field_id=field_id))
 
     db.commit()
+    db.refresh(new_post)
+     # ✅ 게시글 생성 후 관리자 승인요청 알림 트리거
+    from app.events.events import on_post_submitted
+    on_post_submitted(post_id=new_post.id, leader_id=new_post.leader_id)
+    # ✅ 게시글 생성 시 관리자 승인 요청 알림
+
     return new_post

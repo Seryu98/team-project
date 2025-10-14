@@ -154,3 +154,20 @@ def change_password(
 
     logger.info(f"✅ 비밀번호 변경 성공: user_id={user.id}")
     return {"message": "비밀번호가 성공적으로 변경되었습니다."}
+
+
+# ===============================
+# ✅ 현재 로그인 사용자 조회
+# ===============================
+@router.get("/me")
+def get_my_info(current_user: User = Depends(get_current_user)):
+    """
+    현재 로그인한 사용자 정보를 반환합니다.
+    """
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "nickname": current_user.nickname,
+        "role": current_user.role,
+        "status": current_user.status,
+    }
