@@ -182,6 +182,7 @@ def get_message(user_id: int, message_id: int, db: Optional[Session] = None) -> 
 def mark_read(user_id: int, message_id: int, db: Optional[Session] = None) -> bool:
     db, close = _get_db(db)
     try:
+        # ✅ 1) 쪽지 읽음 처리
         db.execute(text("""
             UPDATE messages
                SET is_read = 1
@@ -193,6 +194,15 @@ def mark_read(user_id: int, message_id: int, db: Optional[Session] = None) -> bo
                SET is_read = 1, read_at = NOW()
              WHERE message_id = :mid AND user_id = :u
         """), {"mid": message_id, "u": user_id})
+
+        # ✅ 2) 📩 알림 읽음 처리 (MESSAGE 알림 자동 동기화)
+        db.execute(text("""
+            UPDATE notifications
+               SET is_read = 1
+             WHERE user_id = :u
+               AND type = 'MESSAGE'
+               AND related_id = :mid
+        """), {"u": user_id, "mid": message_id})
 
         db.commit()
         return True

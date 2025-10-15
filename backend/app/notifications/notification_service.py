@@ -14,17 +14,18 @@ def _get_db(db: Optional[Session] = None):
 
 
 # ✅ 알림 전송
-def send_notification(user_id: int, type_: str, message: str, related_id: Optional[int] = None, db: Optional[Session] = None) -> int:
+def send_notification(user_id: int, type_: str, message: str, related_id: Optional[int] = None, redirect_path: Optional[str] = None, db: Optional[Session] = None) -> int:
     db, close = _get_db(db)
     try:
         result = db.execute(text("""
-            INSERT INTO notifications (user_id, type, message, related_id, is_read, created_at)
-            VALUES (:user_id, :type, :message, :related_id, 0, NOW())
+            INSERT INTO notifications (user_id, type, message, related_id, redirect_path, is_read, created_at)
+            VALUES (:user_id, :type, :message, :related_id, :redirect_path, 0, NOW())
         """), {
             "user_id": user_id,
             "type": type_,
             "message": message,
-            "related_id": related_id
+            "related_id": related_id,
+            "redirect_path": redirect_path,
         })
         db.commit()
 
@@ -43,14 +44,15 @@ def send_notification(user_id: int, type_: str, message: str, related_id: Option
 def list_notifications(user_id: int, only_unread: bool = False, limit: int = 50, db: Optional[Session] = None) -> List[dict]:
     db, close = _get_db(db)
     try:
+        # ✅ 항상 읽은 알림은 제외 (is_read=0)
         sql = """
-        SELECT id, type, message, related_id, is_read, created_at
+        SELECT id, type, message, related_id, redirect_path, is_read, created_at
         FROM notifications
         WHERE user_id=:user_id
-        {unread_filter}
+          AND is_read=0
         ORDER BY id DESC
         LIMIT :limit
-        """.format(unread_filter="AND is_read=0" if only_unread else "")
+        """
         rows = db.execute(text(sql), {"user_id": user_id, "limit": limit}).mappings().all()
         return [dict(r) for r in rows]
     finally:

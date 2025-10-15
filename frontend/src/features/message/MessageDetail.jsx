@@ -37,6 +37,8 @@ export default function MessageDetail({ message }) {
           null,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+        localStorage.setItem("refreshNotifications", "true");
+        window.dispatchEvent(new Event("storage"));
       } catch (err) {
         console.error("❌ 읽음 처리 실패:", err);
       }

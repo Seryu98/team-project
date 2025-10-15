@@ -350,6 +350,7 @@ CREATE TABLE notifications (
   related_id BIGINT NULL,
   is_read BOOLEAN DEFAULT FALSE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  redirect_path VARCHAR(255) NULL COMMENT '알림 클릭 시 이동 경로',
   PRIMARY KEY (id),
   CONSTRAINT FK_notifications_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
