@@ -16,6 +16,28 @@ def _ensure_admin(user):
     # 한 줄 요약 주석: 관리자 권한 확인
     if getattr(user, "role", None) != "ADMIN":
         raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다.")
+    
+# ✅ 관리자 통계 조회 (대시보드)
+@router.get("/stats")
+def get_admin_stats(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    관리자 대시보드 통계 조회:
+    - 승인 대기 게시글 수
+    - 처리 대기 신고 수
+    """
+    _ensure_admin(user)
+
+    stats = db.execute(text("""
+        SELECT 
+            (SELECT COUNT(*) FROM posts WHERE status = 'PENDING') AS pending_posts,
+            (SELECT COUNT(*) FROM reports WHERE status = 'PENDING') AS pending_reports
+    """)).mappings().first()
+
+    return {
+        "success": True,
+        "data": dict(stats),
+        "message": "관리자 통계 조회 성공"
+    }
 
 # ✅ 게시글 거절
 @router.post("/posts/{post_id}/approve")

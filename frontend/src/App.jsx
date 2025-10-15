@@ -61,6 +61,8 @@ import BoardEditPage from "./features/board/BoardEditPage";
 import AdminDashboard from "./features/admin/AdminDashboard";
 import MessageDetail from "./features/message/MessageDetail";
 import MessagesPage from "./features/message/MessagePage"; 
+import AdminPendingPage from "./features/admin/AdminPendingPage";
+import AdminReportsPage from "./features/admin/AdminReportsPage";
 
 // ---------------------------------------
 // 🏠 홈 페이지
@@ -230,6 +232,25 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
+          <Route
+            path="/admin/pending"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminPendingPage />
+              </ProtectedRoute>
+          }
+        />
+
+
+          <Route
+            path="/admin/reports"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminReportsPage />
+              </ProtectedRoute>
+          }
+        />
 
           {/* ✅ 수정: 기존 MessageInbox → MessagesPage로 교체 */}
           <Route

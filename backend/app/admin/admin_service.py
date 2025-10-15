@@ -182,3 +182,24 @@ def resolve_report(report_id: int, admin_id: int, action: str, reason: Optional[
     finally:
         if close:
             db.close()
+
+def get_admin_stats(db: Session):
+    """
+    관리자 대시보드 통계 조회용
+    """
+    result = {
+        "pending_posts": 0,
+        "pending_reports": 0,
+    }
+
+    # ✅ 승인 대기 게시글 수
+    result["pending_posts"] = db.execute(
+        text("SELECT COUNT(*) FROM posts WHERE status = 'PENDING'")
+    ).scalar() or 0
+
+    # ✅ 처리 대기 신고 수
+    result["pending_reports"] = db.execute(
+        text("SELECT COUNT(*) FROM reports WHERE status = 'PENDING'")
+    ).scalar() or 0
+
+    return result

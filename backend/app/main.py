@@ -92,6 +92,7 @@ from app.meta import meta_router
 from app.files import upload_router
 from app.board import board_router
 from app.users import user_router
+from app.admin import admin_router
 
 app.include_router(auth_router.router)
 app.include_router(social_router.router)
@@ -104,7 +105,7 @@ app.include_router(meta_router.router)
 app.include_router(upload_router.router)
 app.include_router(board_router.router)
 app.include_router(user_router.router)
-app.include_router(admin_router)
+app.include_router(admin_router.router)
 app.include_router(notification_router)
 app.include_router(message_router)
 
