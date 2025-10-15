@@ -81,10 +81,12 @@ export default function MessageDetail({ message }) {
 
       <div className="border rounded p-3 bg-white shadow-sm">
         <p className="text-sm mb-1">
-          <strong>보낸 사람:</strong> {message.sender_id}
+          <strong>보낸 사람:</strong>{" "}
+          {message.sender_nickname || message.sender_id}
         </p>
         <p className="text-sm mb-1">
-          <strong>받은 사람:</strong> {message.receiver_id}
+          <strong>받은 사람:</strong>{" "}
+          {message.receiver_nickname || message.receiver_id}
         </p>
 
         <div className="my-3 whitespace-pre-line text-sm leading-relaxed">

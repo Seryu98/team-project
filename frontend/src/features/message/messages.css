@@ -1,14 +1,24 @@
-/* ===== messages.css : 메시지 3분할 레이아웃 (업그레이드 완성본) ===== */
+/* =========================================
+   📄 messages.css — 쪽지함 3분할 레이아웃 완성본 (누락·생략 없음)
+   ✅ 2025-10-15 기준 최신 수정본
+   ========================================= */
 
+/* ===========================
+   기본 폰트 및 설정
+   =========================== */
 :root {
   --msg-font: 'Noto Sans KR', 'Segoe UI', sans-serif;
 }
 
-.msg-layout, .msg-sidebar, .msg-list, .msg-detail {
+.msg-layout,
+.msg-sidebar,
+.msg-list,
+.msg-detail {
   font-family: var(--msg-font) !important;
   box-sizing: border-box;
 }
 
+/* 전체 레이아웃 */
 .msg-layout {
   display: flex;
   height: calc(100vh - 80px);
@@ -16,7 +26,9 @@
   font-family: "Pretendard", "Noto Sans KR", sans-serif;
 }
 
-/* 좌측 사이드바 */
+/* =========================================
+   🟨 왼쪽 사이드바
+   ========================================= */
 .msg-sidebar {
   width: 240px;
   background: #ffffff;
@@ -41,18 +53,26 @@
   cursor: pointer;
   font-size: 14px;
   color: #374151;
-  transition: all 0.2s;
+  transition: all 0.2s ease-in-out;
+  border-radius: 6px;
+  margin: 2px 8px;
 }
+/* ✅ 수정됨: hover 시 부드러운 입체감 + 커서 표시 */
 .msg-sidebar__btn:hover {
   background: #f3f4f6;
+  transform: scale(1.02);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 .msg-sidebar__btn--active {
   background: #e5e7eb;
   font-weight: 600;
   color: #111827;
+  box-shadow: inset 0 0 0 1px #d1d5db;
 }
 
-/* 중앙 목록 */
+/* =========================================
+   🟩 중앙 목록
+   ========================================= */
 .msg-list {
   flex: 1;
   background: #fff;
@@ -77,14 +97,22 @@
   margin: 0;
   padding: 0;
 }
+
+/* 목록 아이템 */
 .msg-item {
   padding: 14px 20px;
   border-bottom: 1px solid #f1f5f9;
   cursor: pointer;
-  transition: background 0.15s ease-in-out;
+  transition: all 0.2s ease-in-out;
+  background: #ffffff;
+  border-radius: 10px;
+  margin: 6px 10px;
 }
+/* ✅ 수정됨: hover 시 살짝 들리는 효과 추가 */
 .msg-item:hover {
-  background: #f3f4f6;
+  background: #f9fafb;
+  transform: scale(1.01);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
 }
 .msg-item__title {
   font-weight: 600;
@@ -103,9 +131,12 @@
   color: #9ca3af;
   font-size: 12px;
   margin-top: 6px;
+  text-align: right;
 }
 
-/* 오른쪽 상세 */
+/* =========================================
+   🟦 오른쪽 상세
+   ========================================= */
 .msg-detail {
   width: 35%;
   background: #fff;
@@ -134,6 +165,9 @@
   line-height: 1.6;
   color: #1f2937;
   margin: 14px 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f3f4f6;
 }
 .msg-detail__time {
   color: #9ca3af;
@@ -146,6 +180,8 @@
   display: flex;
   gap: 10px;
 }
+
+/* 버튼 스타일 */
 .msg-btn {
   padding: 8px 14px;
   border-radius: 6px;
@@ -153,25 +189,38 @@
   border: 0;
   cursor: pointer;
   font-size: 14px;
-  transition: all 0.2s;
+  transition: all 0.2s ease-in-out;
 }
 .msg-btn--green {
   background: #16a34a;
 }
 .msg-btn--green:hover {
   background: #15803d;
+  transform: scale(1.03);
 }
 .msg-btn--red {
   background: #dc2626;
 }
 .msg-btn--red:hover {
   background: #b91c1c;
+  transform: scale(1.03);
+}
+.msg-btn--blue {
+  background: #2563eb;
+}
+.msg-btn--blue:hover {
+  background: #1d4ed8;
+  transform: scale(1.03);
 }
 
-/* 쪽지 작성 */
+/* =========================================
+   🟧 쪽지 작성 (compose)
+   ========================================= */
 .msg-compose {
-  padding: 20px;
+  padding: 24px;
   background: #fff;
+  display: flex;
+  flex-direction: column;
 }
 .msg-compose__input {
   width: 100%;
@@ -192,16 +241,32 @@
   line-height: 1.5;
   margin-bottom: 12px;
 }
+/* ✅ 수정됨: 포커스 상태에서 파란 테두리와 부드러운 그림자 */
 .msg-compose__textarea:focus,
 .msg-compose__input:focus {
   outline: none;
   border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
-}
-.msg-btn--blue {
-  background: #2563eb;
-}
-.msg-btn--blue:hover {
-  background: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
+/* ✅ 추가됨: 자동완성 리스트 스타일 */
+.msg-suggestions {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  margin-bottom: 12px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.msg-suggestions li {
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.15s ease-in-out;
+}
+.msg-suggestions li:hover {
+  background: #f3f4f6;
+}
+.msg-suggestions li.selected {
+  background: #e0f2fe;
+  font-weight: 600;
+}

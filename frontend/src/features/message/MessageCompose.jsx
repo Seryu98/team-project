@@ -3,21 +3,47 @@ import React, { useState } from "react";
 import axios from "axios";
 
 export default function MessageCompose({ onSent }) {
-  // ✅ 입력 상태 정의
-  const [receiverId, setReceiverId] = useState(""); // 받는 사람 ID
+  /* ================================
+     ✅ 상태 정의
+  ================================ */
+  const [receiverNickname, setReceiverNickname] = useState(""); // ✅ 닉네임 기반
+  const [suggestions, setSuggestions] = useState([]); // 자동완성 목록
   const [content, setContent] = useState(""); // 쪽지 내용
-  const [loading, setLoading] = useState(false); // 전송 중 상태
-  const [error, setError] = useState(null); // 에러 메시지 저장용
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
 
-  // ✅ 쪽지 전송 함수
+  /* ================================
+     ✅ 닉네임 검색 기능
+  ================================ */
+  const searchUser = async (nickname) => {
+    try {
+      if (!nickname.trim()) return setSuggestions([]);
+      const token = localStorage.getItem("access_token");
+      const res = await axios.get(
+        `http://localhost:8000/users/search?nickname=${nickname}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSuggestions(res.data.data || []);
+    } catch (err) {
+      console.error("❌ 유저 검색 실패:", err);
+      setSuggestions([]);
+    }
+  };
+
+  /* ================================
+     ✅ 쪽지 전송 함수
+  ================================ */
   async function handleSend() {
-    if (!receiverId.trim() || !content.trim()) {
-      alert("받는 사람 ID와 내용을 모두 입력하세요.");
+    if (!receiverNickname.trim() || !content.trim()) {
+      alert("받는 사람과 내용을 모두 입력하세요.");
       return;
     }
 
     setLoading(true);
     setError(null);
+    setSuccess(false);
+
     try {
       const token = localStorage.getItem("access_token");
       if (!token) {
@@ -26,24 +52,20 @@ export default function MessageCompose({ onSent }) {
         return;
       }
 
-      // ✅ API 요청
+      // ✅ 수정됨: receiver_nickname 기반 전송으로 변경
       const res = await axios.post(
         "http://localhost:8000/messages",
-        {
-          receiver_id: receiverId,
-          content: content,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { receiver_nickname: receiverNickname.trim(), content },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // ✅ 결과 처리
       if (res.data?.success) {
-        alert("쪽지를 성공적으로 보냈습니다!");
-        setReceiverId("");
+        setSuccess(true);
+        setReceiverNickname("");
         setContent("");
-        onSent?.(); // 보낸 후 콜백 (보낸함으로 이동 등)
+        setSuggestions([]);
+        alert("쪽지를 성공적으로 보냈습니다!");
+        onSent?.(); // 보낸함으로 이동
       } else {
         alert("쪽지 전송에 실패했습니다.");
       }
@@ -59,44 +81,78 @@ export default function MessageCompose({ onSent }) {
     }
   }
 
-  // ✅ 렌더링
+  /* ================================
+     ✅ 렌더링
+  ================================ */
   return (
-    <div className="msg-detail__inner">
+    <div className="msg-compose">
       <h3 className="msg-detail__title">쪽지 보내기</h3>
 
-      {/* 에러 메시지 */}
+      {/* ✅ 전송 성공 메시지 */}
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm mb-3 p-2 rounded">
+          ✅ 쪽지가 성공적으로 전송되었습니다.
+        </div>
+      )}
+
+      {/* ✅ 에러 메시지 */}
       {error && (
         <div className="text-red-500 text-sm mb-3 bg-red-50 border border-red-200 rounded p-2">
           ⚠️ {error}
         </div>
       )}
 
-      <div>
-        <label className="block text-sm font-semibold mb-2">받는 사람 ID</label>
-        <input
-          type="number"
-          value={receiverId}
-          onChange={(e) => setReceiverId(e.target.value)}
-          className="w-full border rounded p-2 mb-3"
-          placeholder="예: 12"
-        />
+      {/* ✅ 닉네임 입력 */}
+      <label className="block text-sm font-semibold mb-2">받는 사람 닉네임</label>
+      <input
+        type="text"
+        value={receiverNickname}
+        onChange={(e) => {
+          setReceiverNickname(e.target.value);
+          searchUser(e.target.value);
+        }}
+        className="w-full border rounded p-2 mb-2"
+        placeholder="예: 홍길동"
+        disabled={loading}
+      />
 
-        <label className="block text-sm font-semibold mb-2">내용</label>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="w-full border rounded p-2 h-40 resize-none"
-          placeholder="쪽지 내용을 입력하세요."
-        />
+      {/* ✅ 자동완성 목록 */}
+      {suggestions.length > 0 && (
+        <ul className="border rounded mb-3 bg-white max-h-40 overflow-y-auto">
+          {suggestions.map((user) => (
+            <li
+              key={user.id}
+              className="p-2 cursor-pointer hover:bg-blue-50"
+              onClick={() => {
+                setReceiverNickname(user.nickname);
+                setSuggestions([]);
+              }}
+            >
+              {user.nickname}{" "}
+              <span className="text-gray-400">({user.user_id})</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
-        <button
-          onClick={handleSend}
-          disabled={loading}
-          className="msg-btn msg-btn--green mt-3 w-full"
-        >
-          {loading ? "전송 중..." : "📨 쪽지 보내기"}
-        </button>
-      </div>
+      {/* ✅ 쪽지 내용 입력 */}
+      <label className="block text-sm font-semibold mb-2">내용</label>
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        className="w-full border rounded p-2 h-40 resize-none"
+        placeholder="쪽지 내용을 입력하세요."
+        disabled={loading}
+      />
+
+      {/* ✅ 전송 버튼 */}
+      <button
+        onClick={handleSend}
+        disabled={loading}
+        className={`msg-btn msg-btn--green w-full ${loading ? "opacity-70" : ""}`}
+      >
+        {loading ? "📨 전송 중..." : "📨 쪽지 보내기"}
+      </button>
     </div>
   );
 }

@@ -2,53 +2,48 @@
 import React from "react";
 
 export default function MessageList({ messages, selectedTab, onSelect }) {
-  if (!messages || messages.length === 0)
-    return (
-      <p className="p-4 text-gray-500 text-center">
-        쪽지가 없습니다.
-      </p>
-    );
+  if (!messages || messages.length === 0) {
+    return <p className="p-4 text-gray-500">쪽지가 없습니다.</p>;
+  }
+
+  // 공지 본문/제목 필드가 API마다 다를 수 있어 안전하게 처리
+  const getNoticeTitle = (m) => m.title || m.subject || "공지";
+  const getNoticeBody  = (m) => m.content || m.body || "";
 
   return (
-    <ul className="divide-y">
+    <ul className="msg-list__ul">
       {messages.map((m) => (
         <li
           key={m.id}
-          onClick={() => onSelect(m)}
-          className="p-3 hover:bg-gray-100 cursor-pointer transition-colors"
+          className="msg-item"
+          onClick={() => onSelect && onSelect(m)}
         >
-          {selectedTab === "notice" ? (
-            <>
-              <p className="font-semibold text-blue-600 flex items-center gap-1">
-                📢 관리자 공지
-              </p>
-              <p className="text-sm text-gray-700 truncate">
-                {m.title || "(제목 없음)"}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                {new Date(m.created_at).toLocaleString()}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="font-semibold text-gray-800">
-                {selectedTab === "inbox"
-                  ? `보낸 사람 ID: ${m.sender_id}`
-                  : `받는 사람 ID: ${m.receiver_id}`}
-              </p>
+          {/* 제목 영역 */}
+          <div className="msg-item__title">
+            {selectedTab === "notice" ? (
+              `📢 ${getNoticeTitle(m)}`
+            ) : selectedTab === "inbox" ? (
+              `보낸 사람: ${m.sender_nickname || m.sender_id}`
+            ) : (
+              `받는 사람: ${m.receiver_nickname || m.receiver_id}`
+            )}
+          </div>
 
-              {/* ✅ 쪽지 내용 요약 (앞 20자만 표시) */}
-              <p className="text-sm text-gray-600 mt-1 truncate">
-                {m.content?.slice(0, 20) || ""}
-                {m.content?.length > 20 && "..."}
-              </p>
+          {/* 미리보기(20~40자 정도) */}
+          <div className="msg-item__preview">
+            {selectedTab === "notice"
+              ? getNoticeBody(m).slice(0, 40)
+              : (m.content || "").slice(0, 40)}
+            {(selectedTab === "notice"
+              ? getNoticeBody(m)
+              : (m.content || "")
+            ).length > 40 && "..."}
+          </div>
 
-              {/* ✅ 날짜 */}
-              <p className="text-xs text-gray-400 mt-1">
-                {new Date(m.created_at).toLocaleString()}
-              </p>
-            </>
-          )}
+          {/* 날짜/메타 */}
+          <div className="msg-item__meta">
+            {m.created_at ? new Date(m.created_at).toLocaleString() : ""}
+          </div>
         </li>
       ))}
     </ul>

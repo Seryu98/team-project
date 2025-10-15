@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.core.database import get_db
 from app.notifications.notification_service import send_notification
+from app.users.user_model import User  # 🚀 추가됨
+from fastapi import HTTPException
 import re
 
 def _get_db(db: Optional[Session] = None):
@@ -54,32 +56,51 @@ def send_message(sender_id: int, receiver_id: int, content: str, db: Optional[Se
             db.close()
 
 # ---------------------------------------------------------------------
+# 🚀 추가됨: 닉네임 기반 메시지 전송
+# ---------------------------------------------------------------------
+def send_message_by_nickname(sender_id: int, receiver_nickname: str, content: str, db: Optional[Session] = None) -> int:
+    """
+    닉네임으로 수신자 조회 후 쪽지 전송
+    """
+    db, close = _get_db(db)
+    try:
+        receiver = db.query(User).filter(User.nickname == receiver_nickname).first()
+        if not receiver:
+            raise HTTPException(status_code=404, detail="존재하지 않는 사용자입니다.")
+
+        if receiver.id == sender_id:
+            raise HTTPException(status_code=400, detail="자기 자신에게 쪽지를 보낼 수 없습니다.")
+
+        return send_message(sender_id=sender_id, receiver_id=receiver.id, content=content, db=db)
+    finally:
+        if close:
+            db.close()
+
+# ---------------------------------------------------------------------
 # ✅ 수신함 목록
-#   - 필요시 application_status를 함께 보고 싶으면 아래 주석 처리된 부분 해제
-#     (N+1을 피하려면 상세에서만 상태를 불러오는 게 성능상 유리)
 # ---------------------------------------------------------------------
 def list_inbox(user_id: int, limit: int = 50, db: Optional[Session] = None) -> List[Dict]:
     db, close = _get_db(db)
     try:
         rows = db.execute(text("""
-            SELECT m.id, m.sender_id, m.receiver_id, m.content, m.is_read, m.created_at
+            SELECT 
+                m.id,
+                m.sender_id,
+                sender.nickname AS sender_nickname,  -- 🚀 추가됨
+                m.receiver_id,
+                receiver.nickname AS receiver_nickname,  -- 🚀 추가됨
+                m.content,
+                m.is_read,
+                m.created_at
             FROM messages m
+            JOIN users sender ON m.sender_id = sender.id
+            JOIN users receiver ON m.receiver_id = receiver.id
             WHERE m.receiver_id = :u
             ORDER BY m.id DESC
             LIMIT :limit
         """), {"u": user_id, "limit": limit}).mappings().all()
 
         items: List[Dict] = [dict(r) for r in rows]
-
-        # ---- (옵션) 목록에도 지원서 상태를 붙이고 싶으면 아래 주석 해제 ----
-        # for it in items:
-        #     application_id = _extract_application_id(it.get("content"))
-        #     if application_id:
-        #         status = db.execute(text("SELECT status FROM applications WHERE id=:aid"),
-        #                             {"aid": application_id}).scalar()
-        #         it["application_status"] = status
-        # --------------------------------------------------------------
-
         return items
     finally:
         if close:
@@ -92,8 +113,18 @@ def list_sent(user_id: int, limit: int = 50, db: Optional[Session] = None) -> Li
     db, close = _get_db(db)
     try:
         rows = db.execute(text("""
-            SELECT m.id, m.sender_id, m.receiver_id, m.content, m.is_read, m.created_at
+            SELECT 
+                m.id,
+                m.sender_id,
+                sender.nickname AS sender_nickname,  -- 🚀 추가됨
+                m.receiver_id,
+                receiver.nickname AS receiver_nickname,  -- 🚀 추가됨
+                m.content,
+                m.is_read,
+                m.created_at
             FROM messages m
+            JOIN users sender ON m.sender_id = sender.id
+            JOIN users receiver ON m.receiver_id = receiver.id
             WHERE m.sender_id = :u
             ORDER BY m.id DESC
             LIMIT :limit
@@ -105,23 +136,31 @@ def list_sent(user_id: int, limit: int = 50, db: Optional[Session] = None) -> Li
 
 # ---------------------------------------------------------------------
 # ✅ 단일 메시지 조회 (상세)
-#   - 메시지 본문에서 application_id를 파싱하여 지원서 상태를 함께 반환
 # ---------------------------------------------------------------------
 def get_message(user_id: int, message_id: int, db: Optional[Session] = None) -> Optional[Dict]:
     db, close = _get_db(db)
     try:
         row = db.execute(text("""
-            SELECT id, sender_id, receiver_id, content, is_read, created_at
-            FROM messages
-            WHERE id = :mid
-              AND (sender_id = :u OR receiver_id = :u)
+            SELECT 
+                m.id,
+                m.sender_id,
+                sender.nickname AS sender_nickname,  -- 🚀 추가됨
+                m.receiver_id,
+                receiver.nickname AS receiver_nickname,  -- 🚀 추가됨
+                m.content,
+                m.is_read,
+                m.created_at
+            FROM messages m
+            JOIN users sender ON m.sender_id = sender.id
+            JOIN users receiver ON m.receiver_id = receiver.id
+            WHERE m.id = :mid
+              AND (m.sender_id = :u OR m.receiver_id = :u)
         """), {"mid": message_id, "u": user_id}).mappings().first()
 
         if not row:
             return None
 
         data = dict(row)
-
         # ✅ application_id 파싱 → 상태 조회
         application_id = _extract_application_id(data.get("content"))
         application_status = None
@@ -131,7 +170,7 @@ def get_message(user_id: int, message_id: int, db: Optional[Session] = None) -> 
                 {"aid": application_id}
             ).scalar()
 
-        data["application_status"] = application_status  # ← 프론트에서 버튼 노출 판단에 사용
+        data["application_status"] = application_status
         return data
     finally:
         if close:
