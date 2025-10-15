@@ -55,7 +55,10 @@ class UpdateUserRequest(BaseModel):
 @router.get("/check-id")
 def check_user_id(user_id: str, db: Session = Depends(get_db)):
     """🔎 아이디 중복 확인 API"""
-    existing_user = db.query(User).filter(User.user_id == user_id).first()
+    existing_user = db.query(User).filter(
+        User.user_id == user_id,
+        User.status == UserStatus.ACTIVE  # ✅ ACTIVE인 계정만 중복으로 판단
+    ).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="이미 사용 중인 아이디입니다.")
     return {"message": "사용 가능한 아이디입니다."}
@@ -77,21 +80,33 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         if not user.email or not re.match(email_pattern, user.email):
             raise ValueError("이메일 형식이 올바르지 않습니다.")
 
-        # ✅ 이메일 중복 확인
-        if db.query(User).filter(User.email == user.email).first():
+        # ✅ 이메일 중복 확인 (ACTIVE 계정만)
+        if db.query(User).filter(
+            User.email == user.email,
+            User.status == UserStatus.ACTIVE
+        ).first():
             raise ValueError("이미 등록된 이메일입니다.")
 
-        # ✅ 아이디 중복 확인
-        if db.query(User).filter(User.user_id == user.user_id).first():
+        # ✅ 아이디 중복 확인 (ACTIVE 계정만)
+        if db.query(User).filter(
+            User.user_id == user.user_id,
+            User.status == UserStatus.ACTIVE
+        ).first():
             raise ValueError("이미 사용 중인 아이디입니다.")
 
-        # ✅ 닉네임 중복 확인
-        if db.query(User).filter(User.nickname == user.nickname).first():
+        # ✅ 닉네임 중복 확인 (ACTIVE 계정만)
+        if db.query(User).filter(
+            User.nickname == user.nickname,
+            User.status == UserStatus.ACTIVE
+        ).first():
             raise ValueError("이미 사용 중인 닉네임입니다.")
 
-        # ✅ 전화번호 중복 확인 (입력된 경우만)
+        # ✅ 전화번호 중복 확인 (입력된 경우만, ACTIVE 계정만)
         if user.phone_number:
-            if db.query(User).filter(User.phone_number == user.phone_number).first():
+            if db.query(User).filter(
+                User.phone_number == user.phone_number,
+                User.status == UserStatus.ACTIVE
+            ).first():
                 raise ValueError("이미 등록된 전화번호입니다.")
 
         # ✅ 회원 등록
@@ -170,6 +185,7 @@ def get_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
         "phone_number": user.phone_number,
         "role": getattr(user, "role", "user"),
         "status": user.status,
+        "auth_provider": getattr(user, "auth_provider", "local"),  # ✅ 추가된 부분
     }
 
 
@@ -206,7 +222,7 @@ def update_me(req: UpdateUserRequest, token: str = Depends(oauth2_scheme), db: S
 # ===============================
 @router.delete("/delete-account")
 def delete_account(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """💀 회원 탈퇴 (Soft Delete)"""
+    """💀 회원 탈퇴 (Soft Delete + 중복 방지용 필드 변경)"""
     payload = verify_token(token, expected_type="access")
     if not payload:
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
@@ -217,6 +233,13 @@ def delete_account(token: str = Depends(oauth2_scheme), db: Session = Depends(ge
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
     if user.status == UserStatus.DELETED:
         raise HTTPException(status_code=400, detail="이미 탈퇴한 계정입니다.")
+
+    # ✅ 중복 방지용 이메일/닉네임/전화번호 변경
+    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    user.email = f"{user.email}_deleted_{timestamp}"
+    user.nickname = f"{user.nickname}_deleted_{timestamp}"
+    if user.phone_number:
+        user.phone_number = f"{user.phone_number}_deleted"
 
     user.status = UserStatus.DELETED
     user.deleted_at = datetime.utcnow()
@@ -291,7 +314,8 @@ def social_callback(provider: str, code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception:
         raise HTTPException(status_code=500, detail="소셜 로그인 중 오류가 발생했습니다.")
-    
+
+
 @router.patch("/tutorial-complete")
 def complete_tutorial(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """튜토리얼 완료 처리"""
@@ -300,7 +324,11 @@ def complete_tutorial(token: str = Depends(oauth2_scheme), db: Session = Depends
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
 
     user_id = payload.get("sub")
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    user = db.query(User).filter(
+        User.id == int(user_id),
+        User.status == UserStatus.ACTIVE  # ✅ DELETED 계정은 제외
+    ).first()
+
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
