@@ -107,6 +107,9 @@
   background: #ffffff;
   border-radius: 10px;
   margin: 6px 10px;
+  position: relative;
+  overflow: visible; /* ✅ 아이콘 잘림 방지 */
+  display: block; /* ✅ 기준점을 정확히 li 전체로 맞춤 */
 }
 /* ✅ 수정됨: hover 시 살짝 들리는 효과 추가 */
 .msg-item:hover {
