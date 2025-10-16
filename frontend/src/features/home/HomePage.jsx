@@ -274,7 +274,7 @@ export default function HomePage() {
                     <section style={{ marginBottom: '4rem', marginTop: '4rem' }}>
                         <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
                             <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '0.5rem' }}>
-                                팔로워 ×1 · 게시물 ×2 · 좋아요 ×3
+                                팔로워 1점 · 게시물 2점 · 좋아요 3점
                             </p>
                             <h2 style={{
                                 fontSize: '2rem',
