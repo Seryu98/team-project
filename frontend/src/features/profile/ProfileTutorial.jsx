@@ -143,51 +143,60 @@ export default function ProfileTutorial() {
   };
 
   const handleComplete = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("access_token");
+  try {
+    setLoading(true);
+    const token = localStorage.getItem("access_token");
 
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-        await api.post("/profiles/me/image", formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-      }
-
-      await api.put(
-        "/profiles/me",
-        {
-          headline: form.headline,
-          bio: form.bio,
-          experience: form.experience,
-          certifications: form.certifications,
+    // 1. 프로필 이미지 업로드
+    if (selectedFile) {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      await api.post("/profiles/me/image", formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
         },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      for (const skill of selectedSkills) {
-        await api.post(
-          `/skills/me`,
-          { skill_id: skill.id, level: skill.level },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
-
-      alert("프로필 설정이 완료되었습니다! 🎉");
-      navigate("/");
-    } catch (error) {
-      console.error("프로필 저장 실패:", error);
-      alert("프로필 저장 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
+      });
     }
-  };
+
+    // 2. 프로필 정보 저장
+    await api.put(
+      "/profiles/me",
+      {
+        headline: form.headline,
+        bio: form.bio,
+        experience: form.experience,
+        certifications: form.certifications,
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    // 3. 스킬 저장
+    for (const skill of selectedSkills) {
+      await api.post(
+        `/skills/me`,
+        { skill_id: skill.id, level: skill.level },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    }
+
+    // ✅ 4. 튜토리얼 완료 API 호출 추가!
+    await api.patch("/auth/tutorial-complete", {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    console.log("✅ 튜토리얼 완료 처리됨");
+    alert("프로필 설정이 완료되었습니다! 🎉");
+    navigate("/");
+  } catch (error) {
+    console.error("프로필 저장 실패:", error);
+    alert("프로필 저장 중 오류가 발생했습니다.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const StarRating = ({ level, onSelect }) => (
     <div style={{ display: "flex", gap: "2px" }}>

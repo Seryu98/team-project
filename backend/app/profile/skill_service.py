@@ -118,3 +118,4 @@ def remove_user_skill(db: Session, user_id: int, skill_id: int):
     db.delete(user_skill)
     db.commit()
     return {"success": True, "message": "스킬이 삭제되었습니다."}
+

@@ -272,7 +272,11 @@ const renderButtons = (item, isMine) => {
         <div className="detail-header">
           <div className="author-box">
             <img
-              src={post.author.profile_image || "/default_profile.png"}
+              src={
+                post.author.profile_image
+                  ? `http://localhost:8000${post.author.profile_image}`
+                  : "http://localhost:8000/assets/profile/default_profile.png"
+              }
               alt="프로필"
               className="profile-thumb"
               onClick={() => navigate(`/profile/${post.author.id}`)}
@@ -344,7 +348,11 @@ const renderButtons = (item, isMine) => {
                   <>
                     <div className="comment-header">
                       <img
-                        src={c.user.profile_image || "/default_profile.png"}
+                        src={
+                          c.user.profile_image
+                            ? `http://localhost:8000${c.user.profile_image}`
+                            : "http://localhost:8000/assets/profile/default_profile.png"
+                        }
                         alt="프로필"
                         className="profile-thumb-small"
                       />
@@ -404,7 +412,11 @@ const renderButtons = (item, isMine) => {
                             <>
                               <div className="comment-header">
                                 <img
-                                  src={r.user.profile_image || "/default_profile.png"}
+                                  src={
+                                    r.user.profile_image
+                                      ? `http://localhost:8000${r.user.profile_image}`
+                                      : "http://localhost:8000/assets/profile/default_profile.png"
+                                  }
                                   alt="프로필"
                                   className="profile-thumb-small"
                                 />

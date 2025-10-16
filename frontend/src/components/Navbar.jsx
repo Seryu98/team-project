@@ -35,6 +35,7 @@ export default function Navbar() {
     if (list) list.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+
   // 로그인 상태 확인 및 프로필 이미지 가져오기
   useEffect(() => {
     async function fetchUser() {
@@ -79,6 +80,7 @@ export default function Navbar() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+
       if (data?.data) setNotifications(data.data);
       else if (data?.items) setNotifications(data.items);
 
@@ -91,6 +93,7 @@ export default function Navbar() {
         setUnreadCount(unreadRes.data.data.count);
     } catch (e) {
       console.error("❌ 알림 불러오기 실패:", e);
+
     }
   }
 
