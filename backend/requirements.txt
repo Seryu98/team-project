@@ -8,14 +8,17 @@ cryptography==43.0.1
 # auth / security
 python-jose==3.3.0
 passlib[bcrypt]==1.7.4
-bcrypt==3.2.2   # compatible version
+bcrypt==3.2.2  # compatible version
 
 # pydantic (v2)
 pydantic==2.9.2
-pydantic-settings==2.6.1   # settings management (with python-dotenv)
+pydantic-settings==2.6.1  # settings management (with python-dotenv)
+
+# http requests
+requests==2.32.3
 
 # etc
 typing-extensions>=4.12.2
 
-# http requests
-requests==2.32.3
+# email validation (DNS MX check)
+dnspython==2.6.1
