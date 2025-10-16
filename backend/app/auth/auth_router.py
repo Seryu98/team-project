@@ -150,9 +150,15 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 @router.post("/refresh")
 def refresh_token(req: RefreshRequest):
     """♻️ Refresh Token으로 Access Token 재발급"""
+    # ✅ verify_token()으로 Refresh 유효성 검증
+    payload = verify_token(req.refresh_token, expected_type="refresh")
+    if not payload:
+        raise HTTPException(status_code=401, detail="리프레시 토큰이 유효하지 않습니다.")
+
+    # 검증 통과 후 Access 토큰 재발급
     new_token = auth_service.refresh_access_token(req.refresh_token)
     if not new_token:
-        raise HTTPException(status_code=401, detail="리프레시 토큰이 유효하지 않습니다.")
+        raise HTTPException(status_code=401, detail="Access 토큰 재발급에 실패했습니다.")
     return new_token
 
 
