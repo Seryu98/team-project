@@ -11,6 +11,7 @@ import {
 } from "./BoardAPI";
 import { getCurrentUser } from "../auth/api";
 import "./Board.css";
+import { submitReport } from "../../shared/api/reportApi";
 
 export default function BoardDetailPage() {
   const { id } = useParams();
@@ -189,37 +190,75 @@ export default function BoardDetailPage() {
   }, 0);
 
   // ✅ 권한별 버튼 렌더
-  const renderButtons = (item, isMine) => {
-    if (isOwner) {
-      return (
-        <>
-          {isMine && (
-            <button className="edit-btn" onClick={() => startEdit(item.id, item.content)}>
-              수정
-            </button>
-          )}
-          <button className="delete-btn" onClick={() => handleCommentDelete(item.id)}>
-            삭제
-          </button>
-          {!isMine && <button className="report-btn">🚨 신고</button>}
-        </>
-      );
-    }
-    if (isMine) {
-      return (
-        <>
+const renderButtons = (item, isMine) => {
+  // 게시글 작성자가 본인일 때
+  if (isOwner) {
+    return (
+      <>
+        {isMine && (
           <button className="edit-btn" onClick={() => startEdit(item.id, item.content)}>
             수정
           </button>
-          <button className="delete-btn" onClick={() => handleCommentDelete(item.id)}>
-            삭제
+        )}
+        <button className="delete-btn" onClick={() => handleCommentDelete(item.id)}>
+          삭제
+        </button>
+        {!isMine && (
+          <button
+            className="report-btn"
+            onClick={async () => {
+              const reason = prompt("신고 사유를 입력해주세요:");
+              if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
+              try {
+                await submitReport("COMMENT", item.id, reason);
+                alert("🚨 댓글 신고가 접수되었습니다.");
+              } catch (err) {
+                console.error("❌ 댓글 신고 실패:", err);
+                alert("신고 중 오류가 발생했습니다.");
+              }
+            }}
+          >
+            🚨 신고
           </button>
-        </>
-      );
-    }
-    return <button className="report-btn">🚨 신고</button>;
-  };
+        )}
+      </>
+    );
+  }
 
+  // 댓글 작성자가 본인일 때
+  if (isMine) {
+    return (
+      <>
+        <button className="edit-btn" onClick={() => startEdit(item.id, item.content)}>
+          수정
+        </button>
+        <button className="delete-btn" onClick={() => handleCommentDelete(item.id)}>
+          삭제
+        </button>
+      </>
+    );
+  }
+
+  // ✅ 신고 버튼 추가 (기존 댓글 주인 아닌 사용자)
+  return (
+    <button
+      className="report-btn"
+      onClick={async () => {
+        const reason = prompt("신고 사유를 입력해주세요:");
+        if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
+        try {
+          await submitReport("COMMENT", item.id, reason);
+          alert("🚨 댓글 신고가 접수되었습니다.");
+        } catch (err) {
+          console.error("❌ 댓글 신고 실패:", err);
+          alert("신고 중 오류가 발생했습니다.");
+        }
+      }}
+    >
+      🚨 신고
+    </button>
+  );
+};
   // ===============================
   // ✅ 화면 렌더링
   // ===============================

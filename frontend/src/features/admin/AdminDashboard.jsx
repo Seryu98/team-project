@@ -50,6 +50,15 @@ export default function AdminDashboard() {
             {stats.pending_reports}
           </p>
         </div>
+
+        {/* ✅ 새로 추가된 제재 유저 관리 */}
+        <div
+          className="bg-gray-100 p-4 rounded-lg shadow cursor-pointer hover:bg-gray-200 transition"
+          onClick={() => navigate("/admin/users")}
+        >
+          <h2 className="text-xl font-semibold">제재 유저 관리</h2>
+          <p className="text-3xl mt-2 font-bold text-gray-700">⚙️</p>
+        </div>
       </div>
 
       <div className="mt-10">

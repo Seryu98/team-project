@@ -6,7 +6,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
-from app.admin.admin_router import router as admin_router
 from app.notifications.notification_router import router as notification_router
 from app.messages.message_router import router as message_router
 
@@ -54,19 +53,21 @@ app = FastAPI(
 )
 
 # ===================================
-# 🌐 CORS 설정 (라우터 등록보다 위)
+# 🌐 CORS 설정 (필수)
 # ===================================
 origins = [
-    "http://localhost:5173",
+    "http://localhost:5173", 
     "http://127.0.0.1:5173",
 ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ===================================
 # 🗂️ 정적 파일 마운트
@@ -93,6 +94,8 @@ from app.files import upload_router
 from app.board import board_router
 from app.users import user_router
 from app.admin import admin_router
+from app.report import report_router
+from app.admin.admin_user_router import router as admin_user_router
 
 app.include_router(auth_router.router)
 app.include_router(social_router.router)
@@ -108,6 +111,8 @@ app.include_router(user_router.router)
 app.include_router(admin_router.router)
 app.include_router(notification_router)
 app.include_router(message_router)
+app.include_router(report_router.router)
+app.include_router(admin_user_router)
 
 # ===================================
 # 🏠 기본 라우트

@@ -7,6 +7,7 @@ from sqlalchemy import text
 from app.core.database import get_db
 from app.notifications.notification_service import send_notification
 from app.messages.message_service import send_message
+from app.notifications.notification_model import NotificationType
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,8 @@ def on_application_submitted(
             ),
             db=db,
         )
+
+        db.commit()  # 🔧 추가됨: 위 알림/쪽지 작업을 하나의 트랜잭션으로 커밋 (누락 방지)
     finally:
         if close:
             db.close()
@@ -139,20 +142,32 @@ def on_application_decided(application_id: int, applicant_id: int, accepted: boo
 def on_report_created(report_id: int, reporter_user_id: int, db: Optional[Session] = None):
     db, close = _get_db(db)
     try:
+        # 관리자들에게 알림
         for admin_id in _get_admin_ids(db):
             send_notification(
                 user_id=admin_id,
-                type_="REPORT_RECEIVED",
+                type_=NotificationType.REPORT_RECEIVED.value,
                 message=f"신고가 접수되었습니다. (report_id={report_id})",
                 related_id=report_id,
+                redirect_path="/admin/reports",
                 db=db,
             )
+
+        # ✅ 신고자에게도 접수 알림
+        send_notification(
+            user_id=reporter_user_id,
+            type_=NotificationType.REPORT_RECEIVED.value,  # 프론트 아이콘 매핑에 이미 존재
+            message=f"신고가 접수되었습니다. (report_id={report_id})",
+            related_id=report_id,
+            redirect_path=None,
+            db=db,
+        )
+
         db.commit()
         logger.info(f"🚨 신고 접수 알림 전송 완료: report_id={report_id}")
     finally:
         if close:
             db.close()
-
 
 # ✅ 신고 처리 결과 알림
 def on_report_resolved(

@@ -1,6 +1,7 @@
 // src/features/message/MessageDetail.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { submitReport } from "../../shared/api/reportApi";
 
 export default function MessageDetail({ message }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -123,12 +124,22 @@ export default function MessageDetail({ message }) {
       {/* ✅ 신고 버튼 (받은 쪽지일 때만 노출) */}
       {currentUser?.id === message.receiver_id && (
         <div className="mt-4 flex justify-end">
-          <button
-            onClick={() => alert("🚨 신고 기능은 다음 단계에서 연결됩니다.")}
-            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
-          >
-            신고
-          </button>
+   <button
+     onClick={async () => {
+       const reason = prompt("신고 사유를 입력해주세요:");
+       if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
+       try {
+         await submitReport("MESSAGE", message.id, reason);
+         alert("🚨 신고가 접수되었습니다.");
+       } catch (err) {
+         console.error("❌ 신고 실패:", err);
+         alert("신고 중 오류가 발생했습니다.");
+       }
+     }}
+     className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+   >
+     🚨 신고
+   </button>
         </div>
       )}
     </div>

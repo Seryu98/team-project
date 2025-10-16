@@ -1,26 +1,72 @@
-// src/components/NotificationPopup.jsx
+// src/features/notification/NotificationList.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-export default function NotificationPopup({ onClose }) {
+export default function NotificationList({ onClose }) {
   const [items, setItems] = useState([]);
 
+  // ================================================
+  // ✅ 알림 목록 불러오기
+  // ================================================
   async function fetchList() {
-    const { data } = await axios.get("/notifications", { params: { only_unread: false } });
-    if (data?.data) setItems(data.data);
+    try {
+      const { data } = await axios.get("/notifications", {
+        params: { only_unread: false },
+      });
+      if (data?.data) setItems(data.data);
+    } catch (err) {
+      console.error("❌ 알림 불러오기 실패:", err);
+    }
   }
 
   useEffect(() => {
     fetchList();
   }, []);
 
-  function onClickItem(n) {
-    if (n.type === "MESSAGE") {
-      window.location.href = `/messages/${n.related_id}`;
+  // ================================================
+  // ✅ 알림 클릭 시 동작
+  // ================================================
+  async function onClickItem(n) {
+    try {
+      // 🩵 [1] redirect_path가 None 또는 빈 값이면 → 읽음 처리만 하고 이동 없음
+      if (!n.redirect_path || n.redirect_path === "None") {
+        await axios.post(`/notifications/${n.id}/read`);
+        setItems((prev) => prev.filter((x) => x.id !== n.id));
+        onClose?.();
+        return;
+      }
+
+      // 🩵 [2] 알림 유형별 경로 처리
+      if (n.type === "MESSAGE") {
+        // 쪽지 → 쪽지 상세로 이동
+        window.location.href = `/messages/${n.related_id}`;
+      } 
+      else if (n.type === "REPORT_RECEIVED") {
+        // 관리자 신고 접수 알림 → 신고 처리 페이지로
+        window.location.href = "/admin/reports";
+      } 
+      else if (["BAN", "WARNING", "UNBAN"].includes(n.type)) {
+        // 제재/해제 관련 → 쪽지함으로 이동
+        window.location.href = "/messages";
+      } 
+      else {
+        // 나머지는 redirect_path 그대로 이동
+        window.location.href = n.redirect_path;
+      }
+
+      // 🩵 [3] 클릭 시 읽음 처리
+      await axios.post(`/notifications/${n.id}/read`);
+      setItems((prev) => prev.filter((x) => x.id !== n.id));
+    } catch (err) {
+      console.error("❌ 알림 클릭 처리 중 오류:", err);
+    } finally {
+      onClose?.(); // 팝업 닫기
     }
-    onClose?.(); // 팝업 닫기
   }
 
+  // ================================================
+  // ✅ UI 렌더링
+  // ================================================
   return (
     <div
       className="absolute right-0 top-10 w-72 bg-white border shadow-lg rounded-lg z-50"
@@ -28,7 +74,9 @@ export default function NotificationPopup({ onClose }) {
     >
       <div className="flex justify-between items-center px-3 py-2 border-b">
         <span className="font-semibold text-sm">알림</span>
-        <button onClick={onClose} className="text-gray-500 text-sm">✕</button>
+        <button onClick={onClose} className="text-gray-500 text-sm">
+          ✕
+        </button>
       </div>
 
       <ul className="divide-y text-sm">
@@ -38,12 +86,18 @@ export default function NotificationPopup({ onClose }) {
             onClick={() => onClickItem(n)}
             className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
           >
+            {/* 🩵 메시지 내용 */}
             <div>{n.message}</div>
-            <div className="text-xs text-gray-400">{n.created_at}</div>
+            <div className="text-xs text-gray-400">
+              {new Date(n.created_at).toLocaleString()}
+            </div>
           </li>
         ))}
+
         {items.length === 0 && (
-          <li className="px-3 py-4 text-center text-gray-400">알림이 없습니다.</li>
+          <li className="px-3 py-4 text-center text-gray-400">
+            알림이 없습니다.
+          </li>
         )}
       </ul>
     </div>

@@ -1,5 +1,5 @@
 # app/messages/message_router.py
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -9,24 +9,42 @@ from app.messages.message_service import (
     get_message,
     send_message,
     mark_read,
-    send_message_by_nickname,  # 🚀 추가됨: 닉네임 기반 전송 지원
+    send_message_by_nickname,
+    list_admin_messages,
 )
-from app.messages.message_schema import MessageCreate  # 🚀 추가됨
+from app.messages.message_schema import MessageCreate
+from app.messages.message_model import MessageCategory
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
 # ---------------------------------------------------------------------
-# ✅ 받은 메시지함 조회
+# ✅ 받은 메시지함 조회 (일반 / 관리자 쪽지 구분)
 # ---------------------------------------------------------------------
 @router.get("/")
 def api_list_inbox(
+    category: str = Query("NORMAL", description="쪽지 카테고리 (NORMAL | ADMIN | NOTICE)"),
     limit: int = Query(50, ge=1, le=200),
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """받은 메시지함 조회"""
-    items = list_inbox(user_id=user.id, limit=limit, db=db)
+    """
+    받은 메시지함 조회
+    - 기본값: NORMAL (일반 쪽지)
+    - ADMIN: 관리자 제재/신고 관련 쪽지
+    - NOTICE: 공지사항 (운영팀 공지)
+    """
+    try:
+        category_enum = MessageCategory(category.upper())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="잘못된 쪽지 카테고리입니다.")
+
+    if category_enum == MessageCategory.ADMIN:
+        items = list_admin_messages(user_id=user.id, limit=limit, db=db)
+    else:
+        items = list_inbox(user_id=user.id, limit=limit, db=db, category=category_enum.value)
+
     return {"success": True, "data": items, "message": "조회 성공"}
+
 
 # ---------------------------------------------------------------------
 # ✅ 보낸 메시지함 조회
@@ -50,7 +68,7 @@ def api_get_message(
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """단일 메시지 조회"""
+    """단일 메시지 상세 조회"""
     m = get_message(user_id=user.id, message_id=message_id, db=db)
     if not m:
         raise HTTPException(status_code=404, detail="메시지를 찾을 수 없습니다.")
@@ -69,12 +87,18 @@ def api_send_message(
     쪽지 전송
     - receiver_nickname이 있으면 닉네임 기반
     - receiver_id가 있으면 ID 기반
+    - category 기본값: NORMAL
     """
-    if not payload.content.strip():
+    if not payload.content or not payload.content.strip():
         raise HTTPException(status_code=400, detail="쪽지 내용을 입력해주세요.")
 
-    # 🚀 추가됨: 닉네임 기반 전송 지원
-    if payload.receiver_nickname:
+    # ✅ category 기본값 보정
+    category = getattr(payload, "category", MessageCategory.NORMAL.value)
+    if category.upper() not in [c.value for c in MessageCategory]:
+        category = MessageCategory.NORMAL.value
+
+    # ✅ 닉네임 기반 전송
+    if getattr(payload, "receiver_nickname", None):
         mid = send_message_by_nickname(
             sender_id=user.id,
             receiver_nickname=payload.receiver_nickname.strip(),
@@ -83,7 +107,7 @@ def api_send_message(
         )
         return {"success": True, "data": {"message_id": mid}, "message": "쪽지를 성공적으로 보냈습니다."}
 
-    # 💬 기존 유지: ID 기반 전송
+    # ✅ ID 기반 전송
     if payload.receiver_id is None:
         raise HTTPException(status_code=400, detail="수신자 정보가 없습니다.")
     if payload.receiver_id == user.id:
@@ -94,6 +118,7 @@ def api_send_message(
         receiver_id=payload.receiver_id,
         content=payload.content.strip(),
         db=db,
+        category=category,
     )
     return {"success": True, "data": {"message_id": mid}, "message": "쪽지를 성공적으로 보냈습니다."}
 

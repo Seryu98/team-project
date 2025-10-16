@@ -1,4 +1,4 @@
-// features/admin/AdminService.js
+ // features/admin/AdminService.js
 import axios from "axios";
 const API = "http://localhost:8000/admin";
 
@@ -29,8 +29,9 @@ export async function getPendingReports(token) {
 }
 
 export async function resolveReport(id, action, token) {
-  await axios.post(`${API}/reports/${id}/resolve`, null, {
-    params: { action },
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  await axios.post(
+    `${API}/reports/${id}/resolve`,
+    { action, reason: "관리자 판단에 따른 처리" },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
 }

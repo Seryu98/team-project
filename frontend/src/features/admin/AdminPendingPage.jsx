@@ -32,7 +32,6 @@ export default function AdminPendingPage() {
       alert("✅ 승인 완료");
       setPendingPosts((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
-      console.error("❌ 승인 실패:", err);
       alert("승인 중 오류가 발생했습니다.");
     }
   }
@@ -48,13 +47,12 @@ export default function AdminPendingPage() {
       alert("🚫 거절 완료");
       setPendingPosts((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
-      console.error("❌ 거절 실패:", err);
       alert("거절 중 오류가 발생했습니다.");
     }
   }
 
   return (
-    <div className="p-4">
+    <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">승인 대기 게시글</h1>
       {pendingPosts.length === 0 ? (
         <p>승인 대기 게시글이 없습니다.</p>
@@ -67,18 +65,8 @@ export default function AdminPendingPage() {
                 <p className="text-sm text-gray-600">{p.created_at}</p>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={() => approvePost(p.id)}
-                  className="bg-green-500 text-white px-3 py-1 rounded"
-                >
-                  승인
-                </button>
-                <button
-                  onClick={() => rejectPost(p.id)}
-                  className="bg-red-500 text-white px-3 py-1 rounded"
-                >
-                  거절
-                </button>
+                <button onClick={() => approvePost(p.id)} className="bg-green-500 text-white px-3 py-1 rounded">승인</button>
+                <button onClick={() => rejectPost(p.id)} className="bg-red-500 text-white px-3 py-1 rounded">거절</button>
               </div>
             </li>
           ))}

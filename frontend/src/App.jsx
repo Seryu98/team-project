@@ -63,6 +63,7 @@ import MessageDetail from "./features/message/MessageDetail";
 import MessagesPage from "./features/message/MessagePage"; 
 import AdminPendingPage from "./features/admin/AdminPendingPage";
 import AdminReportsPage from "./features/admin/AdminReportsPage";
+import AdminUsersPage from "./features/admin/AdminUsersPage.jsx";
 
 // ---------------------------------------
 // 🏠 홈 페이지
@@ -239,7 +240,7 @@ export default function App() {
               <ProtectedRoute requiredRole="ADMIN">
                 <AdminPendingPage />
               </ProtectedRoute>
-          }
+            }
         />
 
 
@@ -249,8 +250,17 @@ export default function App() {
               <ProtectedRoute requiredRole="ADMIN">
                 <AdminReportsPage />
               </ProtectedRoute>
-          }
-        />
+            }
+          />
+
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminUsersPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* ✅ 수정: 기존 MessageInbox → MessagesPage로 교체 */}
           <Route

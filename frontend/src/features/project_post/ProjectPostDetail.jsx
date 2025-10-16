@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { authFetch, getCurrentUser } from "../auth/api";
 import ApplicationModal from "./ApplicationModal";
+import { submitReport } from "../../shared/api/reportApi";
 
 export default function ProjectPostDetail() {
   const { postId } = useParams();
@@ -203,6 +204,36 @@ export default function ProjectPostDetail() {
           <div>
             <strong>리더 ID: {post.leader_id}</strong>
           </div>
+
+          {/* 🚨 게시글 신고 버튼 (작성자가 아닐 때만 표시) */}
+          {currentUser && currentUser.id !== post.leader_id && (
+            <button
+              onClick={async () => {
+                const reason = prompt("신고 사유를 입력해주세요:");
+                if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
+                try {
+                  await submitReport("POST", post.id, reason);
+                  alert("🚨 게시글 신고가 접수되었습니다.");
+                } catch (err) {
+                  console.error("❌ 게시글 신고 실패:", err);
+                  alert("신고 중 오류가 발생했습니다.");
+                }
+              }}
+              style={{
+                marginTop: "8px",
+                padding: "6px 10px",
+                background: "#dc3545",
+                color: "#fff",
+                border: "none",
+                borderRadius: "5px",
+                cursor: "pointer",
+              }}
+            >
+              🚨 게시글 신고
+            </button>
+          )}
+
+
 
           {/* ✅ 리더만 보이는 버튼 */}
           {isLeader && !ended && (
