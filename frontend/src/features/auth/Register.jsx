@@ -2,7 +2,8 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Modal from "../../components/Modal";
-import { register, login } from "./api"; // ✅ login 추가
+import { register, login } from "./api";
+import axios from "axios";
 
 function Register() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ function Register() {
     email: "",
     user_id: "",
     password: "",
+    passwordConfirm: "",
     name: "",
     nickname: "",
     phone_number: "",
@@ -17,57 +19,120 @@ function Register() {
   const [msg, setMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showDone, setShowDone] = useState(false);
+  const [idCheckMsg, setIdCheckMsg] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [passwordMatch, setPasswordMatch] = useState(true);
+  const [isIdChecked, setIsIdChecked] = useState(false); // ✅ 중복확인 여부 추적
 
+  // ✅ 입력 변경 핸들러
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+
+    // 실시간 비밀번호 일치 검사
+    if (name === "password" || name === "passwordConfirm") {
+      setPasswordMatch(
+        name === "password"
+          ? value === form.passwordConfirm
+          : form.password === value
+      );
+    }
+
+    // ✅ 아이디를 수정하면 중복확인 초기화
+    if (name === "user_id") {
+      setIsIdChecked(false);
+      setIdCheckMsg("");
+    }
   };
 
+  // ✅ 아이디 중복확인
+  const handleIdCheck = async () => {
+    if (!form.user_id) {
+      setIdCheckMsg("⚠️ 아이디를 입력해주세요.");
+      setIsIdChecked(false);
+      return;
+    }
+    try {
+      const res = await axios.get(
+        `http://localhost:8000/auth/check-id?user_id=${form.user_id}`
+      );
+      setIdCheckMsg(res.data.message);
+      setIsIdChecked(true);
+    } catch (error) {
+      setIdCheckMsg(
+        error.response?.data?.detail || "❌ 아이디 중복 확인 중 오류 발생"
+      );
+      setIsIdChecked(false);
+    }
+  };
+
+  // ✅ 회원가입 제출
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMsg("");
 
-    if (!form.email || !form.user_id || !form.password || !form.name || !form.nickname) {
+    // ✅ 중복확인 여부 확인
+    if (!isIdChecked) {
+      setMsg("❌ 아이디 중복확인을 해주세요.");
+      return;
+    }
+
+    if (
+      !form.email ||
+      !form.user_id ||
+      !form.password ||
+      !form.passwordConfirm ||
+      !form.name ||
+      !form.nickname
+    ) {
       setMsg("❌ 필수 항목을 모두 입력해 주세요.");
       return;
     }
 
-    // ✅ 비밀번호 정규식 검증 추가 (백엔드와 동일 정책)
+    // ✅ 비밀번호 정규식 검증
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$/;
     if (!passwordRegex.test(form.password)) {
       setMsg("❌ 비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.");
       return;
     }
 
+    // ✅ 비밀번호 일치 여부
+    if (!passwordMatch) {
+      setMsg("❌ 비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      // 1. 회원가입
-      await register(form);
-      
-      // 2. 자동 로그인 (기존 login 함수 사용)
-      await login(form.user_id, form.password);
-      
+      await register(form); // 회원가입
+      await login(form.user_id, form.password); // 자동 로그인
       setShowDone(true);
     } catch (error) {
-      console.error("회원가입/로그인 실패:", error);
-      setMsg("❌ 회원가입 실패");
+      console.error("회원가입 실패:", error);
+
+      // ✅ fetch 기반의 api.js에서는 error.response가 없음
+      // 따라서 message를 직접 표시해야 서버의 detail이 제대로 보임
+      const detail = error.message || "회원가입 실패";
+      setMsg(`❌ ${detail}`);
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ✅ 튜토리얼로 이동
   const goTutorial = () => {
-    navigate("/tutorial", {
-      replace: true,
-    });
+    navigate("/tutorial", { replace: true });
   };
 
+  // 공통 스타일
   const inputStyle = {
     padding: "10px 12px",
     borderRadius: "8px",
     border: "1px solid #ddd",
     fontSize: "14px",
+    width: "100%",
   };
+
   const buttonPrimary = {
     padding: "10px 12px",
     borderRadius: "8px",
@@ -100,9 +165,12 @@ function Register() {
           boxShadow: "0 10px 24px rgba(0,0,0,0.06)",
         }}
       >
-        <h2 style={{ margin: 0, marginBottom: "16px", textAlign: "center" }}>회원가입</h2>
+        <h2 style={{ margin: 0, marginBottom: "16px", textAlign: "center" }}>
+          회원가입
+        </h2>
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: "10px" }}>
+          {/* 이메일 */}
           <label style={{ fontSize: "13px" }}>
             이메일<span style={{ color: "#ef4444" }}> *</span>
             <input
@@ -116,31 +184,122 @@ function Register() {
             />
           </label>
 
+          {/* 아이디 + 중복확인 */}
           <label style={{ fontSize: "13px" }}>
             아이디<span style={{ color: "#ef4444" }}> *</span>
-            <input
-              name="user_id"
-              placeholder="로그인에 사용할 아이디"
-              value={form.user_id}
-              onChange={handleChange}
-              style={{ ...inputStyle, marginTop: "6px" }}
-              required
-            />
+            <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+              <input
+                name="user_id"
+                placeholder="로그인에 사용할 아이디"
+                value={form.user_id}
+                onChange={handleChange}
+                style={{ ...inputStyle, flex: 1 }}
+                required
+              />
+              <button
+                type="button"
+                onClick={handleIdCheck}
+                style={{
+                  ...buttonPrimary,
+                  background: "#4b5563",
+                  whiteSpace: "nowrap",
+                  padding: "10px 14px",
+                }}
+              >
+                중복확인
+              </button>
+            </div>
+            {idCheckMsg && (
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: idCheckMsg.includes("가능") ? "green" : "red",
+                  marginTop: "4px",
+                }}
+              >
+                {idCheckMsg}
+              </p>
+            )}
           </label>
 
+          {/* 비밀번호 */}
           <label style={{ fontSize: "13px" }}>
             비밀번호<span style={{ color: "#ef4444" }}> *</span>
-            <input
-              name="password"
-              type="password"
-              placeholder="영문, 숫자, 특수문자 포함 8~20자"
-              value={form.password}
-              onChange={handleChange}
-              style={{ ...inputStyle, marginTop: "6px" }}
-              required
-            />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginTop: "6px",
+              }}
+            >
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="영문, 숫자, 특수문자 포함 8~20자"
+                value={form.password}
+                onChange={handleChange}
+                style={{ ...inputStyle, flex: 1 }}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  fontSize: "18px",
+                }}
+              >
+                {showPassword ? "🙈" : "👁"}
+              </button>
+            </div>
           </label>
 
+          {/* 비밀번호 확인 */}
+          <label style={{ fontSize: "13px" }}>
+            비밀번호 확인<span style={{ color: "#ef4444" }}> *</span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginTop: "6px",
+              }}
+            >
+              <input
+                name="passwordConfirm"
+                type={showPasswordConfirm ? "text" : "password"}
+                placeholder="비밀번호를 다시 입력해주세요"
+                value={form.passwordConfirm}
+                onChange={handleChange}
+                style={{ ...inputStyle, flex: 1 }}
+                required
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setShowPasswordConfirm(!showPasswordConfirm)
+                }
+                style={{
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  fontSize: "18px",
+                }}
+              >
+                {showPasswordConfirm ? "🙈" : "👁"}
+              </button>
+            </div>
+            {!passwordMatch && (
+              <p style={{ fontSize: "12px", color: "red", marginTop: "4px" }}>
+                비밀번호가 일치하지 않습니다.
+              </p>
+            )}
+          </label>
+
+          {/* 이름 */}
           <label style={{ fontSize: "13px" }}>
             이름<span style={{ color: "#ef4444" }}> *</span>
             <input
@@ -153,6 +312,7 @@ function Register() {
             />
           </label>
 
+          {/* 닉네임 */}
           <label style={{ fontSize: "13px" }}>
             닉네임<span style={{ color: "#ef4444" }}> *</span>
             <input
@@ -165,6 +325,7 @@ function Register() {
             />
           </label>
 
+          {/* 전화번호 */}
           <label style={{ fontSize: "13px" }}>
             전화번호
             <input
@@ -176,20 +337,29 @@ function Register() {
             />
           </label>
 
+          {/* 가입 버튼 */}
           <button type="submit" style={buttonPrimary} disabled={submitting}>
             {submitting ? "처리 중..." : "가입하기"}
           </button>
         </form>
 
-        {/* 하단: 로그인 링크만 유지 */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "12px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginTop: "12px",
+          }}
+        >
           <Link to="/login">이미 계정이 있으신가요? 로그인</Link>
         </div>
 
-        {msg && <p style={{ marginTop: "12px", textAlign: "center" }}>{msg}</p>}
+        {msg && (
+          <p style={{ marginTop: "12px", textAlign: "center", color: "#ef4444" }}>
+            {msg}
+          </p>
+        )}
       </div>
 
-      {/* ✅ 튜토리얼로 연결 */}
       {showDone && (
         <Modal
           title="회원가입 완료"
