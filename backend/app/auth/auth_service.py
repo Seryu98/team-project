@@ -211,17 +211,37 @@ def _issue_jwt_pair(user_id: int) -> Tuple[str, str]:
     return access_token, refresh_token
 
 # ===============================
-# 🧩 회원가입 처리
+# 🧩 회원가입 처리 (수정됨)
 # ===============================
 def register_user(db: Session, user: UserRegister) -> User:
-    if db.query(User).filter(User.email == user.email).first():
+    # ✅ ACTIVE 상태의 사용자만 중복으로 간주
+    if db.query(User).filter(User.email == user.email, User.status == UserStatus.ACTIVE).first():
         raise ValueError("이미 존재하는 이메일입니다.")
-    if db.query(User).filter(User.user_id == user.user_id).first():
+    if db.query(User).filter(User.user_id == user.user_id, User.status == UserStatus.ACTIVE).first():
         raise ValueError("이미 존재하는 아이디입니다.")
-    if db.query(User).filter(User.nickname == user.nickname).first():
+    if db.query(User).filter(User.nickname == user.nickname, User.status == UserStatus.ACTIVE).first():
         raise ValueError("이미 존재하는 닉네임입니다.")
+
     if not validate_password(user.password):
         raise ValueError("비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.")
+
+    # ✅ 탈퇴 계정 복구 로직 추가
+    existing_deleted = db.query(User).filter(
+        User.user_id == user.user_id, User.status == UserStatus.DELETED
+    ).first()
+    if existing_deleted:
+        existing_deleted.email = user.email
+        existing_deleted.password_hash = hash_password(user.password)
+        existing_deleted.name = user.name
+        existing_deleted.nickname = user.nickname
+        existing_deleted.phone_number = user.phone_number
+        existing_deleted.status = UserStatus.ACTIVE
+        existing_deleted.deleted_at = None
+        existing_deleted.is_tutorial_completed = False
+        db.commit()
+        db.refresh(existing_deleted)
+        logger.info("🔄 탈퇴 계정 복구 완료: user_id=%s", user.user_id)
+        return existing_deleted
 
     new_user = User(
         email=user.email,
@@ -230,6 +250,7 @@ def register_user(db: Session, user: UserRegister) -> User:
         name=user.name,
         nickname=user.nickname,
         phone_number=user.phone_number,
+        status=UserStatus.ACTIVE,  # ✅ 명시적으로 ACTIVE 설정
     )
     db.add(new_user)
     db.commit()
@@ -309,6 +330,12 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
     login_id = form_data.username
 
     user = db.query(User).filter(User.user_id == login_id).first()
+
+    # 🚫 탈퇴 계정 로그인 차단
+    if user and user.status == UserStatus.DELETED:
+        logger.warning("🚫 탈퇴 계정 로그인 시도 차단: user_id=%s", login_id)
+        raise HTTPException(status_code=403, detail="탈퇴한 계정은 로그인할 수 없습니다.")
+
     if user and _is_locked(user):
         db.commit()
         logger.warning("잠금 상태 로그인 시도: user_id=%s", login_id)
@@ -335,7 +362,6 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
-
 
 def refresh_access_token(refresh_token: str) -> Optional[dict]:
     payload = verify_token(refresh_token, expected_type="refresh")

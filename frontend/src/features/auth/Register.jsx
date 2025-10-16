@@ -32,11 +32,17 @@ function Register() {
 
     // 실시간 비밀번호 일치 검사
     if (name === "password" || name === "passwordConfirm") {
-      setPasswordMatch(
-        name === "password"
-          ? value === form.passwordConfirm
-          : form.password === value
-      );
+      const nextPassword =
+        name === "password" ? value : form.password;
+      const nextConfirm =
+        name === "passwordConfirm" ? value : form.passwordConfirm;
+
+      // ✅ 비밀번호 확인란이 입력된 경우에만 비교 (UX 개선)
+      if (nextConfirm.length > 0) {
+        setPasswordMatch(nextPassword === nextConfirm);
+      } else {
+        setPasswordMatch(true); // 비밀번호 확인칸이 비어있을 땐 경고 안 띄움
+      }
     }
 
     // ✅ 아이디를 수정하면 중복확인 초기화
@@ -72,6 +78,10 @@ function Register() {
     e.preventDefault();
     setMsg("");
 
+    // ✅ 회원가입 전에 남은 토큰/세션 완전 초기화 (재가입 시 충돌 방지)
+    localStorage.clear();
+    sessionStorage.clear();
+
     // ✅ 중복확인 여부 확인
     if (!isIdChecked) {
       setMsg("❌ 아이디 중복확인을 해주세요.");
@@ -105,9 +115,19 @@ function Register() {
 
     setSubmitting(true);
     try {
-      await register(form); // 회원가입
-      await login(form.user_id, form.password); // 자동 로그인
-      setShowDone(true);
+      // ✅ 회원가입 요청
+      await register(form);
+
+      // ✅ 자동 로그인 (회원가입 후 새 토큰 발급)
+      const loginRes = await login(form.user_id, form.password);
+
+      // ✅ 새 토큰 저장 (명시적)
+      if (loginRes?.access_token && loginRes?.refresh_token) {
+        localStorage.setItem("access_token", loginRes.access_token);
+        localStorage.setItem("refresh_token", loginRes.refresh_token);
+      }
+
+      setShowDone(true); // ✅ 가입 완료 모달 표시
     } catch (error) {
       console.error("회원가입 실패:", error);
 
@@ -292,7 +312,7 @@ function Register() {
                 {showPasswordConfirm ? "🙈" : "👁"}
               </button>
             </div>
-            {!passwordMatch && (
+            {form.passwordConfirm.length > 0 && !passwordMatch && (
               <p style={{ fontSize: "12px", color: "red", marginTop: "4px" }}>
                 비밀번호가 일치하지 않습니다.
               </p>
