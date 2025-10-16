@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.admin.admin_router import router as admin_router
 from app.notifications.notification_router import router as notification_router
 from app.messages.message_router import router as message_router
+from app.search import search_router
 
 import os
 import traceback
@@ -110,6 +111,7 @@ app.include_router(admin_router)
 app.include_router(notification_router)
 app.include_router(message_router)
 app.include_router(stats_router.router)  
+app.include_router(search_router.router)
 
 # ===================================
 # 🏠 기본 라우트

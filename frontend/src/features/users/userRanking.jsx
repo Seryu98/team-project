@@ -4,17 +4,40 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../profile/api";
 
+const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const defaultAvatar = `${API_URL}/assets/profile/default_profile.png`;
+
+function resolveAvatarUrl(avatar_path) {
+  if (!avatar_path) return defaultAvatar;
+
+  if (avatar_path.startsWith("http://") || avatar_path.startsWith("https://")) {
+    return avatar_path;
+  }
+
+  if (avatar_path.startsWith("/assets")) {
+    return `${API_URL}${avatar_path}`;
+  }
+
+  if (avatar_path.startsWith("/uploads")) {
+    return `${API_URL}${avatar_path}`;
+  }
+
+  return `${API_URL}/uploads/${avatar_path}`;
+}
+
 export default function UserRanking() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [users, setUsers] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [skills, setSkills] = useState([]);
   const [selectedSkills, setSelectedSkills] = useState([]);
-  const [sortBy, setSortBy] = useState("followers");
+  const [sortBy, setSortBy] = useState("score"); // ✅ 기본값을 "score"로 변경
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(""); // ✅ 검색어 state 추가
+  const [searchQuery, setSearchQuery] = useState("");
+  const pageSize = 21;
 
   // 스킬 목록 조회
   const fetchSkills = useCallback(async () => {
@@ -35,8 +58,8 @@ export default function UserRanking() {
       const params = new URLSearchParams({
         sort: sortBy,
         page: page,
-        page_size: 20,
-        _t: Date.now(), // ✅ 캐시 무효화를 위한 타임스탬프
+        page_size: 21,
+        _t: Date.now(),
       });
 
       if (selectedSkills.length > 0) {
@@ -45,53 +68,53 @@ export default function UserRanking() {
         });
       }
 
-      // ✅ 검색어 추가
       if (searchQuery.trim()) {
         params.append("search", searchQuery.trim());
       }
 
       const res = await api.get(`/users/ranking?${params.toString()}`, {
         headers: {
-          'Cache-Control': 'no-cache', // ✅ 캐시 비활성화
-          'Pragma': 'no-cache'
-        }
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
       });
-      setUsers(res.data);
-      console.log('✅ 유저 랭킹 새로고침 완료:', res.data.length, '명'); // 디버깅용
+
+      setUsers(res.data.users);
+      setTotalCount(res.data.total_count);
+
+      console.log("✅ 유저 랭킹 새로고침 완료:", res.data.users.length, "명");
     } catch (err) {
       console.error("유저 랭킹 조회 실패:", err);
     } finally {
       setLoading(false);
     }
-  }, [sortBy, selectedSkills, page, searchQuery]); // ✅ searchQuery 의존성 추가
+  }, [sortBy, selectedSkills, page, searchQuery]);
 
-  // ✅ 초기 로드
   useEffect(() => {
     fetchSkills();
   }, [fetchSkills]);
 
-  // ✅ 필터/정렬/페이지 변경 시
   useEffect(() => {
-    fetchUserRanking();
+    const load = async () => {
+      await fetchUserRanking();
+    };
+    load();
   }, [fetchUserRanking]);
 
-  // ✅ 페이지로 돌아올 때마다 무조건 새로고침 (가장 확실한 방법)
   useEffect(() => {
     console.log('🔄 페이지 변경 감지:', location.pathname, 'key:', location.key);
-    // location.pathname이 /users/ranking일 때마다 새로고침
     if (location.pathname === '/users/ranking') {
       console.log('📡 유저 랭킹 새로고침 시작...');
       fetchUserRanking();
     }
   }, [location.pathname, location.key, fetchUserRanking]);
-  
-  // ✅ 추가: 페이지 포커스 시에도 새로고침
+
   useEffect(() => {
     const handleFocus = () => {
       console.log('👁️ 윈도우 포커스 - 새로고침');
       fetchUserRanking();
     };
-    
+
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [fetchUserRanking]);
@@ -115,14 +138,14 @@ export default function UserRanking() {
           borderRight: "1px solid #e5e7eb",
           padding: "24px",
           overflowY: "auto",
-          height: "100vh", // ✅ 전체 높이 사용
+          height: "100vh",
         }}
       >
         <h2 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "24px" }}>
           유저 랭킹
         </h2>
 
-        {/* ✅ 검색 기능 추가 */}
+        {/* 검색 기능 */}
         <div style={{ marginBottom: "24px" }}>
           <input
             type="text"
@@ -130,7 +153,7 @@ export default function UserRanking() {
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              setPage(1); // 검색 시 1페이지로 리셋
+              setPage(1);
             }}
             style={{
               width: "100%",
@@ -155,6 +178,34 @@ export default function UserRanking() {
             정렬
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {/* ✅ 랭킹 순 추가 */}
+            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+              <input
+                type="radio"
+                name="sort"
+                value="score"
+                checked={sortBy === "score"}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+                style={{ marginRight: "8px" }}
+              />
+              <span style={{ fontSize: "14px" }}>🏆 랭킹 순</span>
+            </label>
+            {/* ✅ 랭킹 점수 설명 추가 */}
+            {sortBy === "score" && (
+              <div style={{ 
+                fontSize: "11px", 
+                color: "#6b7280", 
+                marginLeft: "24px",
+                marginTop: "-4px",
+                marginBottom: "4px"
+              }}>
+                팔로워 1점 · 게시물 2점 · 좋아요 3점
+              </div>
+            )}
+            
             <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
               <input
                 type="radio"
@@ -248,129 +299,150 @@ export default function UserRanking() {
                   gap: "20px",
                 }}
               >
-                {users.map((user, index) => (
-                  <div
-                    key={user.id}
-                    onClick={() => navigate(`/profile/${user.id}`)}
-                    style={{
-                      background: "#fff",
-                      borderRadius: "12px",
-                      padding: "24px",
-                      cursor: "pointer",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                      transition: "transform 0.2s, box-shadow 0.2s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-4px)";
-                      e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-                    }}
-                  >
-                    {/* ✅ 순위 뱃지 (1~3위만 표시) */}
-                    {index < 3 && (
-                      <div
-                        style={{
-                          display: "inline-block",
-                          background:
-                            index === 0
-                              ? "#fbbf24"
-                              : index === 1
-                                ? "#d1d5db"
-                                : "#f59e0b",
-                          color: "#fff",
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                          padding: "4px 12px",
-                          borderRadius: "12px",
-                          marginBottom: "16px",
-                        }}
-                      >
-                        {index + 1}위
-                      </div>
-                    )}
+                {users.map((user, index) => {
+                  const globalRank = (page - 1) * pageSize + index + 1;
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                      <img
-                        src={
-                          user.profile_image
-                            ? user.profile_image.startsWith("/assets")
-                              ? `http://localhost:8000${user.profile_image}`
-                              : `http://localhost:8000${user.profile_image}`
-                            : "/assets/profile/default_profile.png"
-                        }
-                        alt={user.nickname}
-                        style={{
-                          width: "60px",
-                          height: "60px",
-                          borderRadius: "50%",
-                          objectFit: "cover",
-                        }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "4px" }}>
-                          {user.nickname}
-                        </h3>
-                        <p style={{ fontSize: "13px", color: "#6b7280" }}>
-                          {user.headline || "자기소개가 없습니다"}
-                        </p>
-                      </div>
-                    </div>
-
+                  return (
                     <div
+                      key={user.id}
+                      onClick={() => navigate(`/profile/${user.id}`)}
                       style={{
-                        display: "flex",
-                        gap: "16px",
-                        marginTop: "16px",
-                        fontSize: "13px",
-                        color: "#6b7280",
+                        background: "#fff",
+                        borderRadius: "12px",
+                        padding: "24px",
+                        cursor: "pointer",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                        transition: "transform 0.2s, box-shadow 0.2s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "translateY(-4px)";
+                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "translateY(0)";
+                        e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
                       }}
                     >
-                      <span>팔로워 {user.follower_count}</span>
-                      <span>팔로잉 {user.following_count}</span>
-                    </div>
+                      {/* ✅ 1~3위까지만 배지 표시 */}
+                      {globalRank <= 3 && (
+                        <div
+                          style={{
+                            display: "inline-block",
+                            background:
+                              globalRank === 1
+                                ? "#fbbf24"
+                                : globalRank === 2
+                                  ? "#d1d5db"
+                                  : "#f59e0b",
+                            color: "#fff",
+                            fontSize: "12px",
+                            fontWeight: "bold",
+                            padding: "4px 12px",
+                            borderRadius: "12px",
+                            marginBottom: "16px",
+                          }}
+                        >
+                          {globalRank === 1 ? "🥇 " : globalRank === 2 ? "🥈 " : "🥉 "}
+                          {globalRank}위
+                        </div>
+                      )}
 
-                    {/* 스킬 */}
-                    {user.skills && user.skills.length > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                        <img
+                          src={resolveAvatarUrl(user.profile_image || user.avatar_path)}
+                          alt={user.nickname}
+                          style={{
+                            width: "60px",
+                            height: "60px",
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                          }}
+                          onError={(e) => {
+                            console.log('❌ 이미지 로드 실패:', e.target.src);
+                            e.target.src = defaultAvatar;
+                          }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "4px" }}>
+                            {user.nickname}
+                          </h3>
+                          <p style={{ fontSize: "13px", color: "#6b7280" }}>
+                            {user.headline || "자기소개가 없습니다"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* ✅ 랭킹 점수 표시 (score 정렬일 때만) */}
+                      {sortBy === "score" && user.score !== undefined && (
+                        <div
+                          style={{
+                            marginTop: "12px",
+                            padding: "8px 12px",
+                            background: "#fef3c7",
+                            borderRadius: "8px",
+                            textAlign: "center",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            color: "#92400e",
+                          }}
+                        >
+                          ⭐ {user.score} 점
+                        </div>
+                      )}
+
                       <div
                         style={{
                           display: "flex",
-                          flexWrap: "wrap",
-                          gap: "6px",
-                          marginTop: "12px",
+                          gap: "16px",
+                          marginTop: "16px",
+                          fontSize: "13px",
+                          color: "#6b7280",
                         }}
                       >
-                        {user.skills.slice(0, 5).map((skill) => (
-                          <span
-                            key={skill.id}
-                            style={{
-                              fontSize: "11px",
-                              background: "#e0e7ff",
-                              color: "#4338ca",
-                              padding: "4px 8px",
-                              borderRadius: "6px",
-                            }}
-                          >
-                            {skill.name}
-                          </span>
-                        ))}
-                        {user.skills.length > 5 && (
-                          <span
-                            style={{
-                              fontSize: "11px",
-                              color: "#6b7280",
-                              padding: "4px 8px",
-                            }}
-                          >
-                            +{user.skills.length - 5}
-                          </span>
-                        )}
+                        <span>팔로워 {user.follower_count}</span>
+                        <span>팔로잉 {user.following_count}</span>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* 스킬 */}
+                      {user.skills && user.skills.length > 0 && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "6px",
+                            marginTop: "12px",
+                          }}
+                        >
+                          {user.skills.slice(0, 5).map((skill) => (
+                            <span
+                              key={skill.id}
+                              style={{
+                                fontSize: "11px",
+                                background: "#e0e7ff",
+                                color: "#4338ca",
+                                padding: "4px 8px",
+                                borderRadius: "6px",
+                              }}
+                            >
+                              {skill.name}
+                            </span>
+                          ))}
+                          {user.skills.length > 5 && (
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                color: "#6b7280",
+                                padding: "4px 8px",
+                              }}
+                            >
+                              +{user.skills.length - 5}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* 페이지네이션 */}
@@ -382,35 +454,69 @@ export default function UserRanking() {
                   marginTop: "40px",
                 }}
               >
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  style={{
-                    padding: "8px 16px",
-                    border: "1px solid #d1d5db",
-                    background: "#fff",
-                    borderRadius: "6px",
-                    cursor: page === 1 ? "not-allowed" : "pointer",
-                    opacity: page === 1 ? 0.5 : 1,
-                  }}
-                >
-                  이전
-                </button>
-                <span style={{ padding: "8px 16px" }}>{page}</span>
-                <button
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={users.length < 20}
-                  style={{
-                    padding: "8px 16px",
-                    border: "1px solid #d1d5db",
-                    background: "#fff",
-                    borderRadius: "6px",
-                    cursor: users.length < 20 ? "not-allowed" : "pointer",
-                    opacity: users.length < 20 ? 0.5 : 1,
-                  }}
-                >
-                  다음
-                </button>
+                {(() => {
+                  const pageGroupSize = 5;
+                  const totalPages = Math.max(1, Math.ceil(totalCount / 21));
+                  const currentGroup = Math.floor((page - 1) / pageGroupSize);
+                  const startPage = currentGroup * pageGroupSize + 1;
+                  const endPage = Math.min(startPage + pageGroupSize - 1, totalPages);
+
+                  const pageButtons = [];
+                  for (let i = startPage; i <= endPage; i++) {
+                    pageButtons.push(
+                      <button
+                        key={i}
+                        onClick={() => setPage(i)}
+                        style={{
+                          padding: "8px 16px",
+                          border: "1px solid #d1d5db",
+                          background: page === i ? "#3b82f6" : "#fff",
+                          color: page === i ? "#fff" : "#000",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {i}
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <button
+                        onClick={() => setPage(startPage - 1)}
+                        disabled={startPage === 1}
+                        style={{
+                          padding: "8px 16px",
+                          border: "1px solid #d1d5db",
+                          background: "#fff",
+                          borderRadius: "6px",
+                          cursor: startPage === 1 ? "not-allowed" : "pointer",
+                          opacity: startPage === 1 ? 0.5 : 1,
+                        }}
+                      >
+                        이전
+                      </button>
+
+                      {pageButtons}
+
+                      <button
+                        onClick={() => setPage(endPage + 1)}
+                        disabled={endPage >= totalPages}
+                        style={{
+                          padding: "8px 16px",
+                          border: "1px solid #d1d5db",
+                          background: "#fff",
+                          borderRadius: "6px",
+                          cursor: endPage >= totalPages ? "not-allowed" : "pointer",
+                          opacity: endPage >= totalPages ? 0.5 : 1,
+                        }}
+                      >
+                        다음
+                      </button>
+                    </>
+                  );
+                })()}
               </div>
             </>
           )}

@@ -4,20 +4,38 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const defaultAvatar = `${API_URL}/assets/profile/default_profile.png`;  // ✅ 추가
+
+function resolveAvatarUrl(avatar_path) {
+    // ✅ avatar_path가 없거나 /assets/로 시작하면 기본 이미지
+    if (!avatar_path || avatar_path.startsWith('/assets/') || avatar_path.startsWith('assets/')) {
+        return defaultAvatar;
+    }
+
+    // ✅ 완전한 URL이면 그대로 반환
+    if (avatar_path.startsWith('http://') || avatar_path.startsWith('https://')) {
+        return avatar_path;
+    }
+
+    // ✅ /uploads/가 포함되어 있으면 API_URL 붙임
+    if (avatar_path.includes('/uploads/')) {
+        const cleanPath = avatar_path.startsWith('/') ? avatar_path : `/${avatar_path}`;
+        return `${API_URL}${cleanPath}`;
+    }
+
+    // ✅ 파일명만 있는 경우
+    return `${API_URL}/uploads/${avatar_path}`;
+}
+
+function resolveSkillIconUrl(skillName) {
+    if (!skillName) return "";
+    const normalized = skillName.trim().toLowerCase().replace(/\s+/g, "_");
+    return `/assets/skills/${normalized}.png`;
+}
 
 // 슬라이더 컴포넌트
-function Slider({ items, renderItem, autoPlayInterval = 3000 }) {
+function Slider({ items, renderItem }) {
     const [currentIndex, setCurrentIndex] = useState(0);
-
-    useEffect(() => {
-        if (items.length === 0) return;
-
-        const timer = setInterval(() => {
-            setCurrentIndex((prev) => (prev + 1) % items.length);
-        }, autoPlayInterval);
-
-        return () => clearInterval(timer);
-    }, [items.length, autoPlayInterval]);
 
     const goToSlide = (index) => setCurrentIndex(index);
     const goToPrev = () => setCurrentIndex((prev) => (prev - 1 + items.length) % items.length);
@@ -26,95 +44,122 @@ function Slider({ items, renderItem, autoPlayInterval = 3000 }) {
     if (items.length === 0) return null;
 
     return (
-        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '1rem' }}>
-            {/* 슬라이드 컨텐츠 */}
-            <div style={{
-                display: 'flex',
-                transition: 'transform 0.5s ease-in-out',
-                transform: `translateX(-${currentIndex * 100}%)`
+        <div style={{ position: 'relative' }}>
+            {/* ✅✅✅ overflow: hidden 추가하고 padding 제거 ✅✅✅ */}
+            <div style={{ 
+                position: 'relative', 
+                overflow: 'hidden',              // ✅ 확실하게 숨김
+                borderRadius: '1rem',
+                marginBottom: '3rem'
             }}>
-                {items.map((item, index) => (
-                    <div key={index} style={{ minWidth: '100%', padding: '0 0.5rem' }}>
-                        {renderItem(item, index)}
-                    </div>
-                ))}
-            </div>
+                {/* 슬라이드 컨텐츠 */}
+                <div style={{
+                    display: 'flex',
+                    transition: 'transform 0.5s ease-in-out',
+                    transform: `translateX(-${currentIndex * 100}%)`
+                }}>
+                    {/* ✅ padding 제거 */}
+                    {items.map((item, index) => (
+                        <div key={index} style={{ minWidth: '100%' }}>
+                            {renderItem(item, index)}
+                        </div>
+                    ))}
+                </div>
 
-            {/* 좌우 버튼 */}
-            {items.length > 1 && (
-                <>
-                    <button
-                        onClick={goToPrev}
-                        style={{
-                            position: 'absolute',
-                            left: '1rem',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            backgroundColor: 'rgba(255,255,255,0.9)',
-                            border: 'none',
-                            borderRadius: '50%',
-                            width: '3rem',
-                            height: '3rem',
-                            fontSize: '1.5rem',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            zIndex: 10
-                        }}
-                    >
-                        ‹
-                    </button>
-                    <button
-                        onClick={goToNext}
-                        style={{
-                            position: 'absolute',
-                            right: '1rem',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            backgroundColor: 'rgba(255,255,255,0.9)',
-                            border: 'none',
-                            borderRadius: '50%',
-                            width: '3rem',
-                            height: '3rem',
-                            fontSize: '1.5rem',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            zIndex: 10
-                        }}
-                    >
-                        ›
-                    </button>
-                </>
-            )}
+                {/* 좌우 버튼 */}
+                {items.length > 1 && (
+                    <>
+                        <button
+                            onClick={goToPrev}
+                            style={{
+                                position: 'absolute',
+                                left: '0.5rem',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                backgroundColor: 'rgba(255,255,255,0.95)',
+                                border: 'none',
+                                borderRadius: '12px',
+                                width: '3.5rem',
+                                height: '12rem',
+                                fontSize: '2.5rem',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                zIndex: 10,
+                                transition: 'all 0.2s',
+                                color: '#1f2937'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,1)';
+                                e.currentTarget.style.transform = 'translateY(-50%) scale(1.05)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.95)';
+                                e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                            }}
+                        >
+                            ‹
+                        </button>
+                        <button
+                            onClick={goToNext}
+                            style={{
+                                position: 'absolute',
+                                right: '0.5rem',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                backgroundColor: 'rgba(255,255,255,0.95)',
+                                border: 'none',
+                                borderRadius: '12px',
+                                width: '3.5rem',
+                                height: '12rem',
+                                fontSize: '2.5rem',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                zIndex: 10,
+                                transition: 'all 0.2s',
+                                color: '#1f2937'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,1)';
+                                e.currentTarget.style.transform = 'translateY(-50%) scale(1.05)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.95)';
+                                e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                            }}
+                        >
+                            ›
+                        </button>
+                    </>
+                )}
+            </div>
 
             {/* 인디케이터 */}
             {items.length > 1 && (
                 <div style={{
-                    position: 'absolute',
-                    bottom: '1rem',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
                     display: 'flex',
-                    gap: '0.5rem',
-                    zIndex: 10
+                    justifyContent: 'center',
+                    gap: '0.75rem',
+                    marginTop: '-2rem'
                 }}>
                     {items.map((_, index) => (
                         <button
                             key={index}
                             onClick={() => goToSlide(index)}
                             style={{
-                                width: '0.75rem',
-                                height: '0.75rem',
+                                width: '1rem',
+                                height: '1rem',
                                 borderRadius: '50%',
                                 border: 'none',
-                                backgroundColor: index === currentIndex ? 'white' : 'rgba(255,255,255,0.5)',
+                                backgroundColor: index === currentIndex ? '#3b82f6' : '#d1d5db',
                                 cursor: 'pointer',
-                                transition: 'all 0.3s'
+                                transition: 'all 0.3s',
+                                transform: index === currentIndex ? 'scale(1.2)' : 'scale(1)'
                             }}
                         />
                     ))}
@@ -130,6 +175,7 @@ export default function HomePage() {
     const [topProjects, setTopProjects] = useState([]);
     const [topBoards, setTopBoards] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [query, setQuery] = useState("");
 
     useEffect(() => {
         const fetchData = async () => {
@@ -147,17 +193,26 @@ export default function HomePage() {
                     console.error("❌ 유저 랭킹 로드 실패:", err.response?.status, err.message);
                 }
 
-                // ✅ 최신 프로젝트
+                // ✅ 최신 프로젝트(승인된 것만)
                 try {
                     let projectsRes;
                     try {
-                        projectsRes = await axios.get(`${API_URL}/recipe/list?skip=0&limit=3`, config);
+                        projectsRes = await axios.get(
+                            `${API_URL}/recipe/list?skip=0&limit=3&status=APPROVED`,
+                            config
+                        );
+                        console.log("📦 받은 프로젝트:", projectsRes.data);
                     } catch {
-                        projectsRes = await axios.get(`${API_URL}/posts?skip=0&limit=3`, config);
+                        projectsRes = await axios.get(
+                            `${API_URL}/posts?skip=0&limit=3&status=APPROVED`,
+                            config
+                        );
                     }
                     const projects = Array.isArray(projectsRes.data)
                         ? projectsRes.data
                         : projectsRes.data.posts || [];
+
+                    console.log("📦 프로젝트 개수:", projects.length);
                     setTopProjects(projects.slice(0, 3));
                 } catch (err) {
                     console.error("❌ 프로젝트 로드 실패:", err.response?.status);
@@ -237,6 +292,13 @@ export default function HomePage() {
                             <input
                                 type="text"
                                 placeholder="프로젝트, 스터디, 기술스택을 검색해보세요"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                        navigate(`/search?q=${encodeURIComponent(query)}`);
+                                    }
+                                }}
                                 style={{
                                     flex: 1,
                                     padding: '0.75rem 1.5rem',
@@ -245,12 +307,9 @@ export default function HomePage() {
                                     fontSize: '1rem',
                                     borderRadius: '9999px'
                                 }}
-                                onKeyPress={(e) => {
-                                    if (e.key === 'Enter') navigate('/posts');
-                                }}
-                            />
+                            />  {/* ✅ 여기에 /> 추가해서 input 태그를 닫아야 해요! */}
                             <button
-                                onClick={() => navigate('/posts')}
+                                onClick={() => navigate(`/search?q=${encodeURIComponent(query)}`)}
                                 style={{
                                     backgroundColor: '#2563eb',
                                     color: 'white',
@@ -330,18 +389,18 @@ export default function HomePage() {
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        fontSize: '4rem',
-                                        fontWeight: 'bold',
-                                        color: '#6b7280',
                                         marginBottom: '1.5rem',
                                         boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
                                         overflow: 'hidden'
                                     }}>
-                                        {user.profile_image ? (
-                                            <img src={user.profile_image} alt={user.nickname} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            user.nickname?.charAt(0).toUpperCase()
-                                        )}
+                                        <img
+                                            src={resolveAvatarUrl(user.avatar_path)}
+                                            alt={user.nickname}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                            onError={(e) => {
+                                                e.currentTarget.src = defaultAvatar;  // ✅ 실패 시 기본 이미지
+                                            }}
+                                        />
                                     </div>
 
                                     {/* 유저 정보 */}
@@ -376,7 +435,7 @@ export default function HomePage() {
                     </section>
                 )}
 
-                {/* 🚀 최신 프로젝트 TOP 3 슬라이더 */}
+                 {/* 🚀 최신 프로젝트 TOP 3 슬라이더 */}
                 {topProjects.length > 0 && (
                     <section style={{ marginBottom: '4rem' }}>
                         <h2 style={{
@@ -391,74 +450,178 @@ export default function HomePage() {
 
                         <Slider
                             items={topProjects}
-                            renderItem={(project) => (
-                                <div
-                                    onClick={() => navigate(`/recipe/${project.id}`)}
-                                    style={{
-                                        background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                                        borderRadius: '1.5rem',
-                                        padding: '3rem',
-                                        cursor: 'pointer',
-                                        boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                                        minHeight: '400px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        justifyContent: 'space-between',
-                                        color: 'white'
-                                    }}
-                                >
-                                    {/* 타입 배지 */}
-                                    <div style={{ textAlign: 'right' }}>
-                                        <span style={{
-                                            backgroundColor: 'rgba(255,255,255,0.3)',
-                                            padding: '0.5rem 1.5rem',
-                                            borderRadius: '9999px',
-                                            fontSize: '0.875rem',
-                                            fontWeight: 'bold'
-                                        }}>
-                                            {project.type === "PROJECT" ? "프로젝트" : "스터디"}
-                                        </span>
-                                    </div>
+                            renderItem={(project) => {
+                                // ✅ 제목 20글자 제한
+                                const truncatedTitle = project.title.length > 20 
+                                    ? project.title.substring(0, 20) + '...' 
+                                    : project.title;
+                                
+                                // ✅ 설명 10글자 제한
+                                const truncatedDesc = project.description 
+                                    ? (project.description.length > 10 
+                                        ? project.description.substring(0, 10) + '...' 
+                                        : project.description)
+                                    : "설명 없음";
 
-                                    {/* 프로젝트 정보 */}
-                                    <div>
-                                        <h3 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>
-                                            {project.title}
-                                        </h3>
-                                        <p style={{ fontSize: '1.125rem', opacity: 0.9, marginBottom: '2rem', lineHeight: '1.6' }}>
-                                            {project.description || "프로젝트 설명이 없습니다."}
-                                        </p>
-                                    </div>
-
-                                    {/* 하단 정보 */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                            <div style={{
-                                                width: '3rem',
-                                                height: '3rem',
-                                                borderRadius: '50%',
-                                                backgroundColor: 'white',
-                                                color: '#6b7280',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontWeight: 'bold',
-                                                fontSize: '1.25rem'
+                                return (
+                                    <div
+                                        onClick={() => navigate(`/recipe/${project.id}`)}
+                                        style={{
+                                            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                                            borderRadius: '1.5rem',
+                                            padding: '3rem 5rem',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+                                            minHeight: '450px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'space-between',
+                                            color: 'white'
+                                        }}
+                                    >
+                                        {/* 타입 배지 */}
+                                        <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
+                                            <span style={{
+                                                backgroundColor: 'rgba(255,255,255,0.3)',
+                                                padding: '0.5rem 1.5rem',
+                                                borderRadius: '9999px',
+                                                fontSize: '0.875rem',
+                                                fontWeight: 'bold'
                                             }}>
-                                                {project.leader_nickname?.charAt(0).toUpperCase() || "?"}
-                                            </div>
-                                            <span style={{ fontSize: '1.125rem', fontWeight: '600' }}>
-                                                {project.leader_nickname}
+                                                {project.type === "PROJECT" ? "프로젝트" : "스터디"}
                                             </span>
                                         </div>
 
-                                        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '1rem' }}>
-                                            <span>💬 {project.comment_count || 0}</span>
-                                            <span>👥 {project.current_members || 0}/{project.max_members || "?"}</span>
+                                        {/* ✅✅✅ 제목 + 설명 (중앙 정렬) ✅✅✅ */}
+                                        <div style={{ 
+                                            flex: 1, 
+                                            display: 'flex', 
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '2rem 0',
+                                            textAlign: 'center'
+                                        }}>
+                                            {/* 제목 */}
+                                            <h3 style={{ 
+                                                fontSize: '2.5rem', 
+                                                fontWeight: 'bold', 
+                                                marginBottom: '1rem' 
+                                            }}>
+                                                {truncatedTitle}
+                                            </h3>
+                                            {/* 설명 (10글자) */}
+                                            <p style={{ 
+                                                fontSize: '1.25rem', 
+                                                opacity: 0.9, 
+                                                lineHeight: '1.6' 
+                                            }}>
+                                                {truncatedDesc}
+                                            </p>
+                                        </div>
+
+                                        {/* 하단 정보 - 스킬 + 리더 + 인원 */}
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            justifyContent: 'space-between', 
+                                            alignItems: 'center',
+                                            marginTop: '2.5rem',
+                                            paddingTop: '2rem',
+                                            borderTop: '1px solid rgba(255,255,255,0.2)',
+                                            gap: '1.5rem'
+                                        }}>
+                                            {/* 왼쪽: 스킬 */}
+                                            <div style={{
+                                                display: 'flex',
+                                                flexWrap: 'wrap',
+                                                gap: '0.75rem',
+                                                flex: 1
+                                            }}>
+                                                {project.skills && project.skills.length > 0 ? (
+                                                    <>
+                                                        {project.skills.slice(0, 5).map((skill, idx) => (
+                                                            <div
+                                                                key={idx}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '0.5rem',
+                                                                    backgroundColor: 'rgba(255,255,255,0.25)',
+                                                                    padding: '0.5rem 1rem',
+                                                                    borderRadius: '9999px',
+                                                                    fontSize: '0.95rem',
+                                                                    fontWeight: '600'
+                                                                }}
+                                                            >
+                                                                <img
+                                                                    src={resolveSkillIconUrl(skill.name || skill)}
+                                                                    alt={skill.name || skill}
+                                                                    style={{ width: '20px', height: '20px', objectFit: 'contain' }}
+                                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                                />
+                                                                <span>{skill.name || skill}</span>
+                                                            </div>
+                                                        ))}
+                                                        {project.skills.length > 5 && (
+                                                            <span style={{
+                                                                backgroundColor: 'rgba(255,255,255,0.25)',
+                                                                padding: '0.5rem 1rem',
+                                                                borderRadius: '9999px',
+                                                                fontSize: '0.95rem',
+                                                                fontWeight: '600',
+                                                                display: 'flex',
+                                                                alignItems: 'center'
+                                                            }}>
+                                                                +{project.skills.length - 5}
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span style={{ fontSize: '0.875rem', opacity: 0.7 }}>스킬 정보 없음</span>
+                                                )}
+                                            </div>
+
+                                            {/* 오른쪽: 리더 + 인원 */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0 }}>
+                                                {/* 리더 */}
+                                                {project.leader_nickname && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                        <div style={{
+                                                            width: '3rem',
+                                                            height: '3rem',
+                                                            borderRadius: '50%',
+                                                            backgroundColor: 'white',
+                                                            color: '#6b7280',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            fontWeight: 'bold',
+                                                            fontSize: '1.25rem'
+                                                        }}>
+                                                            {project.leader_nickname.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <span style={{ fontSize: '1.125rem', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                                                            {project.leader_nickname}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* 인원 */}
+                                                <div style={{
+                                                    backgroundColor: 'rgba(255,255,255,0.3)',
+                                                    padding: '0.5rem 1rem',
+                                                    borderRadius: '9999px',
+                                                    fontWeight: '600',
+                                                    fontSize: '1rem',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    👥 {project.current_members || 0}/{project.capacity || 0}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                );
+                            }}
                         />
                     </section>
                 )}
@@ -478,71 +641,110 @@ export default function HomePage() {
 
                         <Slider
                             items={topBoards}
-                            renderItem={(post, idx) => (
-                                <div
-                                    onClick={() => navigate(`/board/${post.id}`)}
-                                    style={{
-                                        background: idx === 0
-                                            ? 'linear-gradient(135deg, #ec4899, #f43f5e)'
-                                            : idx === 1
-                                                ? 'linear-gradient(135deg, #8b5cf6, #6366f1)'
-                                                : 'linear-gradient(135deg, #06b6d4, #3b82f6)',
-                                        borderRadius: '1.5rem',
-                                        padding: '3rem',
-                                        cursor: 'pointer',
-                                        boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                                        minHeight: '350px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        justifyContent: 'space-between',
-                                        color: 'white'
-                                    }}
-                                >
-                                    {/* 순위 + 카테고리 */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                                        <div style={{
-                                            backgroundColor: 'rgba(255,255,255,0.3)',
-                                            padding: '0.5rem 1.5rem',
-                                            borderRadius: '9999px',
-                                            fontSize: '1.25rem',
-                                            fontWeight: 'bold'
+                            renderItem={(post, idx) => {
+                                // 제목 30글자 제한
+                                const truncatedTitle = post.title.length > 30 
+                                    ? post.title.substring(0, 30) + '...' 
+                                    : post.title;
+
+                                return (
+                                    <div
+                                        onClick={() => navigate(`/board/${post.id}`)}
+                                        style={{
+                                            background: idx === 0
+                                                ? 'linear-gradient(135deg, #ec4899, #f43f5e)'
+                                                : idx === 1
+                                                    ? 'linear-gradient(135deg, #8b5cf6, #6366f1)'
+                                                    : 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+                                            borderRadius: '1.5rem',
+                                            padding: '3rem 5rem',          // ✅ 상하 여백 증가
+                                            cursor: 'pointer',
+                                            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+                                            minHeight: '450px',            // ✅ 높이 증가
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'space-between',
+                                            color: 'white'
+                                        }}
+                                    >
+                                        {/* ✅ 순위 + 카테고리 (여백 증가) */}
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            justifyContent: 'space-between', 
+                                            alignItems: 'center', 
+                                            marginBottom: '3rem'           // ✅ 2rem → 3rem
                                         }}>
-                                            {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'} {idx + 1}위
+                                            <div style={{
+                                                backgroundColor: 'rgba(255,255,255,0.3)',
+                                                padding: '0.5rem 1.5rem',
+                                                borderRadius: '9999px',
+                                                fontSize: '1.25rem',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'} {idx + 1}위
+                                            </div>
+                                            <div style={{
+                                                backgroundColor: 'rgba(255,255,255,0.3)',
+                                                padding: '0.5rem 1.25rem',
+                                                borderRadius: '9999px',
+                                                fontSize: '0.875rem',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                {post.category || "일반"}
+                                            </div>
                                         </div>
-                                        <div style={{
-                                            backgroundColor: 'rgba(255,255,255,0.3)',
-                                            padding: '0.5rem 1.25rem',
-                                            borderRadius: '9999px',
-                                            fontSize: '0.875rem',
-                                            fontWeight: 'bold'
+
+                                        {/* ✅ 제목 (중앙 정렬, 여백 확보) */}
+                                        <div style={{ 
+                                            flex: 1, 
+                                            display: 'flex', 
+                                            alignItems: 'center',
+                                            justifyContent: 'center',     // ✅ 중앙 정렬
+                                            padding: '2rem 0'             // ✅ 상하 여백 추가
                                         }}>
-                                            {post.category || "일반"}
+                                            <h3 style={{ 
+                                                fontSize: '2.5rem',        // ✅ 글자 크기 증가
+                                                fontWeight: 'bold', 
+                                                lineHeight: '1.3',
+                                                textAlign: 'center'        // ✅ 텍스트 중앙 정렬
+                                            }}>
+                                                {truncatedTitle}
+                                            </h3>
+                                        </div>
+
+                                        {/* ✅ 하단 정보 (여백 증가) */}
+                                        <div style={{
+                                            marginTop: '2.5rem',           // ✅ 2rem → 2.5rem
+                                            paddingTop: '2rem',            // ✅ 1.5rem → 2rem
+                                            borderTop: '1px solid rgba(255,255,255,0.2)'
+                                        }}>
+                                            <div style={{ 
+                                                fontSize: '1.125rem', 
+                                                fontWeight: '600', 
+                                                marginBottom: '1.25rem',   // ✅ 1rem → 1.25rem
+                                                opacity: 0.9 
+                                            }}>
+                                                {post.author_nickname || "익명"}
+                                            </div>
+                                            <div style={{ 
+                                                display: 'flex', 
+                                                gap: '2rem',               // ✅ 1.5rem → 2rem
+                                                fontSize: '1rem', 
+                                                opacity: 0.95,
+                                                flexWrap: 'wrap'
+                                            }}>
+                                                <span>❤️ {post.like_count || 0}</span>
+                                                <span>💬 {post.comment_count || 0}</span>
+                                                <span>👁️ {post.view_count || 0}</span>
+                                                <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                                            </div>
                                         </div>
                                     </div>
-
-                                    {/* 제목 */}
-                                    <h3 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1.5rem', lineHeight: '1.3' }}>
-                                        {post.title}
-                                    </h3>
-
-                                    {/* 하단 정보 */}
-                                    <div>
-                                        <div style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem', opacity: 0.9 }}>
-                                            {post.author_nickname || "익명"}
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '1rem', opacity: 0.95 }}>
-                                            <span>❤️ {post.like_count || 0}</span>
-                                            <span>💬 {post.comment_count || 0}</span>
-                                            <span>👁️ {post.view_count || 0}</span>
-                                            <span>{new Date(post.created_at).toLocaleDateString()}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                                );
+                            }}
                         />
                     </section>
                 )}
-
                 {/* 데이터 없을 때 */}
                 {topUsers.length === 0 && topProjects.length === 0 && topBoards.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '5rem 1.5rem' }}>
@@ -582,39 +784,23 @@ export default function HomePage() {
                     <p style={{ fontSize: '1.25rem', color: 'rgba(255,255,255,0.9)', marginBottom: '2rem' }}>
                         당신의 아이디어를 현실로 만들어줄 팀원이 기다리고 있습니다
                     </p>
-                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <button
-                            onClick={() => navigate('/register')}
-                            style={{
-                                backgroundColor: 'white',
-                                color: '#2563eb',
-                                padding: '1rem 2.5rem',
-                                borderRadius: '9999px',
-                                fontWeight: 'bold',
-                                fontSize: '1.125rem',
-                                border: 'none',
-                                cursor: 'pointer',
-                                boxShadow: '0 10px 20px rgba(0,0,0,0.1)'
-                            }}
-                        >
-                            무료로 시작하기
-                        </button>
-                        <button
-                            onClick={() => navigate('/recipe/create')}
-                            style={{
-                                backgroundColor: '#1e40af',
-                                color: 'white',
-                                padding: '1rem 2.5rem',
-                                borderRadius: '9999px',
-                                fontWeight: 'bold',
-                                fontSize: '1.125rem',
-                                border: '2px solid rgba(255,255,255,0.2)',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            프로젝트 등록하기
-                        </button>
-                    </div>
+                    {/* ✅ 버튼 하나만 남김 */}
+                    <button
+                        onClick={() => navigate('/recipe/create')}
+                        style={{
+                            backgroundColor: 'white',
+                            color: '#2563eb',
+                            padding: '1rem 2.5rem',
+                            borderRadius: '9999px',
+                            fontWeight: 'bold',
+                            fontSize: '1.125rem',
+                            border: 'none',
+                            cursor: 'pointer',
+                            boxShadow: '0 10px 20px rgba(0,0,0,0.1)'
+                        }}
+                    >
+                        프로젝트 등록하기
+                    </button>
                 </div>
             </section>
         </div>

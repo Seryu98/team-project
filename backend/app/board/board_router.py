@@ -16,6 +16,7 @@ from app.board.board_schema import (
 )
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.board.board_model import BoardPost
 
 # 🔹 기존 보호 라우터 (작성/수정/삭제 등)
 router = APIRouter(prefix="/board", tags=["Board"])
@@ -255,3 +256,140 @@ def list_posts_simple(
     } for r in rows]
 
     return {"posts": items, "total": total}
+
+# ===============================
+# 📰 게시글 목록 간단 버전 (HomePage용, 공개)
+# ===============================
+@public_router.get("/list")
+def list_posts_simple(
+    skip: int = Query(0, description="건너뛸 개수 (offset)"),
+    limit: int = Query(20, description="가져올 개수 (limit)", ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    total = db.execute(
+        text("SELECT COUNT(*) FROM board_posts WHERE status='VISIBLE'")
+    ).scalar() or 0
+
+    rows = db.execute(
+        text("""
+        SELECT
+            bp.id,
+            bp.title,
+            bp.created_at,
+            bp.view_count,
+            bp.like_count,
+            COALESCE(c.cnt, 0) AS comment_count,
+            ct.name AS category_name,
+            u.nickname AS author_nickname
+        FROM board_posts bp
+        LEFT JOIN categories ct ON ct.id = bp.category_id
+        LEFT JOIN users u ON u.id = bp.author_id
+        LEFT JOIN (
+            SELECT board_post_id, COUNT(*) AS cnt
+            FROM comments
+            WHERE status='VISIBLE'
+            GROUP BY board_post_id
+        ) c ON c.board_post_id = bp.id
+        WHERE bp.status='VISIBLE'
+        ORDER BY bp.created_at DESC
+        LIMIT :limit OFFSET :offset
+        """),
+        {"limit": limit, "offset": skip},
+    ).mappings().all()
+
+    items = [{
+        "id": r["id"],
+        "title": r["title"],
+        "category": r["category_name"] or "일반",
+        "created_at": r["created_at"],
+        "view_count": r["view_count"] or 0,
+        "like_count": r["like_count"] or 0,
+        "comment_count": r["comment_count"] or 0,
+        "author_nickname": r["author_nickname"] or "익명",
+    } for r in rows]
+
+    return {"posts": items, "total": total}
+
+
+# ===============================
+# 👤 특정 유저의 게시글 목록
+# ===============================
+@router.get("/user/{user_id}/posts")
+def get_user_posts(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    """특정 유저가 작성한 게시글 목록 (누구나 조회 가능)"""
+    result = db.execute(text("""
+        SELECT
+            bp.id,
+            bp.title,
+            bp.created_at,
+            bp.view_count,
+            bp.like_count,
+            ct.name AS category,
+            COALESCE(
+                (SELECT COUNT(*) 
+                 FROM comments c 
+                 WHERE c.board_post_id = bp.id 
+                   AND c.status = 'VISIBLE' 
+                   AND c.deleted_at IS NULL), 
+                0
+            ) AS comment_count
+        FROM board_posts bp
+        LEFT JOIN categories ct ON ct.id = bp.category_id
+        WHERE bp.author_id = :user_id
+          AND bp.status = 'VISIBLE'
+          AND bp.deleted_at IS NULL
+        ORDER BY bp.created_at DESC
+    """), {"user_id": user_id}).mappings().all()
+    
+    return [{
+        "id": r["id"],
+        "title": r["title"],
+        "category": r["category"] or "일반",
+        "view_count": r["view_count"] or 0,
+        "like_count": r["like_count"] or 0,
+        "comment_count": r["comment_count"],
+        "created_at": r["created_at"],
+    } for r in result]
+
+
+# ===============================
+# 💬 특정 유저의 댓글 목록 (본인만)
+# ===============================
+@router.get("/user/{user_id}/comments")
+def get_user_comments(
+    user_id: int,
+    db: Session = Depends(get_db),
+    me = Depends(get_current_user),
+):
+    """특정 유저가 작성한 댓글 목록 (본인만 조회 가능)"""
+    # 본인만 볼 수 있도록 체크
+    if me.id != user_id:
+        raise HTTPException(status_code=403, detail="본인의 댓글만 조회할 수 있습니다")
+    
+    # ✅ comments 테이블 정확한 컬럼명 사용
+    result = db.execute(text("""
+        SELECT
+            c.id,
+            c.content,
+            c.created_at,
+            c.board_post_id,
+            bp.title AS post_title
+        FROM comments c
+        LEFT JOIN board_posts bp ON bp.id = c.board_post_id
+        WHERE c.user_id = :user_id
+          AND c.board_post_id IS NOT NULL
+          AND c.status = 'VISIBLE'
+          AND c.deleted_at IS NULL
+        ORDER BY c.created_at DESC
+    """), {"user_id": user_id}).mappings().all()
+    
+    return [{
+        "id": r["id"],
+        "content": r["content"],
+        "created_at": r["created_at"],
+        "board_post_id": r["board_post_id"],
+        "post_title": r["post_title"],
+    } for r in result]

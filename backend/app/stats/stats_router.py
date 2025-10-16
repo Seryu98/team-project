@@ -12,7 +12,14 @@ def get_user_ranking(db: Session = Depends(get_db)):
     SELECT 
         u.id,
         u.nickname,
-        p.image_path AS avatar_path,  
+        CASE 
+            WHEN p.profile_image IS NULL 
+                OR p.profile_image = '' 
+                OR p.profile_image LIKE '/assets/%' 
+                OR p.profile_image LIKE 'assets/%'
+            THEN NULL 
+            ELSE p.profile_image 
+        END AS avatar_path,
         COUNT(DISTINCT f.follower_id) AS followers,
         COUNT(DISTINCT pp.id) AS project_posts,
         COUNT(DISTINCT b.id) AS board_posts,
@@ -28,7 +35,7 @@ def get_user_ranking(db: Session = Depends(get_db)):
     LEFT JOIN posts pp ON u.id = pp.leader_id
     LEFT JOIN board_posts b ON u.id = b.author_id
     LEFT JOIN board_post_likes bl ON b.id = bl.board_post_id
-    GROUP BY u.id, u.nickname, p.image_path             
+    GROUP BY u.id, u.nickname, p.profile_image           
     ORDER BY score DESC
     """)
     

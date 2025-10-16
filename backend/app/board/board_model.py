@@ -61,6 +61,7 @@ class BoardPost(Base):
     __tablename__ = "board_posts"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
+    board_id = Column(BigInteger, ForeignKey("boards.id"), nullable=True)
     category_id = Column(BigInteger, ForeignKey("categories.id"), nullable=True)
     author_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
 

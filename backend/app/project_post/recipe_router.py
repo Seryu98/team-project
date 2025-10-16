@@ -221,6 +221,8 @@ async def get_posts(
             (models.RecipePost.title.contains(search)) |
             (models.RecipePost.description.contains(search))
         )
+    
+    query = query.order_by(models.RecipePost.created_at.desc())
 
     posts = query.offset((page - 1) * page_size).limit(page_size).all()
     return [to_dto(post) for post in posts]

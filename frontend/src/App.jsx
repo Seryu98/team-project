@@ -68,6 +68,11 @@ import MessageDetail from "./features/message/MessageDetail";
 import HomePage from "./features/home/HomePage";
 
 // ---------------------------------------
+// 통합 검색창
+// ---------------------------------------
+import SearchPage from "./features/search/SearchPage";
+
+// ---------------------------------------
 // 🧭 랭킹 (placeholder 유지)
 // ---------------------------------------
 function Ranking() {
@@ -126,6 +131,11 @@ export default function App() {
         {/* ✅ Navbar 포함된 그룹 */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
+
+          {/* ---------------------------------------
+              🔍 통합 검색
+          --------------------------------------- */}
+          <Route path="/search" element={<SearchPage />} />
 
           {/* ---------------------------------------
               🔹 프로젝트/스터디 게시판
