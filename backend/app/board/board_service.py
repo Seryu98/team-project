@@ -1,87 +1,194 @@
-# ✅ backend/app/board/board_service.py (with event hook)
+# ============================================================
+# 🧩 게시판 서비스 로직 (UTC 기준 완전 일관 버전)
+# ------------------------------------------------------------
+# - NOW()      → UTC_TIMESTAMP()
+# - CURRENT_DATE → UTC_DATE()
+# - DATE(col)   → col >= UTC_DATE() AND col < (UTC_DATE() + INTERVAL 1 DAY)
+# - 모든 집계·조회·수정 시각 UTC 기준으로 통일
+# ============================================================
+
 from datetime import date
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from datetime import datetime
 
-# 상수 정의
+# ─────────────────────────────────────────────────────────
+# 공통 상수/유틸
+# ─────────────────────────────────────────────────────────
 AUTHOR_JOIN = "LEFT JOIN users au ON au.id = bp.author_id"
 CATEGORY_JOIN = "LEFT JOIN categories ct ON ct.id = bp.category_id"
 VISIBLE_WHERE = "bp.status = 'VISIBLE'"
 PREVIEW_LEN = 20
 
 
-# ===============================
-# 🔹 미리보기 문자열 자르기
-# ===============================
 def _preview(content: str) -> str:
+    """글 본문 미리보기 (긴 내용은 … 처리)"""
     if not content:
         return ""
     return (content[:PREVIEW_LEN] + "…") if len(content) > PREVIEW_LEN else content
 
 
-# ===============================
-# 📚 카테고리 목록
-# ===============================
 def list_categories(db: Session) -> List[Dict[str, Any]]:
+    """카테고리 목록"""
     rows = db.execute(text("SELECT id, name FROM categories ORDER BY id ASC")).mappings().all()
     return [dict(id=r["id"], name=r["name"]) for r in rows]
 
 
 def find_category_by_name(db: Session, name: str) -> Optional[Dict[str, Any]]:
+    """카테고리 단건 조회(이름)"""
     row = db.execute(
         text("SELECT id, name FROM categories WHERE name = :n LIMIT 1"), {"n": name}
     ).mappings().first()
     return dict(id=row["id"], name=row["name"]) if row else None
 
 
-# ===============================
-# 🔥 오늘 Top3 (당일 조회수 기준)
-# ===============================
-def get_today_top3(db: Session) -> List[Dict[str, Any]]:
-    sql = text(f"""
-        SELECT
-          bp.id, bp.title, bp.content, bp.category_id, ct.name AS category_name,
-          bp.created_at, bp.view_count, bp.like_count,
-          au.id AS author_id, au.nickname, p.profile_image,
-          COUNT(bpv.id) AS today_views,
-          COALESCE(c_count.comment_count, 0) AS comment_count
-        FROM board_posts bp
-        {AUTHOR_JOIN}
-        {CATEGORY_JOIN}
-        LEFT JOIN profiles p ON p.id = au.id
-        LEFT JOIN (
-            SELECT board_post_id, COUNT(*) AS comment_count
-            FROM comments
-            WHERE status = 'VISIBLE'
-            GROUP BY board_post_id
-        ) AS c_count ON c_count.board_post_id = bp.id
-        JOIN board_post_views bpv ON bpv.board_post_id = bp.id
-        WHERE {VISIBLE_WHERE}
-          AND DATE(bpv.viewed_at) = CURRENT_DATE
-        GROUP BY bp.id, ct.name, au.id, au.nickname, p.profile_image, c_count.comment_count
-        ORDER BY today_views DESC, bp.created_at DESC
-        LIMIT 3
+def get_weekly_hot3(db, now_utc: datetime | None = None) -> List[Dict[str, Any]]:
+    """
+    🌟 전일 기준 최근 7일(1~7일치 누적) 인기글 Top3 — 오늘은 포함하지 않음
+    ✅ hot3_cache 활용 (매일 0시 자동 갱신용)
+    """
+    print("🚀 [DEBUG] get_weekly_hot3() (캐시 지원 버전) 진입")
+
+    if now_utc is None:
+        now_utc = datetime.utcnow()
+
+    # 🔹 1. KST 자정 기준 target_date 계산
+    KST = timezone(timedelta(hours=9))
+    now_kst = now_utc.astimezone(KST)
+    base_kst_midnight = datetime(year=now_kst.year, month=now_kst.month, day=now_kst.day, tzinfo=KST)
+    target_kst_midnight = base_kst_midnight  # 오늘 0시
+    target_utc = target_kst_midnight.astimezone(timezone.utc)
+
+    # 🔹 2. 캐시 확인
+    cached = db.execute(
+        text("""
+            SELECT hc.board_post_id AS id, bp.title, hc.recent_views, hc.recent_likes, hc.hot_score
+            FROM hot3_cache hc
+            JOIN board_posts bp ON bp.id = hc.board_post_id
+            WHERE DATE(hc.target_date) = DATE(:target_utc)
+            ORDER BY hc.hot_score DESC, bp.created_at DESC
+            LIMIT 3
+        """),
+        {"target_utc": target_utc},
+    ).mappings().all()
+
+    if cached and len(cached) == 3:
+        print(f"✅ [CACHE HIT] {target_kst_midnight.date()} 캐시 사용")
+        return [dict(r) for r in cached]
+
+    print(f"⚙️ [CACHE MISS] {target_kst_midnight.date()} 캐시 없음 → 계산 시작")
+
+    # 🔹 3. Top3 직접 계산
+    sql = text("""
+    WITH kst_midnight AS (
+        SELECT CONVERT_TZ(DATE(CONVERT_TZ(:now_utc, '+00:00', '+09:00')), '+09:00', '+00:00') AS base_utc
+    )
+    SELECT
+        bp.id,
+        bp.title,
+        COALESCE(CAST(v.recent_views AS FLOAT), 0) AS recent_views,
+        COALESCE(CAST(l.recent_likes AS FLOAT), 0) AS recent_likes,
+        (
+            COALESCE(CAST(v.recent_views AS FLOAT), 0) * 0.5 +
+            COALESCE(CAST(l.recent_likes AS FLOAT), 0) * 1.0
+        ) AS hot_score
+    FROM board_posts bp
+    LEFT JOIN (
+        SELECT board_post_id, COUNT(*) AS recent_views
+        FROM board_post_views, kst_midnight
+        WHERE
+            viewed_at >= (kst_midnight.base_utc - INTERVAL 7 DAY)
+            AND viewed_at < kst_midnight.base_utc
+        GROUP BY board_post_id
+    ) v ON v.board_post_id = bp.id
+    LEFT JOIN (
+        SELECT board_post_id, COUNT(*) AS recent_likes
+        FROM board_post_likes, kst_midnight
+        WHERE
+            created_at >= (CONVERT_TZ(kst_midnight.base_utc, '+00:00', '+09:00') - INTERVAL 7 DAY)
+            AND created_at < CONVERT_TZ(kst_midnight.base_utc, '+00:00', '+09:00')
+        GROUP BY board_post_id
+    ) l ON l.board_post_id = bp.id
+    WHERE bp.status = 'VISIBLE'
+    ORDER BY hot_score DESC, bp.created_at DESC
+    LIMIT 3
     """)
-    rows = db.execute(sql).mappings().all()
-    return [
-        dict(
-            id=r["id"],
-            title=r["title"],
-            content_preview=_preview(r["content"]),
-            category_id=r["category_id"],
-            category_name=r["category_name"],
-            created_at=r["created_at"],
-            view_count=r["view_count"],
-            like_count=r["like_count"],
-            comment_count=r["comment_count"],
-            author=dict(
-                id=r["author_id"], nickname=r["nickname"], profile_image=r["profile_image"]
-            ),
-            today_views=r["today_views"],
+
+    rows = db.execute(sql, {"now_utc": now_utc}).mappings().all()
+    print(f"✅ [DEBUG] 계산 완료, 결과 수: {len(rows)}")
+
+    if not rows:
+        return []
+
+    # 🔹 4. 기존 캐시 삭제 후 삽입
+    db.execute(text("DELETE FROM hot3_cache WHERE DATE(target_date) = DATE(:target_utc)"), {"target_utc": target_utc})
+    for r in rows:
+        db.execute(
+            text("""
+                INSERT INTO hot3_cache (target_date, board_post_id, recent_views, recent_likes, hot_score)
+                VALUES (:target_utc, :pid, :views, :likes, :score)
+            """),
+            {
+                "target_utc": target_utc,
+                "pid": r["id"],
+                "views": r["recent_views"],
+                "likes": r["recent_likes"],
+                "score": r["hot_score"],
+            },
         )
-        for r in rows
-    ]
+    db.commit()
+
+    print(f"💾 [CACHE STORED] {len(rows)}건 캐시 저장 완료 ({target_kst_midnight.date()})")
+    return [dict(r) for r in rows]
+
+# # ===============================
+# # 🔥 오늘 Top3 (당일 조회수 기준)
+# # ===============================
+# def get_today_top3(db: Session) -> List[Dict[str, Any]]:
+#     sql = text(f"""
+#         SELECT
+#           bp.id, bp.title, bp.content, bp.category_id, ct.name AS category_name,
+#           bp.created_at, bp.view_count, bp.like_count,
+#           au.id AS author_id, au.nickname, p.profile_image,
+#           COUNT(bpv.id) AS today_views,
+#           COALESCE(c_count.comment_count, 0) AS comment_count
+#         FROM board_posts bp
+#         {AUTHOR_JOIN}
+#         {CATEGORY_JOIN}
+#         LEFT JOIN profiles p ON p.id = au.id
+#         LEFT JOIN (
+#             SELECT board_post_id, COUNT(*) AS comment_count
+#             FROM comments
+#             WHERE status = 'VISIBLE'
+#             GROUP BY board_post_id
+#         ) AS c_count ON c_count.board_post_id = bp.id
+#         JOIN board_post_views bpv ON bpv.board_post_id = bp.id
+#         WHERE {VISIBLE_WHERE}
+#           AND DATE(bpv.viewed_at) = CURRENT_DATE
+#         GROUP BY bp.id, ct.name, au.id, au.nickname, p.profile_image, c_count.comment_count
+#         ORDER BY today_views DESC, bp.created_at DESC
+#         LIMIT 3
+#     """)
+#     rows = db.execute(sql).mappings().all()
+#     return [
+#         dict(
+#             id=r["id"],
+#             title=r["title"],
+#             content_preview=_preview(r["content"]),
+#             category_id=r["category_id"],
+#             category_name=r["category_name"],
+#             created_at=r["created_at"],
+#             view_count=r["view_count"],
+#             like_count=r["like_count"],
+#             comment_count=r["comment_count"],
+#             author=dict(
+#                 id=r["author_id"], nickname=r["nickname"], profile_image=r["profile_image"]
+#             ),
+#             today_views=r["today_views"],
+#         )
+#         for r in rows
+#     ]
 
 
 # ===============================
@@ -164,9 +271,9 @@ def list_posts(
     ], total
 
 
-# ===============================
-# 📄 게시글 단건 조회 + 조회수 증가
-# ===============================
+# ============================================================
+# 📄 게시글 단건 조회 + 조회수 증가 (UTC 중복 제한)
+# ============================================================
 def get_post_and_touch_view(
     db: Session,
     post_id: int,
@@ -190,14 +297,14 @@ def get_post_and_touch_view(
     if not row or row["status"] != "VISIBLE":
         return None
 
-    # ✅ 중복 조회 체크 (viewer_id 우선)
     chk = db.execute(
         text("""
         SELECT 1 FROM board_post_views
         WHERE board_post_id = :pid
           AND ((:vid IS NOT NULL AND viewer_id = :vid)
                OR (:vid IS NULL AND ip_address = :ip))
-          AND DATE(viewed_at) = CURRENT_DATE
+          AND viewed_at >= UTC_DATE()
+          AND viewed_at < (UTC_DATE() + INTERVAL 1 DAY)
         LIMIT 1
         """),
         {"pid": post_id, "vid": viewer_id, "ip": ip_address},
@@ -239,9 +346,9 @@ def get_post_and_touch_view(
     )
 
 
-# ===============================
-# 📝 게시글 생성 / 수정 / 삭제
-# ===============================
+# ============================================================
+# 📝 게시글 생성 / 수정 / 삭제 (UTC_TIMESTAMP)
+# ============================================================
 def create_post(db: Session, author_id: int, data: Dict[str, Any]) -> int:
     res = db.execute(
         text("""
@@ -275,7 +382,7 @@ def update_post(db: Session, post_id: int, author_id: int, data: Dict[str, Any])
     if not sets:
         return True
     db.execute(
-        text(f"UPDATE board_posts SET {', '.join(sets)}, updated_at = NOW() WHERE id = :id"),
+        text(f"UPDATE board_posts SET {', '.join(sets)}, updated_at = UTC_TIMESTAMP() WHERE id = :id"),
         params,
     )
     db.commit()
@@ -290,12 +397,11 @@ def delete_post(db: Session, post_id: int, author_id: int) -> bool:
     if not own:
         return False
     db.execute(
-        text("UPDATE board_posts SET status='DELETED', deleted_at=NOW() WHERE id=:id"),
+        text("UPDATE board_posts SET status='DELETED', deleted_at=UTC_TIMESTAMP() WHERE id=:id"),
         {"id": post_id},
     )
     db.commit()
     return True
-
 
 # ===============================
 # ❤️ 좋아요

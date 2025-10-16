@@ -102,6 +102,30 @@
   word-break: break-word;
 }
 
+/* 🏅 Top3 배지 스타일 */
+.top3-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #fff7d6, #ffe4b5);
+  color: #b45309;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* 🥇 1위 전용 배지 강조 */
+.top3-badge::before {
+  content: "🏅 ";
+}
+
+/* 카드 내부에서 배지와 미리보기가 겹치지 않게 */
+.top3-card .top3-badge {
+  margin-bottom: 4px;
+}
+
 
 .top3-card {
   border: 1px solid #ddd;
@@ -153,6 +177,7 @@
   object-fit: cover;
   border: 1px solid #ddd;
 }
+
 
 /* =============================== */
 /* 게시글 카드 */

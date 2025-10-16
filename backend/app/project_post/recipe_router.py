@@ -334,11 +334,15 @@ async def get_post_detail(post_id: int, db: Session = Depends(get_db)):
         .filter(models.RecipePost.deleted_at.is_(None))
         .first()
     )
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"🧩 members: {[m.user_id for m in post.members]}")
     if not post:
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
 
     _apply_auto_state_updates_for_single(db, post)
     return to_dto(post)
+    
 
 
 # ---------------------------------------------------------------------
@@ -636,10 +640,25 @@ async def leave_post(
     if not membership:
         raise HTTPException(status_code=400, detail="참여중인 멤버가 아닙니다")
 
+    # ✅ 멤버 삭제
     db.delete(membership)
     db.commit()
 
-    # 탈퇴 후 인원 감소 → 자동 OPEN
+    # ✅ 기존 Application 상태 변경 (APPROVED → WITHDRAWN)
+    application = (
+        db.query(models.Application)
+        .filter(
+            models.Application.post_id == post_id,
+            models.Application.user_id == current_user.id,
+            models.Application.status == "APPROVED",
+        )
+        .first()
+    )
+    if application:
+        application.status = "WITHDRAWN"
+        db.commit()
+
+    # ✅ 탈퇴 후 인원 감소 → 자동 OPEN
     current_count = db.query(models.PostMember).filter(models.PostMember.post_id == post_id).count()
     if current_count < post.capacity and post.recruit_status == "CLOSED":
         post.recruit_status = "OPEN"

@@ -2,7 +2,7 @@
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-
+from datetime import datetime
 from app.board import board_service as svc
 from app.board.board_schema import (
     BoardPostCard,
@@ -15,6 +15,8 @@ from app.board.board_schema import (
 )
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.board.board_schema import BoardWeeklyHot, BoardWeeklyHotLite
+from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/board", tags=["Board"])
 
@@ -27,11 +29,57 @@ def list_categories(db: Session = Depends(get_db)):
 
 
 # ===============================
-# 🔥 오늘 Top3 (오늘 조회수 기준)
+# 🔥 주간 Top3 (최근 7일 기준)
 # ===============================
-@router.get("/top3-today", response_model=List[BoardPostCard])
-def top3_today(db: Session = Depends(get_db)):
-    return svc.get_today_top3(db)
+@router.get("/top3-weekly")
+def top3_weekly(
+    days_offset: int = Query(0, description="KST 자정 기준 일 단위 오프셋 (예: -1=어제, +1=내일)"),
+    db: Session = Depends(get_db),
+):
+    """
+    🌙 KST 자정 기준으로 최근 7일 롤링 Top3
+    - ?days_offset=-1 → 어제 0시 기준
+    - ?days_offset=1  → 내일 0시 기준
+    """
+    from datetime import datetime, timedelta, timezone
+
+    KST = timezone(timedelta(hours=9))
+
+    # ✅ 현재 UTC 시각을 KST로 변환해서 '자정' 단위로 내림
+    now_kst = datetime.now(KST)
+    base_kst_midnight = datetime(
+        year=now_kst.year, month=now_kst.month, day=now_kst.day, tzinfo=KST
+    )
+
+    # ✅ days_offset 만큼 KST 자정 단위로 이동
+    target_kst = base_kst_midnight + timedelta(days=days_offset)
+
+    # ✅ 다시 UTC로 변환해서 서비스 레벨에서 사용
+    now_utc = target_kst.astimezone(timezone.utc)
+
+    results = svc.get_weekly_hot3(db, now_utc=now_utc)
+
+    simplified = [
+        {
+            "id": r["id"],
+            "title": r["title"],
+            "recent_views": r.get("recent_views", 0),
+            "recent_likes": r.get("recent_likes", 0),
+            "hot_score": r.get("hot_score", 0.0),
+        }
+        for r in results
+    ]
+    return JSONResponse(content=simplified)
+
+
+
+
+# # ===============================
+# # 🔥 오늘 Top3 (오늘 조회수 기준)
+# # ===============================
+# @router.get("/top3-today", response_model=List[BoardPostCard])
+# def top3_today(db: Session = Depends(get_db)):
+#     return svc.get_today_top3(db)
 
 
 # ===============================
@@ -73,7 +121,7 @@ def list_posts(
         page=page,
         page_size=page_size,
     )
-    top3 = svc.get_today_top3(db)
+    top3 = svc.get_weekly_hot3(db)
     return {"posts": items, "top_posts": top3, "total": total}
 
 

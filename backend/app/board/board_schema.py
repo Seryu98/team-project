@@ -100,3 +100,27 @@ class ReportCreate(BaseModel):
     target_type: str  # 'BOARD_POST' | 'COMMENT'
     target_id: int
     reason: str
+
+# =========================================================
+# 🧩 주간 인기글 응답 (Top3)
+# =========================================================
+class BoardWeeklyHot(BaseModel):
+    id: int
+    title: str
+    category_name: Optional[str] = None
+    author: Author
+    created_at: datetime
+    recent_views: int = 0
+    recent_likes: int = 0
+    comment_count: int = 0
+    hot_score: float = 0.0
+    model_config = {"from_attributes": True}
+
+# ✅ 테스트 전용 간소 응답 (테스트에서는 author, created_at 검증 불필요)
+class BoardWeeklyHotLite(BaseModel):
+    id: int
+    title: str
+    recent_views: int
+    recent_likes: int
+    hot_score: float
+    model_config = {"from_attributes": True}

@@ -3,6 +3,7 @@
 // - 본문 미리보기 (20자)
 // - 프로필 이미지 연결 (Top3 + 목록)
 // - 상세 → 목록 복귀 시 자동 갱신
+// - 🔥 주간 인기글 (최근 7일 기준)
 
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -91,9 +92,11 @@ export default function BoardListPage() {
 
         <div className="filter-section">
           <h4>정렬</h4>
-          {[{ label: "최신순", value: "latest" },
-          { label: "조회수순", value: "views" },
-          { label: "좋아요순", value: "likes" }].map((opt) => (
+          {[
+            { label: "최신순", value: "latest" },
+            { label: "조회수순", value: "views" },
+            { label: "좋아요순", value: "likes" },
+          ].map((opt) => (
             <label key={opt.value} className="filter-option">
               <input
                 type="radio"
@@ -117,11 +120,11 @@ export default function BoardListPage() {
           </button>
         </div>
 
-        {/* 🔥 Top3 */}
+        {/* 🔥 주간 Top3 */}
         <section className="board-top3">
-          <h3>🔥 오늘 가장 많이 본 글 Top 3</h3>
+          <h3>🔥 이번 주 인기글 Top 3</h3>
           {topPosts.length === 0 ? (
-            <p>오늘은 인기글이 없습니다.</p>
+            <p>이번 주에는 아직 인기글이 없습니다.</p>
           ) : (
             <div className="top3-list-horizontal">
               {topPosts.map((p, i) => (
@@ -135,6 +138,9 @@ export default function BoardListPage() {
                   {p.content_preview && (
                     <p className="top3-preview">{previewText(p.content_preview)}</p>
                   )}
+
+                  {/* ✅ 배지 표시 */}
+                  {p.badge && <span className="top3-badge">{p.badge}</span>}
 
                   <div className="top3-author">
                     <img

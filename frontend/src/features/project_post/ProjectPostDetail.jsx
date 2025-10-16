@@ -135,6 +135,12 @@ export default function ProjectPostDetail() {
   const workLabelPrefix = post.type === "STUDY" ? "스터디" : "프로젝트";
   const ended = post.project_status === "ENDED";
 
+  // ✅ 디버깅 로그
+  console.log("🧩 currentUser:", currentUser);
+  console.log("🧩 post.members:", post.members);
+  console.log("🧩 isLeader:", isLeader);
+  console.log("🧩 isMember:", isMember);
+
   return (
     <div style={{ maxWidth: "900px", margin: "auto", padding: "2rem" }}>
       {/* 제목 */}
@@ -362,40 +368,51 @@ export default function ProjectPostDetail() {
           </div>
         </div>
 
-        {/* ✅ 신청/탈퇴 버튼 (종료/승인전/모집종료 시 숨김) */}
-        {!isLeader && currentUser && post.status === "APPROVED" && !ended && post.recruit_status === "OPEN" && (
-          <div>
-            {!isMember ? (
-              <button
-                onClick={() => setShowModal(true)}
-                style={{
-                  marginRight: "10px",
-                  padding: "10px 20px",
-                  background: "#333",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "5px",
-                  cursor: "pointer",
-                }}
-              >
-                신청하기
-              </button>
-            ) : (
-              <button
-                onClick={handleLeave}
-                style={{
-                  padding: "10px 20px",
-                  border: "1px solid #333",
-                  borderRadius: "5px",
-                  cursor: "pointer",
-                }}
-                disabled={busy}
-              >
-                탈퇴하기
-              </button>
-            )}
-          </div>
+        {/* ✅ 신청/탈퇴 버튼 (프로젝트 종료 시만 숨김, 모집 종료여도 멤버 탈퇴 가능) */}
+        {currentUser ? (
+          !isLeader &&
+          post.status === "APPROVED" &&
+          !ended && (
+            <div>
+              {/* ✅ 모집 중일 때만 신청 버튼 표시 */}
+              {!isMember && post.recruit_status === "OPEN" ? (
+                <button
+                  onClick={() => setShowModal(true)}
+                  style={{
+                    marginRight: "10px",
+                    padding: "10px 20px",
+                    background: "#333",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                  }}
+                >
+                  신청하기
+                </button>
+              ) : null}
+
+              {/* ✅ 멤버인 경우에는 모집 상태가 CLOSED여도 탈퇴 버튼 표시 */}
+              {isMember && (
+                <button
+                  onClick={handleLeave}
+                  style={{
+                    padding: "10px 20px",
+                    border: "1px solid #333",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                  }}
+                  disabled={busy}
+                >
+                  탈퇴하기
+                </button>
+              )}
+            </div>
+          )
+        ) : (
+          <p style={{ fontSize: "13px", color: "#aaa" }}>로그인 정보 불러오는 중...</p>
         )}
+
       </div>
 
       {/* ✅ 지원서 모달 */}
