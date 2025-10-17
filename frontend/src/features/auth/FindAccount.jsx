@@ -1,6 +1,7 @@
 // src/features/auth/FindAccount.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   findUserId,
   requestPasswordReset,
@@ -26,7 +27,7 @@ export default function FindAccount() {
   // --- 인증 관련 ---
   const [resetToken, setResetToken] = useState("");
   const [verifyCode, setVerifyCode] = useState("");
-  const [serverCode, setServerCode] = useState("");
+  const [emailForReset, setEmailForReset] = useState("");
 
   // --- 새 비밀번호 ---
   const [newPassword, setNewPassword] = useState("");
@@ -61,6 +62,7 @@ export default function FindAccount() {
     try {
       const res = await getEmailHint(userId);
       setEmailHint(res.email_hint);
+      setEmailForReset(res.email); // 실제 이메일 저장
       setStep(3);
       setResult("");
     } catch {
@@ -70,37 +72,67 @@ export default function FindAccount() {
     }
   };
 
-  // ✅ 3단계 - 인증 메일 발송 (테스트용 코드 생성)
+  // ✅ 3단계 - 인증 메일 발송 (백엔드 요청)
   const handleRequestReset = async () => {
     try {
-      const res = await requestPasswordReset(userId);
-      setResetToken(res.reset_token);
+      // ✅ 백엔드 요구사항: email + purpose ("reset")
+      await axios.post("http://localhost:8000/auth/email/send-code", {
+        email: emailForReset,
+        purpose: "reset", // ← 필수 추가
+      });
 
-      // 🚀 실제 이메일 전송 대신 임시 인증번호 생성 (테스트용)
-      const generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
-      setServerCode(generatedCode);
-      console.log("📨 테스트용 인증번호:", generatedCode);
-
-      setResult("✅ 인증 메일이 발송되었습니다. (테스트용 코드는 콘솔 확인)");
+      setResult("✅ 인증 메일이 발송되었습니다. 이메일을 확인해주세요.");
       setTimeout(() => {
         setStep(4);
         setResult("");
       }, 1500);
-    } catch {
-      setResult("❌ 인증 메일 발송 실패");
+    } catch (error) {
+      console.error("비밀번호 재설정 인증 메일 실패:", error);
+
+      const detail = error.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        setResult("❌ " + detail.map((d) => d.msg).join(", "));
+      } else if (typeof detail === "string") {
+        setResult("❌ " + detail);
+      } else {
+        setResult("❌ 인증 메일 발송 중 오류가 발생했습니다.");
+      }
     }
   };
 
-  // ✅ 4단계 - 인증번호 검증
-  const handleVerifyCode = () => {
-    if (verifyCode === serverCode) {
+  // ✅ 4단계 - 인증번호 검증 (백엔드 요청)
+  const handleVerifyCode = async () => {
+    if (!verifyCode.trim()) {
+      setResult("❌ 인증번호를 입력해주세요.");
+      return;
+    }
+
+    try {
+      // ✅ 백엔드 요구사항: email + code + purpose
+      await axios.post("http://localhost:8000/auth/email/verify-code", {
+        email: emailForReset,
+        code: verifyCode,
+        purpose: "reset",
+      });
+
+      // ✅ 인증 성공 후 비밀번호 재설정용 토큰 발급
+      const res = await axios.post("http://localhost:8000/auth/request-password-reset", {
+        user_id: userId,
+      });
+
+      if (res.data.reset_token) {
+        setResetToken(res.data.reset_token); // ✅ 토큰 저장
+        console.log("✅ 발급받은 reset_token:", res.data.reset_token);
+      }
+
       setResult("✅ 인증 성공! 새 비밀번호를 설정해주세요.");
       setTimeout(() => {
         setStep(5);
         setResult("");
       }, 1000);
-    } else {
-      setResult("❌ 인증번호가 일치하지 않습니다.");
+    } catch (error) {
+      console.error("인증 실패:", error);
+      setResult("❌ 인증번호가 올바르지 않습니다.");
     }
   };
 
@@ -122,10 +154,12 @@ export default function FindAccount() {
     }
 
     try {
+      console.log("🔑 reset_token:", resetToken);
       await resetPassword(resetToken, newPassword);
       setResult("✅ 비밀번호 재설정 완료! 다시 로그인하세요.");
       setTimeout(() => navigate("/login"), 2000);
-    } catch {
+    } catch (error) {
+      console.error("비밀번호 재설정 실패:", error);
       setResult("❌ 비밀번호 재설정 실패");
     }
   };
