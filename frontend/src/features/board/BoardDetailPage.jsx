@@ -61,6 +61,12 @@ export default function BoardDetailPage() {
     fetchPost();
   }, [id]);
 
+  useEffect(() => {
+    if (post?.badge) {
+      console.log("✅ [DEBUG] post.badge:", post.badge);
+    }
+  }, [post]);
+
   // ===============================
   // 좋아요
   // ===============================
@@ -230,7 +236,53 @@ export default function BoardDetailPage() {
       </button>
 
       <div className="board-detail-card">
-        <div className="detail-header">
+
+        {/* 제목 + 날짜 */}
+        <div className="detail-header-row">
+          <div className="detail-title-left">
+            {/* 🏅 제목 왼쪽 배지 */}
+            <div className="badge-inline-left">
+              {post.badge?.includes("Gold Medal") && (
+                <span className="badge-medal badge-gold">🥇 1위</span>
+              )}
+              {post.badge?.includes("Silver Medal") && (
+                <span className="badge-medal badge-silver">🥈 2위</span>
+              )}
+              {post.badge?.includes("Bronze Medal") && (
+                <span className="badge-medal badge-bronze">🥉 3위</span>
+              )}
+              {post.badge?.includes("인기급상승") && (
+                <span className="badge-hot">🔥 인기급상승</span>
+              )}
+            </div>
+            <h2 className="detail-title">{post.title}</h2>
+          </div>
+          <span className="detail-date">{new Date(post.created_at).toLocaleDateString()}</span>
+        </div>
+
+
+
+        {/* 이미지 + 본문 (2열) */}
+        <div className="detail-content-row">
+          {post.attachment_url && (
+            <img
+              src={`${import.meta.env.VITE_API_BASE_URL}${post.attachment_url}`}
+              alt="대표 이미지"
+              className="post-cover-side"
+            />
+          )}
+          <div className="detail-text">{post.content}</div>
+        </div>
+
+        {/* 홍보글 | 조회수 | 댓글 */}
+        <div className="detail-meta">
+          <span className="detail-meta-item">홍보글</span> |
+          <span className="detail-meta-item">👁 {post.view_count}</span> |
+          <span className="detail-meta-item">💬 {visibleCommentCount}</span>
+        </div>
+
+        {/* 작성자 + 좋아요 */}
+        <div className="detail-author-like">
           <div className="author-box">
             <img
               src={
@@ -249,21 +301,14 @@ export default function BoardDetailPage() {
               {post.author.nickname}
             </span>
           </div>
-          <span className="detail-date">
-            {new Date(post.created_at).toLocaleDateString()}
-          </span>
+          {isLoggedIn && (
+            <button className="like-btn" onClick={handleLike}>
+              ❤️ {post.like_count}
+            </button>
+          )}
         </div>
 
-        <h2 className="detail-title">{post.title}</h2>
-
-        <div className="detail-actions">
-          <span>👁 {post.view_count}</span>
-          {isLoggedIn && <button onClick={handleLike}>❤️ {post.like_count}</button>}
-          <span>💬 댓글({visibleCommentCount})</span>
-        </div>
-
-        <div className="detail-content">{post.content}</div>
-
+        {/* 수정 / 삭제 */}
         {isOwner && (
           <div className="post-owner-actions">
             <button className="edit-btn" onClick={() => navigate(`/board/${post.id}/edit`)}>
@@ -277,6 +322,7 @@ export default function BoardDetailPage() {
 
         <hr />
 
+        {/* 댓글 영역 */}
         <div className="comments-section">
           <h3>💬 댓글 ({visibleCommentCount})</h3>
 
@@ -293,9 +339,7 @@ export default function BoardDetailPage() {
             <p>💡 로그인 후 댓글을 작성할 수 있습니다.</p>
           )}
 
-          {/* =============================== */}
-          {/* 댓글 / 대댓글 리스트 */}
-          {/* =============================== */}
+          {/* 댓글 + 대댓글 */}
           {comments.map((thread) => {
             const c = thread.comment;
             const replies = thread.replies || [];
@@ -358,7 +402,7 @@ export default function BoardDetailPage() {
                   </>
                 )}
 
-                {/* ✅ 대댓글 */}
+                {/* 대댓글 */}
                 {replies.length > 0 && (
                   <div className="reply-list">
                     {replies.map((r) => {
@@ -366,9 +410,7 @@ export default function BoardDetailPage() {
                       return (
                         <div key={r.id} className="reply-item">
                           {r.status === "DELETED" ? (
-                            <p className="comment-content deleted-comment">
-                              삭제된 댓글입니다.
-                            </p>
+                            <p className="comment-content deleted-comment">삭제된 댓글입니다.</p>
                           ) : (
                             <>
                               <div className="comment-header">
@@ -415,14 +457,12 @@ export default function BoardDetailPage() {
                   </div>
                 )}
 
-                {/* ✅ 답글 입력창 */}
+                {/* 답글 입력창 */}
                 {replyMap[c.id] !== undefined && editingId !== c.id && (
                   <div className="reply-input">
                     <textarea
                       value={replyMap[c.id]}
-                      onChange={(e) =>
-                        setReplyMap({ ...replyMap, [c.id]: e.target.value })
-                      }
+                      onChange={(e) => setReplyMap({ ...replyMap, [c.id]: e.target.value })}
                       placeholder="답글을 입력하세요"
                     />
                     <div className="reply-buttons">

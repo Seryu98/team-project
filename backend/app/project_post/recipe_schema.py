@@ -4,85 +4,66 @@ from typing import List, Optional
 from datetime import date, datetime
 
 
-# ✅ 스킬 응답 DTO
-class SkillResponse(BaseModel):
-    id: int
-    name: str
-
-    class Config:
-        from_attributes = True
-
-
-# ✅ 필수 입력값 응답 DTO
-class ApplicationFieldResponse(BaseModel):
-    id: int
-    name: str
-
-    class Config:
-        from_attributes = True
-
-
-# ✅ 멤버 응답 DTO
-class PostMemberResponse(BaseModel):
-    user_id: int
-    role: str
-
-    class Config:
-        from_attributes = True
-
-
-# ✅ 게시글 생성 요청 DTO
+# ▶ 요청 DTO
 class RecipePostCreate(BaseModel):
+    """프로젝트/스터디 게시글 생성 시 클라이언트가 보내는 데이터"""
     title: str = Field(..., max_length=200)
     description: Optional[str] = None
-    capacity: int = Field(..., gt=1)   # ✅ 최소 2명부터
+    capacity: int = Field(..., gt=0)
     type: str = Field(..., pattern="^(PROJECT|STUDY)$")
     field: Optional[str] = None
-
-    # 모집 기간
     start_date: Optional[date] = None
     end_date: Optional[date] = None
-
-    # 프로젝트 기간
     project_start: Optional[date] = None
     project_end: Optional[date] = None
+    skills: List[int] = []                # skill_id 목록
+    application_fields: List[int] = []    # field_id 목록
+    image_url: Optional[str] = None       # 대표 이미지 URL
 
-    skills: List[int] = []                   # skill_id 배열
-    application_fields: List[int] = []       # field_id 배열
-    image_url: Optional[str] = None
 
-
-# ✅ 게시글 응답 DTO
+# ▶ 응답 DTO
 class RecipePostResponse(BaseModel):
+    """게시글 단건 응답 스키마"""
     id: int
     title: str
     description: Optional[str]
     capacity: int
-    current_members: int
     type: str
     field: Optional[str]
-
-    # 모집 기간
     start_date: Optional[date]
     end_date: Optional[date]
-
-    # 프로젝트 기간
-    project_start: Optional[date] = None
-    project_end: Optional[date] = None
-
-    # ✅ 프로젝트 상태 (DB: project_status)
-    project_status: Optional[str] = None   # 예: ONGOING / ENDED
-
-    # 모집/승인 상태
-    status: str                # 관리자 승인 상태 (APPROVED/PENDING/REJECTED 등)
-    recruit_status: str        # 모집 상태 (OPEN/CLOSED)
-
+    project_start: Optional[date]
+    project_end: Optional[date]
+    project_status: Optional[str]
+    status: str
+    recruit_status: str
     created_at: datetime
-    image_url: Optional[str] = None
+    current_members: int
+    image_url: Optional[str]
     leader_id: int
-    skills: List[SkillResponse] = []
-    application_fields: List[ApplicationFieldResponse] = []
-    members: List[PostMemberResponse] = []
+    skills: Optional[list]
+    application_fields: Optional[list]
+    members: Optional[list]
+
+    class Config:
+        from_attributes = True  # ✅ ORM 객체를 직접 변환할 수 있도록 설정
+
+
+# ▶ 멤버 응답 DTO
+class PostMemberResponse(BaseModel):
+    """게시글 내 참여 멤버 정보"""
+    user_id: int
+    role: str
+
+
+# ✅ 추가: 페이지네이션 응답 스키마
+class PaginatedRecipePost(BaseModel):
+    """게시글 목록을 페이지 단위로 내려주는 응답 스키마"""
+    items: List[RecipePostResponse]
+    total: int
+    page: int
+    page_size: int
+    has_next: bool
 
     class Config:
         from_attributes = True

@@ -100,7 +100,6 @@ export default function ProfileCreate() {
         }
       }
 
-      // ✅ nickname 포함해서 전송
       const updateData = {
         nickname: form.nickname || "",
         headline: form.headline || "",
@@ -118,8 +117,13 @@ export default function ProfileCreate() {
       const meRes = await api.get("/auth/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      alert("프로필이 저장되었습니다.");
+
+      // ✅ Navbar 프로필 이미지 즉시 갱신
       localStorage.setItem("refreshProfile", "true");
+      window.dispatchEvent(new Event("profileUpdated"));
+      console.log("✅ 프로필 업데이트 완료 - Navbar 갱신 신호 발송");
+
+      alert("프로필이 저장되었습니다.");
       navigate(`/profile/${meRes.data.id}`);
     } catch (error) {
       console.error("저장 실패:", error.response?.data);
@@ -147,6 +151,11 @@ export default function ProfileCreate() {
       });
       setProfile(res.data);
       if (res.data?.profile_image) setPreviewImage(res.data.profile_image);
+
+      // ✅ 이미지 업로드 후 Navbar 프로필 이미지 즉시 갱신
+      localStorage.setItem("refreshProfile", "true");
+      window.dispatchEvent(new Event("profileUpdated"));
+      console.log("✅ 프로필 이미지 업데이트 완료 - Navbar 갱신 신호 발송");
     } catch {
       alert("이미지 업로드 실패");
     } finally {

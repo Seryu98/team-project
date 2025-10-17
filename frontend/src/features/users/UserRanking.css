@@ -1,0 +1,420 @@
+/* frontend/src/features/users/UserRanking.css */
+
+/* =============================== */
+/* 🎯 전체 레이아웃 */
+/* =============================== */
+.user-ranking-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f9fafb;
+}
+
+/* =============================== */
+/* 📋 사이드바 (ProjectPost와 통일) */
+/* =============================== */
+.user-ranking-sidebar {
+  width: 260px; /* 280 → 260으로 조정 */
+  flex-shrink: 0;
+  background: #fafafa;
+  border-right: 1px solid #eee;
+  padding: 20px;
+  max-height: calc(100vh - 120px);
+  position: sticky;
+  top: 20px;
+  overflow-y: auto;
+  margin: 20px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+  box-shadow: none; /* 그림자 제거 → Post랑 동일 */
+}
+
+.user-ranking-sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.user-ranking-sidebar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.user-ranking-sidebar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.user-ranking-sidebar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.sidebar-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 16px; /* ProjectPost와 동일 */
+}
+
+/* =============================== */
+/* 🔍 검색 입력 (ProjectPost와 동일) */
+/* =============================== */
+.search-section {
+  margin-bottom: 20px;
+}
+
+.search-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151; /* 통일 */
+  margin-bottom: 10px;
+  display: block;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.search-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  outline: none;
+}
+
+/* =============================== */
+/* 📂/📊/스킬 필터 공통 */
+/* =============================== */
+.category-title,
+.sort-title,
+.skill-filter-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.sort-options,
+.skill-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* ProjectPost랑 맞춤 */
+}
+
+.sort-label,
+.skill-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #4b5563;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.2s;
+}
+
+.sort-label:hover,
+.skill-label:hover {
+  color: #2563eb;
+}
+
+.sort-radio,
+.skill-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: #2563eb;
+}
+
+.sort-text,
+.skill-name {
+  font-size: 14px;
+  color: #111827;
+  font-weight: 500;
+}
+
+.sort-description {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-left: 24px;
+  margin-top: -6px;
+  margin-bottom: 4px;
+}
+
+/* =============================== */
+/* 🎨 스킬 필터 (사용 가능한 언어) */
+/* =============================== */
+.skill-filter-section {
+  margin-top: 24px;
+}
+
+.skill-filter-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.skill-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skill-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.skill-checkbox {
+  margin-right: 8px;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  flex-shrink: 0;
+}
+
+.skill-name {
+  font-size: 14px;
+  color: #111827;
+}
+
+/* =============================== */
+/* 📄 메인 콘텐츠 */
+/* =============================== */
+.user-ranking-main {
+  flex: 1;
+  padding: 40px;
+}
+
+.main-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.main-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #111827;
+  margin-bottom: 24px;
+}
+
+/* =============================== */
+/* 🔄 로딩 및 빈 상태 */
+/* =============================== */
+.loading-state,
+.empty-state {
+  text-align: center;
+  padding: 60px;
+  background: white;
+  border-radius: 16px;
+  color: #9ca3af;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* =============================== */
+/* 👤 유저 카드 그리드 */
+/* =============================== */
+.user-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.user-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s;
+}
+
+.user-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.15);
+  border-color: #2563eb;
+}
+
+/* =============================== */
+/* 🏆 순위 배지 */
+/* =============================== */
+.rank-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.rank-badge.gold {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #78350f;
+}
+
+.rank-badge.silver {
+  background: linear-gradient(135deg, #e5e7eb, #9ca3af);
+  color: #1f2937;
+}
+
+.rank-badge.bronze {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #78350f;
+}
+
+/* =============================== */
+/* 👤 유저 프로필 섹션 */
+/* =============================== */
+.user-profile-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #e5e7eb;
+  transition: border-color 0.2s;
+}
+
+.user-card:hover .user-avatar {
+  border-color: #2563eb;
+}
+
+.user-info {
+  flex: 1;
+}
+
+.user-nickname {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.user-headline {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* =============================== */
+/* ⭐ 점수 표시 */
+/* =============================== */
+.score-box {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-radius: 10px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #92400e;
+  box-shadow: 0 2px 6px rgba(251, 191, 36, 0.2);
+}
+
+/* =============================== */
+/* 📊 팔로워 통계 */
+/* =============================== */
+.user-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* =============================== */
+/* 🎯 스킬 태그 */
+/* =============================== */
+.user-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.skill-badge {
+  font-size: 11px;
+  background: #eff6ff;
+  color: #1e40af;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid #bfdbfe;
+  font-weight: 500;
+}
+
+.skill-more {
+  font-size: 11px;
+  color: #6b7280;
+  padding: 4px 10px;
+}
+
+/* =============================== */
+/* 📄 페이지네이션 */
+/* =============================== */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 40px;
+}
+
+.pagination-button {
+  padding: 10px 18px;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.pagination-button:hover:not(:disabled) {
+  border-color: #2563eb;
+  color: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+}
+
+.pagination-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+  background: #f9fafb;
+}
+
+.pagination-button.active {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+/* =============================== */
+/* 📱 반응형 디자인 */
+/* =============================== */
+@media (max-width: 768px) {
+  .user-ranking-sidebar {
+    display: none;
+  }
+
+  .user-ranking-main {
+    padding: 20px;
+  }
+
+  .user-grid {
+    grid-template-columns: 1fr;
+  }
+}

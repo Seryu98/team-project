@@ -35,13 +35,13 @@ CREATE TABLE users (
   last_fail_time DATETIME NULL COMMENT '마지막 로그인 실패 시각',
   account_locked BOOLEAN NOT NULL DEFAULT FALSE COMMENT '계정 잠금 여부',
   banned_until DATETIME NULL COMMENT '정지 해제 예정일',
-  is_tutorial_completed BOOLEAN NOT NULL DEFAULT FALSE COMMENT '튜토리얼 완료 여부', -- ✅ 새 컬럼 포함
   PRIMARY KEY (id),
   CONSTRAINT uq_users_nickname UNIQUE (nickname),
   CONSTRAINT uq_users_email UNIQUE (email),
   CONSTRAINT uq_users_userid UNIQUE (user_id),
   CONSTRAINT uq_users_social UNIQUE (auth_provider, social_id)
 );
+
 
 -- ===============================================
 -- PROFILES
