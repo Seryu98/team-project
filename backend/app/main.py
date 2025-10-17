@@ -9,7 +9,9 @@ from fastapi.responses import JSONResponse
 from app.admin.admin_router import router as admin_router
 from app.notifications.notification_router import router as notification_router
 from app.messages.message_router import router as message_router
-from app.board.hot3_scheduler import start_scheduler
+from app.board.hot3_scheduler import start_scheduler   # ✅ team-project 기능
+from app.search import search_router                   # ✅ soldesk 기능
+from app.stats import stats_router                     # ✅ soldesk 기능
 
 import os
 import traceback
@@ -100,6 +102,7 @@ from app.files import upload_router
 from app.board import board_router
 from app.users import user_router
 
+# ✅ 모든 주요 라우터 등록
 app.include_router(auth_router.router)
 app.include_router(social_router.router)
 app.include_router(db_test.router)
@@ -109,11 +112,18 @@ app.include_router(skill_router.router)
 app.include_router(recipe_router.router)
 app.include_router(meta_router.router)
 app.include_router(upload_router.router)
+
+# ✅ board router (public + 일반 둘 다)
+if hasattr(board_router, "public_router"):
+    app.include_router(board_router.public_router)
 app.include_router(board_router.router)
+
 app.include_router(user_router.router)
 app.include_router(admin_router)
 app.include_router(notification_router)
 app.include_router(message_router)
+app.include_router(stats_router.router)       # ✅ soldesk 기능
+app.include_router(search_router.router)      # ✅ soldesk 기능
 
 # ===================================
 # 🏠 기본 라우트
@@ -139,3 +149,12 @@ async def log_requests(request: Request, call_next):
             status_code=500,
             content={"detail": f"Internal Server Error: {str(e)}"},
         )
+
+
+# ===================================
+# ✅ 이메일 인증 관련 라우트 (보강용)
+# ===================================
+@app.get("/health")
+def health_check():
+    """✅ 서버 상태 확인용 (프론트엔드와 연동 테스트 시 사용)"""
+    return {"status": "ok", "message": "FastAPI backend running normally"}

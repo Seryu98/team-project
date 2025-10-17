@@ -1,0 +1,325 @@
+/* frontend/src/features/project_post/ProjectPost.css */
+
+/* =============================== */
+/* 🧭 전체 구조 */
+/* =============================== */
+.project-wrapper {
+  display: flex;
+  gap: 24px;
+  padding: 0;
+  width: 100%;
+}
+
+/* =============================== */
+/* 🎯 필터 패널 */
+/* =============================== */
+.project-filter-panel {
+  width: 260px;
+  flex-shrink: 0;
+  background: #fafafa;
+  border-right: 1px solid #eee;
+  padding: 20px;
+  max-height: calc(100vh - 120px);
+  position: sticky;
+  top: 20px;
+  overflow-y: auto;
+  margin: 20px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.project-filter-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.project-filter-panel::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.project-filter-panel::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.project-filter-panel::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.project-filter-panel h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.filter-group {
+  margin-bottom: 20px;
+}
+
+.filter-group-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 10px;
+  display: block;
+}
+
+/* 검색 입력 */
+.search-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.search-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  outline: none;
+}
+
+/* 라디오/체크박스 옵션 */
+.filter-radio-group,
+.filter-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-option-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #4b5563;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.2s;
+}
+
+.filter-option-label:hover {
+  color: #2563eb;
+}
+
+.filter-option-label input[type="radio"],
+.filter-option-label input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+/* 날짜 입력 */
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.date-input {
+  flex: 1;
+  padding: 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.date-input:focus {
+  border-color: #2563eb;
+  outline: none;
+}
+
+.date-separator {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+/* =============================== */
+/* 📋 메인 콘텐츠 */
+/* =============================== */
+.project-content {
+  flex: 1;
+  min-width: 0;
+  padding: 20px 24px;
+}
+
+.project-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.project-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.create-btn {
+  background: #2563eb;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.create-btn:hover {
+  background: #1e40af;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2);
+}
+
+/* =============================== */
+/* 📝 게시글 카드 */
+/* =============================== */
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.project-card {
+  display: flex;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.project-card:hover {
+  background: #f9fafb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+  border-color: #2563eb;
+}
+
+/* 대표 이미지 */
+.project-thumbnail {
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+}
+
+.project-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.project-description {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.project-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #9ca3af;
+  flex-wrap: wrap;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta-highlight {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.meta-divider {
+  width: 1px;
+  height: 12px;
+  background: #d1d5db;
+}
+
+/* 스킬 태그 */
+.project-skills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.skill-tag {
+  background: #eff6ff;
+  color: #1e40af;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #bfdbfe;
+}
+
+/* =============================== */
+/* 📭 빈 상태 */
+/* =============================== */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #9ca3af;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state-text {
+  font-size: 16px;
+  color: #6b7280;
+}
+
+/* =============================== */
+/* 📱 반응형 */
+/* =============================== */
+@media (max-width: 768px) {
+  .project-wrapper {
+    flex-direction: column;
+  }
+
+  .project-filter-panel {
+    width: 100%;
+    position: static;
+  }
+
+  .project-card {
+    flex-direction: column;
+  }
+
+  .project-thumbnail {
+    width: 100%;
+    height: 200px;
+  }
+}
