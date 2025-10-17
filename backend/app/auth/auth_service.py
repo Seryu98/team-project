@@ -6,7 +6,7 @@ import re
 import secrets
 import random
 from urllib.parse import urlencode, quote_plus
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any, Callable
 
 import requests
 from fastapi import Depends, HTTPException, status
@@ -211,17 +211,37 @@ def _issue_jwt_pair(user_id: int) -> Tuple[str, str]:
     return access_token, refresh_token
 
 # ===============================
-# 🧩 회원가입 처리
+# 🧩 회원가입 처리 (수정됨)
 # ===============================
 def register_user(db: Session, user: UserRegister) -> User:
-    if db.query(User).filter(User.email == user.email).first():
+    # ✅ ACTIVE 상태의 사용자만 중복으로 간주
+    if db.query(User).filter(User.email == user.email, User.status == UserStatus.ACTIVE).first():
         raise ValueError("이미 존재하는 이메일입니다.")
-    if db.query(User).filter(User.user_id == user.user_id).first():
+    if db.query(User).filter(User.user_id == user.user_id, User.status == UserStatus.ACTIVE).first():
         raise ValueError("이미 존재하는 아이디입니다.")
-    if db.query(User).filter(User.nickname == user.nickname).first():
+    if db.query(User).filter(User.nickname == user.nickname, User.status == UserStatus.ACTIVE).first():
         raise ValueError("이미 존재하는 닉네임입니다.")
+
     if not validate_password(user.password):
         raise ValueError("비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.")
+
+    # ✅ 탈퇴 계정 복구 로직 추가
+    existing_deleted = db.query(User).filter(
+        User.user_id == user.user_id, User.status == UserStatus.DELETED
+    ).first()
+    if existing_deleted:
+        existing_deleted.email = user.email
+        existing_deleted.password_hash = hash_password(user.password)
+        existing_deleted.name = user.name
+        existing_deleted.nickname = user.nickname
+        existing_deleted.phone_number = user.phone_number
+        existing_deleted.status = UserStatus.ACTIVE
+        existing_deleted.deleted_at = None
+        existing_deleted.is_tutorial_completed = False
+        db.commit()
+        db.refresh(existing_deleted)
+        logger.info("🔄 탈퇴 계정 복구 완료: user_id=%s", user.user_id)
+        return existing_deleted
 
     new_user = User(
         email=user.email,
@@ -230,6 +250,7 @@ def register_user(db: Session, user: UserRegister) -> User:
         name=user.name,
         nickname=user.nickname,
         phone_number=user.phone_number,
+        status=UserStatus.ACTIVE,  # ✅ 명시적으로 ACTIVE 설정
     )
     db.add(new_user)
     db.commit()
@@ -309,6 +330,12 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
     login_id = form_data.username
 
     user = db.query(User).filter(User.user_id == login_id).first()
+
+    # 🚫 탈퇴 계정 로그인 차단
+    if user and user.status == UserStatus.DELETED:
+        logger.warning("🚫 탈퇴 계정 로그인 시도 차단: user_id=%s", login_id)
+        raise HTTPException(status_code=403, detail="탈퇴한 계정은 로그인할 수 없습니다.")
+
     if user and _is_locked(user):
         db.commit()
         logger.warning("잠금 상태 로그인 시도: user_id=%s", login_id)
@@ -335,7 +362,6 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
-
 
 def refresh_access_token(refresh_token: str) -> Optional[dict]:
     payload = verify_token(refresh_token, expected_type="refresh")
@@ -364,114 +390,127 @@ def refresh_access_token(refresh_token: str) -> Optional[dict]:
 # ===============================
 # 🌍 소셜 로그인 URL 발급 + Callback
 # ===============================
-def get_oauth_login_url(provider: str) -> str:
-    base_redirect = _oauth_base_redirect()
 
-    if provider == "google":
-        params = {
+# 리다이렉트 URI 빌더(기존 동작 유지)
+def _provider_redirect_uri(provider: str) -> str:
+    return f"{_oauth_base_redirect()}/{provider}"
+
+# 각 provider별 Auth URL/스코프만 선언(동작 동일, 표현만 일원화)
+_AUTH_AUTHORIZE: Dict[str, Dict[str, Any]] = {
+    "google": {
+        "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
+        "params": lambda: {
             "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-            "redirect_uri": f"{base_redirect}/google",
+            "redirect_uri": _provider_redirect_uri("google"),
             "response_type": "code",
             "scope": "openid email profile",
             "access_type": "offline",
-        }
-        return f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
-
-    if provider == "naver":
-        params = {
+        },
+    },
+    "naver": {
+        "auth_url": "https://nid.naver.com/oauth2.0/authorize",
+        "params": lambda: {
             "client_id": os.getenv("NAVER_CLIENT_ID"),
-            "redirect_uri": f"{base_redirect}/naver",
+            "redirect_uri": _provider_redirect_uri("naver"),
             "response_type": "code",
             "state": "naver_state",
-        }
-        return f"https://nid.naver.com/oauth2.0/authorize?{urlencode(params)}"
-
-    if provider == "kakao":
-        params = {
+        },
+    },
+    "kakao": {
+        "auth_url": "https://kauth.kakao.com/oauth/authorize",
+        "params": lambda: {
             "client_id": os.getenv("KAKAO_CLIENT_ID"),
-            "redirect_uri": f"{base_redirect}/kakao",
+            "redirect_uri": _provider_redirect_uri("kakao"),
             "response_type": "code",
-        }
-        return f"https://kauth.kakao.com/oauth/authorize?{urlencode(params)}"
+        },
+    },
+}
 
-    raise ValueError("지원하지 않는 provider입니다.")
+# 토큰/유저조회/파서 구성(중복 제거, 동작 동일)
+_PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
+    "google": {
+        "token_url": "https://oauth2.googleapis.com/token",
+        "token_payload": lambda code: {
+            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": _provider_redirect_uri("google"),
+        },
+        "userinfo_url": "https://www.googleapis.com/oauth2/v2/userinfo",
+        "extract": lambda data: {
+            "email": data.get("email"),
+            "name": _safe_name("google", data.get("name")),
+            "social_id": data.get("id"),
+        },
+        "missing_token_msg": "구글 액세스 토큰 없음",
+    },
+    "naver": {
+        "token_url": "https://nid.naver.com/oauth2.0/token",
+        "token_payload": lambda code: {
+            "client_id": os.getenv("NAVER_CLIENT_ID"),
+            "client_secret": os.getenv("NAVER_CLIENT_SECRET"),
+            "grant_type": "authorization_code",
+            "code": code,
+            "state": "naver_state",
+        },
+        "userinfo_url": "https://openapi.naver.com/v1/nid/me",
+        "extract": lambda data: (lambda profile: {
+            "email": profile.get("email"),
+            "name": _safe_name("naver", profile.get("name")),
+            "social_id": profile.get("id"),
+        })((data.get("response") or {})),
+        "missing_token_msg": "네이버 액세스 토큰 없음",
+    },
+    "kakao": {
+        "token_url": "https://kauth.kakao.com/oauth/token",
+        "token_payload": lambda code: {
+            "grant_type": "authorization_code",
+            "client_id": os.getenv("KAKAO_CLIENT_ID"),
+            "client_secret": os.getenv("KAKAO_CLIENT_SECRET", ""),
+            "redirect_uri": _provider_redirect_uri("kakao"),
+            "code": code,
+        },
+        "userinfo_url": "https://kapi.kakao.com/v2/user/me",
+        "extract": lambda data: (lambda acc: {
+            "email": acc.get("email"),
+            "name": _safe_name("kakao", (acc.get("profile") or {}).get("nickname")),
+            "social_id": str(data.get("id")),
+        })((data.get("kakao_account") or {})),
+        "missing_token_msg": "카카오 액세스 토큰 없음",
+    },
+}
+
+def get_oauth_login_url(provider: str) -> str:
+    base = _AUTH_AUTHORIZE.get(provider)
+    if not base:
+        raise ValueError("지원하지 않는 provider입니다.")
+    return f"{base['auth_url']}?{urlencode(base['params']())}"
 
 
 def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResponse:
     base_redirect = _oauth_base_redirect()
 
     try:
-        if provider == "google":
-            token_url = "https://oauth2.googleapis.com/token"
-            data = {
-                "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-                "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
-                "code": code,
-                "grant_type": "authorization_code",
-                "redirect_uri": f"{base_redirect}/google",
-            }
-            token_json = _token_exchange(token_url, data)
-            access_token = token_json.get("access_token")
-            if not access_token:
-                raise ValueError("구글 액세스 토큰 없음")
-
-            user_info = _get_json(
-                "https://www.googleapis.com/oauth2/v2/userinfo",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-            email = user_info.get("email")
-            name = _safe_name("google", user_info.get("name"))
-            social_id = user_info.get("id")
-
-        elif provider == "naver":
-            token_url = "https://nid.naver.com/oauth2.0/token"
-            data = {
-                "client_id": os.getenv("NAVER_CLIENT_ID"),
-                "client_secret": os.getenv("NAVER_CLIENT_SECRET"),
-                "grant_type": "authorization_code",
-                "code": code,
-                "state": "naver_state",
-            }
-            token_json = _token_exchange(token_url, data)
-            access_token = token_json.get("access_token")
-            if not access_token:
-                raise ValueError("네이버 액세스 토큰 없음")
-
-            user_info = _get_json(
-                "https://openapi.naver.com/v1/nid/me",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-            profile = user_info.get("response", {}) or {}
-            email = profile.get("email")
-            name = _safe_name("naver", profile.get("name"))
-            social_id = profile.get("id")
-
-        elif provider == "kakao":
-            token_url = "https://kauth.kakao.com/oauth/token"
-            data = {
-                "grant_type": "authorization_code",
-                "client_id": os.getenv("KAKAO_CLIENT_ID"),
-                "client_secret": os.getenv("KAKAO_CLIENT_SECRET", ""),
-                "redirect_uri": f"{base_redirect}/kakao",
-                "code": code,
-            }
-            token_json = _token_exchange(token_url, data)
-            access_token = token_json.get("access_token")
-            if not access_token:
-                raise ValueError("카카오 액세스 토큰 없음")
-
-            user_info = _get_json(
-                "https://kapi.kakao.com/v2/user/me",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-            kakao_account = user_info.get("kakao_account", {}) or {}
-            email = kakao_account.get("email")
-            profile = kakao_account.get("profile", {}) or {}
-            name = _safe_name("kakao", profile.get("nickname"))
-            social_id = str(user_info.get("id"))
-
-        else:
+        cfg = _PROVIDER_CONFIG.get(provider)
+        if not cfg:
             raise ValueError("지원하지 않는 provider입니다.")
+
+        # 토큰 교환
+        token_json = _token_exchange(cfg["token_url"], cfg["token_payload"](code))
+        access_token = token_json.get("access_token")
+        if not access_token:
+            raise ValueError(cfg["missing_token_msg"])
+
+        # 유저 정보 조회
+        user_info_raw = _get_json(
+            cfg["userinfo_url"],
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        parsed = cfg["extract"](user_info_raw)
+        email = parsed.get("email")
+        name = parsed.get("name")
+        social_id = parsed.get("social_id")
 
     except Exception as e:
         logger.exception("소셜 로그인 오류(%s): %s", provider, e)
