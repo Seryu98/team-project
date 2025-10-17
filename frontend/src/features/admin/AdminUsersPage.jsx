@@ -1,4 +1,4 @@
-// frontend/src/features/admin/AdminUsersPage.jsx
+// src/features/admin/AdminUsersPage.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 

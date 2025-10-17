@@ -1,4 +1,4 @@
-# ✅ backend/app/board/board_service.py (with event hook)
+# app/board/board_service.py (with event hook)
 from datetime import date
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy.orm import Session

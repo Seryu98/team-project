@@ -1,4 +1,4 @@
- // features/admin/AdminService.js
+ // src/features/admin/AdminService.js
 import axios from "axios";
 const API = "http://localhost:8000/admin";
 
