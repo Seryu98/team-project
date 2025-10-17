@@ -504,7 +504,7 @@ export default function HomePage() {
                                         }}>
                                             {/* 제목 */}
                                             <h3 style={{
-                                                fontSize: '2.5rem',
+                                                fontSize: '5rem',
                                                 fontWeight: 'bold',
                                                 marginBottom: '1rem'
                                             }}>
