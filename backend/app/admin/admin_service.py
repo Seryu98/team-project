@@ -1,4 +1,4 @@
- # app/admin/admin_service.py
+# app/admin/admin_service.py
 # ✅ 관리자 비즈니스 로직: 게시글 승인/거절, 신고 처리
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from app.core.database import get_db
 from app.events.events import on_post_approved, on_report_resolved
 from app.notifications.notification_service import send_notification
-from app.notifications.notification_model import NotificationType
+from app.notifications.notification_model import NotificationType, NotificationCategory  # 🩵 [수정] NotificationCategory import
 from app.messages.message_service import send_message
 from app.messages.message_model import MessageCategory
 
@@ -19,6 +19,7 @@ def _get_db(db: Optional[Session] = None):
         db = next(get_db())
         close = True
     return db, close
+
 
 # ✅ 게시글 승인
 def approve_post(post_id: int, admin_id: int, db: Optional[Session] = None) -> bool:
@@ -45,7 +46,7 @@ def approve_post(post_id: int, admin_id: int, db: Optional[Session] = None) -> b
             message=f"게시글 #{post_id}이 승인되었습니다.",
             related_id=post_id,
             redirect_path=f"/posts/{post_id}",
-            category=MessageCategory.ADMIN.value, 
+            category=NotificationCategory.ADMIN.value,  # 🩵 [수정] MessageCategory → NotificationCategory
             db=db,
         )
 
@@ -56,6 +57,7 @@ def approve_post(post_id: int, admin_id: int, db: Optional[Session] = None) -> b
     finally:
         if close:
             db.close()
+
 
 # ✅ 게시글 거절
 def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: Optional[Session] = None) -> bool:
@@ -79,7 +81,6 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
                 VALUES (:aid, :pid, 'REJECT', :reason)
             """), {"aid": admin_id, "pid": post_id, "reason": reason})
 
-
         # ✅ 작성자에게 거절 알림
         leader_id = db.execute(
             text("SELECT leader_id FROM recipe_posts WHERE id=:pid"), {"pid": post_id}
@@ -92,7 +93,7 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
                 message=f"게시글 #{post_id}이 거절되었습니다. 사유: {reason or '관리자에 의해 거절되었습니다.'}",
                 related_id=post_id,
                 redirect_path="/myposts",
-                category=MessageCategory.ADMIN.value,
+                category=NotificationCategory.ADMIN.value,  # 🩵 [수정] 카테고리 통일
                 db=db,
             )
 
@@ -102,6 +103,7 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
     finally:
         if close:
             db.close()
+
 
 # ----------------------------
 # ✅ 신고 처리
@@ -152,24 +154,24 @@ def resolve_report(
 
         # 🚨 신고 승인 시
         if action == "RESOLVE":
-            # --- 신고자 알림
+            # --- 신고자 알림 (클릭 시 관리자 쪽지함)
             send_notification(
                 user_id=reporter_id,
                 type_=NotificationType.REPORT_RESOLVED.value,
                 message=f"신고(ID:{report_id})가 승인되어 처리되었습니다.",
                 related_id=report_id,
                 redirect_path="/messages?tab=admin",
-                category=MessageCategory.ADMIN.value,
+                category=NotificationCategory.ADMIN.value,  # 🩵 [수정]
                 db=db,
             )
 
-        # ✅ 신고자에게 쪽지 발송
+            # ✅ 신고자에게 쪽지 발송
             send_message(
                 sender_id=admin_id,
                 receiver_id=reporter_id,
                 content=f"[신고 승인 안내]\n귀하의 신고(ID:{report_id})가 승인되어 처리되었습니다.\n"
-                    f"사유: {reason or '관리자 판단에 의한 승인입니다.'}\n"
-                    "📩 해당 내용은 관리자 쪽지함에서도 확인 가능합니다.",
+                        f"사유: {reason or '관리자 판단에 의한 승인입니다.'}\n"
+                        "📩 해당 내용은 관리자 쪽지함에서도 확인 가능합니다.",
                 category=MessageCategory.ADMIN.value,
                 db=db,
             )
@@ -190,7 +192,7 @@ def resolve_report(
                 db=db,
             )
 
-            # ✅ 신고된 대상 삭제 (POST/COMMENT/쪽지 등)
+            # ✅ 신고된 대상 삭제
             delete_map = {
                 "POST": "posts",
                 "BOARD_POST": "board_posts",
@@ -200,7 +202,7 @@ def resolve_report(
             if target_type in delete_map:
                 db.execute(text(f"DELETE FROM {delete_map[target_type]} WHERE id=:tid"), {"tid": target_id})
 
-            # ✅ 정지 처리 (기간 설정)
+            # ✅ 정지 처리
             suspend_until = None
             if penalty_type == "BAN_3DAYS":
                 suspend_until = datetime.utcnow() + timedelta(days=3)
@@ -213,13 +215,13 @@ def resolve_report(
                 db.execute(text("""
                     UPDATE users
                        SET status = 'BANNED',
-                           banned_until = :until    -- 🩵 수정됨: suspend_until → banned_until
+                           banned_until = :until
                      WHERE id = :uid
                 """), {"uid": reported_id, "until": suspend_until})
 
         # 🚫 신고 반려 시
         elif action == "REJECT":
-            # ✅ 1) 신고자에게 쪽지 (관리자 카테고리)
+            # ✅ 신고자 쪽지
             send_message(
                 sender_id=admin_id,
                 receiver_id=reporter_id,
@@ -233,18 +235,18 @@ def resolve_report(
                 db=db,
             )
 
-        # ✅ 2) 신고자에게 알림 (클릭 시 관리자 쪽지함으로 이동)
-        send_notification(
-            user_id=reporter_id,
-            type_=NotificationType.REPORT_REJECTED.value,
-            message=f"신고(ID:{report_id})가 반려되었습니다.",
-            related_id=report_id,
-            redirect_path="/messages?tab=admin",   # 관리자 쪽지함으로 이동
-            category=MessageCategory.ADMIN.value,
-            db=db,
-        )
+            # ✅ 신고자 알림
+            send_notification(
+                user_id=reporter_id,
+                type_=NotificationType.REPORT_REJECTED.value,
+                message=f"신고(ID:{report_id})가 반려되었습니다.",
+                related_id=report_id,
+                redirect_path="/messages?tab=admin",
+                category=NotificationCategory.ADMIN.value,  # 🩵 [수정]
+                db=db,
+            )
 
-        # ✅ 이벤트 트리거 (로그용)
+        # ✅ 로그 트리거
         on_report_resolved(
             report_id=report_id,
             reporter_user_id=reporter_id,
@@ -258,6 +260,7 @@ def resolve_report(
     finally:
         if close:
             db.close()
+
 
 # ----------------------------
 # ✅ 관리자 대시보드 통계
@@ -273,6 +276,7 @@ def get_admin_stats(db: Session):
         ).scalar() or 0,
     }
     return result
+
 
 # ===============================================
 # ✅ 제재 유저 관리
@@ -302,6 +306,7 @@ def list_banned_users(db: Optional[Session] = None) -> list[dict]:
         if close:
             db.close()
 
+
 def ban_user(target_user_id: int, admin_id: int, days: Optional[int] = None, reason: Optional[str] = None, db: Optional[Session] = None) -> bool:
     db, close = _get_db(db)
     try:
@@ -318,16 +323,16 @@ def ban_user(target_user_id: int, admin_id: int, days: Optional[int] = None, rea
              WHERE id=:uid
         """), {"uid": target_user_id, "until": until})
 
-        # 알림 & 쪽지 (관리자 카테고리)
+        # 알림 & 쪽지
         send_notification(
             user_id=target_user_id,
             type_=NotificationType.BAN.value,
             message=f"계정이 제재되었습니다. ({'영구' if days is None else f'{days}일'})",
             related_id=None,
-            redirect_path="/messages?tab=admin",   # ✅ 수정됨
+            redirect_path="/messages?tab=admin",
+            category=NotificationCategory.ADMIN.value,  # 🩵 [수정]
             db=db,
         )
-
         send_message(
             sender_id=admin_id,
             receiver_id=target_user_id,
@@ -341,6 +346,7 @@ def ban_user(target_user_id: int, admin_id: int, days: Optional[int] = None, rea
     finally:
         if close:
             db.close()
+
 
 # ✅ 밴 해제
 def unban_user(target_user_id: int, admin_id: int, reason: Optional[str] = None, db: Optional[Session] = None) -> bool:
@@ -361,7 +367,8 @@ def unban_user(target_user_id: int, admin_id: int, reason: Optional[str] = None,
             type_=NotificationType.UNBAN.value,
             message="계정 제재가 해제되었습니다.",
             related_id=None,
-            redirect_path="/messages?tab=admin",   # ✅ 수정됨
+            redirect_path="/messages?tab=admin",
+            category=NotificationCategory.ADMIN.value,  # 🩵 [수정]
             db=db,
         )
 

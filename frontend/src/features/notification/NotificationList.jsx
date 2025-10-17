@@ -23,51 +23,80 @@ export default function NotificationList({ onClose }) {
     fetchList();
 
     // ✅ storage 이벤트 감지해서 실시간 새로고침
-  const handleRefresh = (e) => {
-    if (e.key === "refreshNotifications") {
-      fetchList();
-    }
-  };
-  window.addEventListener("storage", handleRefresh);
+    const handleRefresh = (e) => {
+      if (e.key === "refreshNotifications") {
+        fetchList();
+      }
+    };
+    window.addEventListener("storage", handleRefresh);
 
-  return () => window.removeEventListener("storage", handleRefresh);
-}, []);
+    // 🩵 [추가] 폴링 추가: 새로고침 없이도 10초마다 최신화
+    const timer = setInterval(fetchList, 10000);
+
+    return () => {
+      window.removeEventListener("storage", handleRefresh);
+      clearInterval(timer);
+    };
+  }, []);
 
   // ================================================
   // ✅ 알림 클릭 시 동작
   // ================================================
   async function onClickItem(n) {
     try {
-      // 🩵 [1] redirect_path가 None 또는 빈 값이면 → 읽음 처리만 하고 이동 없음
-      if (!n.redirect_path || n.redirect_path === "None") {
-        await axios.post(`/notifications/${n.id}/read`);
-        setItems((prev) => prev.filter((x) => x.id !== n.id));
-        onClose?.();
-        return;
-      }
-
-      // 🩵 [2] 알림 유형별 경로 처리
-      if (n.type === "MESSAGE") {
-        window.location.href = `/messages/${n.related_id}`;
-      } 
-      else if (n.type === "REPORT_RECEIVED") {
-        // ✅ 관리자 신고 접수 알림 → 관리자 쪽지함으로 이동
-        window.location.href = "/messages?tab=admin";
-      } 
-      else if (n.type === "REPORT_REJECTED" || n.type === "REPORT_RESOLVED") {
-        // ✅ 신고 결과 알림 (승인/반려) → 관리자 쪽지함으로 이동
-        window.location.href = "/messages?tab=admin";
-      }
-      else if (["BAN", "WARNING", "UNBAN"].includes(n.type)) {
-        window.location.href = "/messages?tab=admin";
-      } 
-      else {
-        window.location.href = n.redirect_path;
-      }
-
-      // 🩵 [3] 클릭 시 읽음 처리
+      // 🩵 [수정] 클릭 즉시 읽음 처리 (오류 방지용)
       await axios.post(`/notifications/${n.id}/read`);
       setItems((prev) => prev.filter((x) => x.id !== n.id));
+
+      // 🩵 [수정] redirect_path 'None' 문자열 방지
+      const redirectPath =
+        !n.redirect_path || n.redirect_path === "None" ? null : n.redirect_path;
+
+      // 🩵 [수정] 유형별 이동 로직 (서버 Enum과 일치)
+      switch (n.type) {
+        case "MESSAGE":
+          window.location.href = `/messages/${n.related_id}`;
+          break;
+
+        case "REPORT_RECEIVED":
+          // ✅ 관리자 신고 접수 알림 → 관리자 쪽지함 이동
+          window.location.href = "/messages?tab=admin";
+          break;
+
+        case "REPORT_RESOLVED":
+        case "REPORT_REJECTED":
+          // ✅ 신고 승인·반려 결과 → 관리자 쪽지함 이동
+          window.location.href = "/messages?tab=admin";
+          break;
+
+        case "BAN":
+        case "WARNING":
+        case "UNBAN":
+          // ✅ 제재·경고·해제 알림 → 관리자 쪽지함 이동
+          window.location.href = "/messages?tab=admin";
+          break;
+
+        case "APPLICATION_ACCEPTED":
+        case "APPLICATION_REJECTED":
+          // ✅ 게시글 승인/거절 → 마이페이지 or 해당 게시글
+          if (redirectPath) window.location.href = redirectPath;
+          else window.location.href = "/myposts";
+          break;
+
+        case "REPORT_ADMIN_NOTICE":
+          // 🩵 [추가] 신고 관련 관리자 시스템 공지 (대시보드 이동)
+          window.location.href = "/admin/reports";
+          break;
+
+        default:
+          if (redirectPath) {
+            window.location.href = redirectPath;
+          } else {
+            // 🩵 [추가] 이동 경로가 없으면 콘솔만 출력 (디버깅용)
+            console.log("ℹ️ 이동 경로 없음:", n);
+          }
+          break;
+      }
     } catch (err) {
       console.error("❌ 알림 클릭 처리 중 오류:", err);
     } finally {
@@ -97,8 +126,15 @@ export default function NotificationList({ onClose }) {
             onClick={() => onClickItem(n)}
             className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
           >
-            {/* 🩵 메시지 내용 */}
-            <div>{n.message}</div>
+            {/* 🩵 [추가] 알림 타입 표시 (디버깅 시 가시성 ↑) */}
+            <div className="font-medium">
+              {n.message}
+              {process.env.NODE_ENV === "development" && (
+                <span className="text-xs text-gray-400 ml-1">
+                  ({n.type}/{n.category})
+                </span>
+              )}
+            </div>
             <div className="text-xs text-gray-400">
               {new Date(n.created_at).toLocaleString()}
             </div>
