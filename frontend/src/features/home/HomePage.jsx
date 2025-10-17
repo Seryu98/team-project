@@ -340,7 +340,7 @@ export default function HomePage() {
                                 fontWeight: 'bold',
                                 color: '#111827'
                             }}>
-                                🏆 이번 주 인기 멤버
+                                🏆 랭킹 유저
                             </h2>
                         </div>
 

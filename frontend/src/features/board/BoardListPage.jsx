@@ -1,9 +1,4 @@
 // frontend/src/features/board/BoardListPage.jsx
-// - 댓글 수 정상 반영
-// - 본문 미리보기 (20자)
-// - 프로필 이미지 연결 (Top3 + 목록)
-// - 상세 → 목록 복귀 시 자동 갱신
-
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getBoardPosts } from "./BoardAPI";
@@ -61,15 +56,21 @@ export default function BoardListPage() {
     <div className="board-wrapper">
       {/* ✅ 좌측 필터 */}
       <aside className="board-filter-panel">
-        <form onSubmit={(e) => e.preventDefault()} className="filter-search">
-          <input
-            type="text"
-            placeholder="검색"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button>검색</button>
-        </form>
+        <h3>필터</h3>
+
+        {/* ✅ 검색 */}
+        <div className="filter-section">
+          <h4>검색</h4>
+          <form onSubmit={(e) => e.preventDefault()}>
+            <input
+              type="text"
+              className="search-input"
+              placeholder="제목, 설명 검색..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </form>
+        </div>
 
         <div className="filter-section">
           <h4>카테고리</h4>
@@ -83,7 +84,7 @@ export default function BoardListPage() {
                   checked={category === cat}
                   onChange={() => setCategory(cat)}
                 />
-                {cat}
+                <span>{cat}</span>
               </label>
             )
           )}
@@ -91,9 +92,11 @@ export default function BoardListPage() {
 
         <div className="filter-section">
           <h4>정렬</h4>
-          {[{ label: "최신순", value: "latest" },
-          { label: "조회수순", value: "views" },
-          { label: "좋아요순", value: "likes" }].map((opt) => (
+          {[
+            { label: "최신순", value: "latest" },
+            { label: "조회수순", value: "views" },
+            { label: "좋아요순", value: "likes" },
+          ].map((opt) => (
             <label key={opt.value} className="filter-option">
               <input
                 type="radio"
@@ -102,7 +105,7 @@ export default function BoardListPage() {
                 checked={sort === opt.value}
                 onChange={() => setSort(opt.value)}
               />
-              {opt.label}
+              <span>{opt.label}</span>
             </label>
           ))}
         </div>
@@ -121,19 +124,29 @@ export default function BoardListPage() {
         <section className="board-top3">
           <h3>🔥 오늘 가장 많이 본 글 Top 3</h3>
           {topPosts.length === 0 ? (
-            <p>오늘은 인기글이 없습니다.</p>
+            <p style={{ color: "#9ca3af", fontSize: "14px" }}>
+              오늘은 인기글이 없습니다.
+            </p>
           ) : (
             <div className="top3-list-horizontal">
               {topPosts.map((p, i) => (
-                <div key={p.id} className="top3-card" onClick={() => openPost(p.id)}>
+                <div
+                  key={p.id}
+                  className="top3-card"
+                  onClick={() => openPost(p.id)}
+                >
                   <div className="top3-header">
                     <span className="rank">#{i + 1}</span>
-                    <h4>{p.title}</h4>
+                    <h4 style={{ margin: 0, fontSize: "15px", fontWeight: "600" }}>
+                      {p.title}
+                    </h4>
                   </div>
 
                   {/* ✅ 본문 요약 */}
                   {p.content_preview && (
-                    <p className="top3-preview">{previewText(p.content_preview)}</p>
+                    <p className="top3-preview">
+                      {previewText(p.content_preview)}
+                    </p>
                   )}
 
                   <div className="top3-author">
@@ -156,12 +169,14 @@ export default function BoardListPage() {
                         e.stopPropagation();
                         goProfile(p.author.id);
                       }}
+                      style={{ fontSize: "14px" }}
                     >
                       {p.author.nickname}
                     </span>
                   </div>
                   <div className="top3-stats">
-                    👁 {p.view_count} | ❤️ {p.like_count} | 💬 댓글({p.comment_count ?? 0})
+                    👁 {p.view_count} | ❤️ {p.like_count} | 💬{" "}
+                    {p.comment_count ?? 0}
                   </div>
                 </div>
               ))}
@@ -169,15 +184,14 @@ export default function BoardListPage() {
           )}
         </section>
 
-        <hr className="top3-divider" />
-
         {/* 📰 게시글 목록 */}
         <section className="board-list">
-          <h3>📰 게시글 목록</h3>
           {loading ? (
-            <p>로딩 중...</p>
+            <p style={{ color: "#9ca3af", fontSize: "14px" }}>로딩 중...</p>
           ) : posts.length === 0 ? (
-            <p>게시글이 없습니다.</p>
+            <p style={{ color: "#9ca3af", fontSize: "14px" }}>
+              게시글이 없습니다.
+            </p>
           ) : (
             posts.map((post) => (
               <div
@@ -224,8 +238,8 @@ export default function BoardListPage() {
                   )}
 
                   <p className="board-meta">
-                    {post.category_name} | 👁 {post.view_count} | ❤️ {post.like_count} | 💬 댓글(
-                    {post.comment_count ?? 0})
+                    {post.category_name} | 👁 {post.view_count} | ❤️{" "}
+                    {post.like_count} | 💬 {post.comment_count ?? 0}
                   </p>
                 </div>
               </div>

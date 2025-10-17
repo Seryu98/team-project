@@ -5,29 +5,51 @@
 .board-wrapper {
   display: flex;
   gap: 24px;
-  padding: 20px;
+  padding: 0;
+  width: 100%;
 }
 
+/* =============================== */
+/* 🎯 필터 패널 */
+/* =============================== */
 .board-filter-panel {
-  width: 240px;
+  width: 260px;
   flex-shrink: 0;
   background: #fafafa;
-  border: 1px solid #eee;
-  padding: 16px;
-  border-radius: 8px;
+  border-right: 1px solid #eee;
+  padding: 20px;
+  max-height: calc(100vh - 120px);
+  position: sticky;
+  top: 20px;
+  overflow-y: auto;
+  margin: 20px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
 }
 
-.filter-search {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 16px;
+.board-filter-panel::-webkit-scrollbar {
+  width: 8px;
 }
 
-.filter-search input {
-  flex: 1;
-  padding: 6px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
+.board-filter-panel::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.board-filter-panel::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.board-filter-panel::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.board-filter-panel h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
 }
 
 .filter-section {
@@ -35,137 +57,193 @@
 }
 
 .filter-section h4 {
-  margin-bottom: 6px;
+  margin-bottom: 10px;
   font-size: 14px;
   font-weight: 600;
+  color: #374151;
+}
+
+/* 검색 입력 */
+.search-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.search-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  outline: none;
 }
 
 .filter-option {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 4px;
-  font-size: 13px;
+  font-size: 14px;
+  color: #4b5563;
   cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.2s;
 }
 
+.filter-option:hover {
+  color: #2563eb;
+}
+
+.filter-option input[type="radio"],
+.filter-option input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+/* =============================== */
+/* 📋 메인 콘텐츠 */
+/* =============================== */
 .board-content {
   flex: 1;
+  min-width: 0;
+  padding: 20px 24px;
 }
 
 .board-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.board-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
 }
 
 .write-btn {
   background: #2563eb;
   color: white;
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 10px 18px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
   transition: 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 .write-btn:hover {
   background: #1e40af;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2);
 }
 
 /* =============================== */
 /* 🏆 Top3 영역 */
 /* =============================== */
 .board-top3 {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .board-top3 h3 {
   margin-bottom: 12px;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   color: #111827;
 }
 
 .top3-list-horizontal {
   display: flex;
-  gap: 12px;
+  gap: 16px;
 }
 
-/* ✅ Top3 본문 요약 */
 .top3-preview {
-  font-size: 13px;
-  color: #555;
+  font-size: 14px;
+  color: #6b7280;
   margin: 6px 0;
-  line-height: 1.4;
+  line-height: 1.5;
   white-space: pre-line;
   word-break: break-word;
 }
 
-
 .top3-card {
-  border: 1px solid #ddd;
-  padding: 10px;
-  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 16px;
+  border-radius: 12px;
   background: white;
   cursor: pointer;
-  width: 30%;
-  transition: 0.2s;
+  flex: 1;
+  transition: all 0.2s;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .top3-card:hover {
-  background: #f6f9ff;
+  background: #f9fafb;
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #2563eb;
 }
 
 .top3-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 8px;
 }
 
 .rank {
   font-weight: bold;
   color: #e11d48;
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .top3-author {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #333;
+  gap: 8px;
+  font-size: 14px;
+  color: #374151;
   margin-bottom: 4px;
 }
 
 .top3-stats {
-  font-size: 12px;
-  color: #666;
+  font-size: 13px;
+  color: #9ca3af;
 }
 
-/* ✅ Top3 프로필 이미지 원형 */
 .top3-profile-img {
   width: 36px;
   height: 36px;
   border-radius: 50%;
   object-fit: cover;
-  border: 1px solid #ddd;
+  border: 1px solid #e5e7eb;
 }
 
 /* =============================== */
-/* 게시글 카드 */
+/* 📰 게시글 목록 */
 /* =============================== */
 .board-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.board-list > h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 12px;
 }
 
 .board-preview {
   font-size: 14px;
-  color: #444;
+  color: #6b7280;
   margin-top: 4px;
   line-height: 1.5;
   white-space: pre-line;
@@ -174,17 +252,20 @@
 .board-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   background: #fff;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
   cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .board-card:hover {
   background: #f9fafb;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+  border-color: #2563eb;
 }
 
 .board-card-header {
@@ -192,26 +273,28 @@
   align-items: center;
   gap: 8px;
 }
+
 .profile-thumb-small {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   object-fit: cover;
-  border: 1px solid #ddd;
+  border: 1px solid #e5e7eb;
 }
 
 .nickname {
   font-weight: 600;
   color: #2563eb;
   cursor: pointer;
+  font-size: 14px;
 }
 .nickname:hover {
   text-decoration: underline;
 }
 
 .board-date {
-  font-size: 0.85rem;
-  color: #888;
+  font-size: 13px;
+  color: #9ca3af;
   margin-left: auto;
 }
 
@@ -221,226 +304,285 @@
   gap: 4px;
   margin-left: 4px;
 }
+
 .board-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #111;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.3;
+  margin: 0;
 }
+
 .board-meta {
   font-size: 13px;
-  color: #555;
+  color: #9ca3af;
 }
 
 /* =============================== */
 /* 상세 페이지 */
 /* =============================== */
 .board-detail-container {
-  max-width: 760px;
+  max-width: 800px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 24px;
 }
+
 .back-btn {
   background: none;
   border: none;
   color: #2563eb;
   font-size: 14px;
-  margin-bottom: 12px;
+  font-weight: 600;
+  margin-bottom: 16px;
   cursor: pointer;
+  transition: color 0.2s;
 }
+.back-btn:hover {
+  color: #1e40af;
+}
+
 .board-detail-card {
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .detail-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
+
 .author-box {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .profile-thumb {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
-  border: 1px solid #ddd;
+  border: 1px solid #e5e7eb;
   cursor: pointer;
 }
 
 .detail-title {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
-  margin-bottom: 12px;
+  color: #111827;
+  margin-bottom: 16px;
+  line-height: 1.3;
 }
+
 .detail-content {
   font-size: 15px;
-  line-height: 1.6;
-  color: #222;
+  line-height: 1.7;
+  color: #374151;
   white-space: pre-wrap;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
+
 .detail-actions {
   display: flex;
   gap: 10px;
   align-items: center;
   font-size: 14px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
+
 .detail-actions button {
   background: #f1f5f9;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
-  padding: 4px 10px;
+  padding: 6px 12px;
   cursor: pointer;
-  transition: 0.2s;
+  transition: all 0.2s;
+  font-size: 14px;
 }
 .detail-actions button:hover {
   background: #e0e7ff;
+  border-color: #2563eb;
 }
 
 .post-owner-actions {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
+
 .edit-btn,
 .delete-btn {
   border: none;
   background: #2563eb;
   color: white;
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 8px 14px;
   cursor: pointer;
-  transition: 0.2s;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 .delete-btn {
   background: #ef4444;
 }
 .delete-btn:hover {
-  background: #b91c1c;
+  background: #dc2626;
+  transform: translateY(-1px);
 }
 .edit-btn:hover {
-  background: #1e3a8a;
+  background: #1e40af;
+  transform: translateY(-1px);
 }
 
 /* =============================== */
 /* 댓글 */
 /* =============================== */
 .comments-section {
-  margin-top: 24px;
+  margin-top: 28px;
 }
 
 .comment-input textarea {
   width: 100%;
-  min-height: 70px;
+  min-height: 80px;
   resize: vertical;
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  margin-bottom: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+.comment-input textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  outline: none;
 }
 .comment-input button {
   background: #2563eb;
   color: white;
   border: none;
-  border-radius: 6px;
-  padding: 6px 12px;
+  border-radius: 8px;
+  padding: 8px 16px;
   cursor: pointer;
-  transition: 0.2s;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 .comment-input button:hover {
   background: #1e40af;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2);
 }
 
 .comment-item {
-  border-top: 1px solid #eee;
-  padding: 12px 0;
+  border-top: 1px solid #e5e7eb;
+  padding: 16px 0;
 }
+
 .comment-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
+
 .comment-author {
   font-weight: 600;
   color: #2563eb;
+  font-size: 14px;
 }
+
 .comment-content {
   font-size: 14px;
-  margin-bottom: 4px;
+  color: #374151;
+  line-height: 1.6;
+  margin-bottom: 8px;
 }
 
 .comment-buttons {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 4px;
+  gap: 10px;
+  margin-top: 6px;
 }
 
 .reply-list {
-  margin-left: 36px;
-  border-left: 2px solid #eee;
-  padding-left: 12px;
-  margin-top: 8px;
+  margin-left: 40px;
+  border-left: 2px solid #e5e7eb;
+  padding-left: 16px;
+  margin-top: 12px;
 }
 
 .report-btn {
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 6px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   cursor: pointer;
   font-size: 13px;
-  color: #b91c1c;
+  color: #dc2626;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 .report-btn:hover {
   background: #fee2e2;
+  border-color: #fca5a5;
 }
 
 .reply-input {
-  margin-top: 8px;
-  margin-left: 36px;
+  margin-top: 10px;
+  margin-left: 40px;
 }
 .reply-input textarea {
   width: 100%;
-  min-height: 60px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 6px;
+  min-height: 70px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 12px;
   resize: vertical;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+.reply-input textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  outline: none;
 }
 .reply-buttons {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 .cancel-reply {
   background: #9ca3af;
   color: white;
   border: none;
   border-radius: 6px;
-  padding: 4px 8px;
+  padding: 6px 12px;
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 .cancel-reply:hover {
   background: #6b7280;
 }
 
 .deleted-comment {
-  color: #888;
+  color: #9ca3af;
   font-style: italic;
   margin-left: 8px;
   opacity: 0.8;
+  font-size: 14px;
 }
 
 /* =============================== */
@@ -448,26 +590,36 @@
 /* =============================== */
 .edit-input,
 .reply-input {
-  margin-top: 8px;
-  margin-left: 36px;
+  margin-top: 10px;
+  margin-left: 40px;
 }
 
 .edit-input textarea,
 .reply-input textarea {
   width: 100%;
-  min-height: 60px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 6px;
+  min-height: 70px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 12px;
   resize: vertical;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.edit-input textarea:focus,
+.reply-input textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  outline: none;
 }
 
 .edit-buttons,
 .reply-buttons {
   display: flex;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 8px;
+  margin-top: 6px;
 }
 
 .edit-buttons button,
@@ -476,15 +628,17 @@
   color: white;
   border: none;
   border-radius: 6px;
-  padding: 4px 8px;
+  padding: 6px 12px;
   cursor: pointer;
-  font-size: 13px;
-  transition: 0.2s;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
 .edit-buttons button:hover,
 .reply-buttons button:hover {
-  background: #1d4ed8;
+  background: #1e40af;
+  transform: translateY(-1px);
 }
 
 .cancel-reply {
@@ -494,11 +648,10 @@
   background: #6b7280;
 }
 
-/* 수정 중 하이라이트 */
 .editing-active {
   background: #f9fafb;
   border-left: 3px solid #2563eb;
-  padding-left: 6px;
+  padding-left: 8px;
   transition: 0.3s;
 }
 
@@ -508,8 +661,8 @@
 .board-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-top: 16px;
+  gap: 20px;
+  margin-top: 20px;
 }
 
 .form-label {
@@ -523,10 +676,10 @@
 .form-input,
 .form-select,
 .form-textarea {
-  margin-top: 6px;
+  margin-top: 8px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   font-size: 14px;
   transition: border 0.2s, box-shadow 0.2s;
 }
@@ -535,20 +688,21 @@
 .form-select:focus,
 .form-textarea:focus {
   border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
   outline: none;
 }
 
 .form-textarea {
-  min-height: 160px;
+  min-height: 180px;
   resize: vertical;
+  font-family: inherit;
 }
 
 .form-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 .submit-btn {
@@ -556,13 +710,17 @@
   color: white;
   border: none;
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: 10px 18px;
   font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
-  transition: 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 .submit-btn:hover {
-  background: #1d4ed8;
+  background: #1e40af;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2);
 }
 
 .cancel-btn {
@@ -570,10 +728,42 @@
   color: white;
   border: none;
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: 10px 18px;
+  font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
-  transition: 0.2s;
+  transition: all 0.2s;
 }
 .cancel-btn:hover {
   background: #6b7280;
+  transform: translateY(-1px);
+}
+
+/* =============================== */
+/* 📱 반응형 */
+/* =============================== */
+@media (max-width: 768px) {
+  .board-wrapper {
+    flex-direction: column;
+  }
+
+  .board-filter-panel {
+    width: 100%;
+    position: static;
+    margin: 0;
+    border-right: none;
+    border-bottom: 1px solid #eee;
+  }
+
+  .board-content {
+    padding: 16px;
+  }
+
+  .top3-list-horizontal {
+    flex-direction: column;
+  }
+
+  .top3-card {
+    width: 100%;
+  }
 }

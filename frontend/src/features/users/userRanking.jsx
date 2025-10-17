@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../profile/api";
+import "./UserRanking.css";
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const defaultAvatar = `${API_URL}/assets/profile/default_profile.png`;
@@ -33,7 +34,7 @@ export default function UserRanking() {
   const [totalCount, setTotalCount] = useState(0);
   const [skills, setSkills] = useState([]);
   const [selectedSkills, setSelectedSkills] = useState([]);
-  const [sortBy, setSortBy] = useState("score"); // ✅ 기본값을 "score"로 변경
+  const [sortBy, setSortBy] = useState("score");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -43,7 +44,7 @@ export default function UserRanking() {
   const fetchSkills = useCallback(async () => {
     try {
       const response = await api.get("/skills/search", {
-        params: { limit: 50 }
+        params: { limit: 200 }  // 50 → 200으로 증가
       });
       setSkills(response.data);
     } catch (error) {
@@ -129,57 +130,31 @@ export default function UserRanking() {
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f9fafb" }}>
+    <div className="user-ranking-layout">
       {/* 사이드바 */}
-      <div
-        style={{
-          width: "280px",
-          background: "#fff",
-          borderRight: "1px solid #e5e7eb",
-          padding: "24px",
-          overflowY: "auto",
-          height: "100vh",
-        }}
-      >
-        <h2 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "24px" }}>
-          유저 랭킹
-        </h2>
+      <div className="user-ranking-sidebar">
+        <h2 className="sidebar-title">필터 검색</h2>
 
         {/* 검색 기능 */}
-        <div style={{ marginBottom: "24px" }}>
+        <div className="search-section">
+          <h3 className="search-section-title">검색</h3>
           <input
             type="text"
-            placeholder="유저 이름 검색..."
+            placeholder="제목, 설명 검색..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setPage(1);
             }}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #d1d5db",
-              borderRadius: "6px",
-              fontSize: "14px",
-              outline: "none",
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = "#3b82f6";
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = "#d1d5db";
-            }}
+            className="search-input"
           />
         </div>
 
         {/* 정렬 선택 */}
-        <div style={{ marginBottom: "24px" }}>
-          <h3 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "12px" }}>
-            정렬
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {/* ✅ 랭킹 순 추가 */}
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+        <div className="sort-section">
+          <h3 className="sort-title">정렬</h3>
+          <div className="sort-options">
+            <label className="sort-label">
               <input
                 type="radio"
                 name="sort"
@@ -189,24 +164,17 @@ export default function UserRanking() {
                   setSortBy(e.target.value);
                   setPage(1);
                 }}
-                style={{ marginRight: "8px" }}
+                className="sort-radio"
               />
-              <span style={{ fontSize: "14px" }}>🏆 랭킹 순</span>
+              <span className="sort-text">🏆 랭킹 순</span>
             </label>
-            {/* ✅ 랭킹 점수 설명 추가 */}
             {sortBy === "score" && (
-              <div style={{ 
-                fontSize: "11px", 
-                color: "#6b7280", 
-                marginLeft: "24px",
-                marginTop: "-4px",
-                marginBottom: "4px"
-              }}>
+              <div className="sort-description">
                 팔로워 1점 · 게시물 2점 · 좋아요 3점
               </div>
             )}
             
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+            <label className="sort-label">
               <input
                 type="radio"
                 name="sort"
@@ -216,11 +184,12 @@ export default function UserRanking() {
                   setSortBy(e.target.value);
                   setPage(1);
                 }}
-                style={{ marginRight: "8px" }}
+                className="sort-radio"
               />
-              <span style={{ fontSize: "14px" }}>팔로워 순</span>
+              <span className="sort-text">팔로워 순</span>
             </label>
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+            
+            <label className="sort-label">
               <input
                 type="radio"
                 name="sort"
@@ -230,37 +199,26 @@ export default function UserRanking() {
                   setSortBy(e.target.value);
                   setPage(1);
                 }}
-                style={{ marginRight: "8px" }}
+                className="sort-radio"
               />
-              <span style={{ fontSize: "14px" }}>최신순</span>
+              <span className="sort-text">최신순</span>
             </label>
           </div>
         </div>
 
         {/* 스킬 필터 */}
-        <div>
-          <h3 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "12px" }}>
-            사용 가능한 언어
-          </h3>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-            }}
-          >
+        <div className="skill-filter-section">
+          <h3 className="skill-filter-title">사용 가능한 언어</h3>
+          <div className="skill-options">
             {skills.map((skill) => (
-              <label
-                key={skill.id}
-                style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
-              >
+              <label key={skill.id} className="skill-label">
                 <input
                   type="checkbox"
                   checked={selectedSkills.includes(skill.id)}
                   onChange={() => handleSkillToggle(skill.id)}
-                  style={{ marginRight: "8px" }}
+                  className="skill-checkbox"
                 />
-                <span style={{ fontSize: "14px" }}>{skill.name}</span>
+                <span className="skill-name">{skill.name}</span>
               </label>
             ))}
           </div>
@@ -268,37 +226,17 @@ export default function UserRanking() {
       </div>
 
       {/* 메인 콘텐츠 */}
-      <div style={{ flex: 1, padding: "40px" }}>
-        <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-          <h1 style={{ fontSize: "28px", fontWeight: "bold", marginBottom: "32px" }}>
-            유저 랭킹 게시판
-          </h1>
+      <div className="user-ranking-main">
+        <div className="main-container">
+          <h1 className="main-title">유저 랭킹 게시판</h1>
 
           {loading ? (
-            <div style={{ textAlign: "center", padding: "60px", color: "#9ca3af" }}>
-              로딩 중...
-            </div>
+            <div className="loading-state">로딩 중...</div>
           ) : users.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "60px",
-                background: "#fff",
-                borderRadius: "12px",
-                color: "#9ca3af",
-              }}
-            >
-              조건에 맞는 유저가 없습니다
-            </div>
+            <div className="empty-state">조건에 맞는 유저가 없습니다</div>
           ) : (
             <>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                  gap: "20px",
-                }}
-              >
+              <div className="user-grid">
                 {users.map((user, index) => {
                   const globalRank = (page - 1) * pageSize + index + 1;
 
@@ -306,135 +244,56 @@ export default function UserRanking() {
                     <div
                       key={user.id}
                       onClick={() => navigate(`/profile/${user.id}`)}
-                      style={{
-                        background: "#fff",
-                        borderRadius: "12px",
-                        padding: "24px",
-                        cursor: "pointer",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                        transition: "transform 0.2s, box-shadow 0.2s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = "translateY(-4px)";
-                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = "translateY(0)";
-                        e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-                      }}
+                      className="user-card"
                     >
-                      {/* ✅ 1~3위까지만 배지 표시 */}
+                      {/* 1~3위까지만 배지 표시 */}
                       {globalRank <= 3 && (
-                        <div
-                          style={{
-                            display: "inline-block",
-                            background:
-                              globalRank === 1
-                                ? "#fbbf24"
-                                : globalRank === 2
-                                  ? "#d1d5db"
-                                  : "#f59e0b",
-                            color: "#fff",
-                            fontSize: "12px",
-                            fontWeight: "bold",
-                            padding: "4px 12px",
-                            borderRadius: "12px",
-                            marginBottom: "16px",
-                          }}
-                        >
+                        <div className={`rank-badge ${
+                          globalRank === 1 ? 'gold' : globalRank === 2 ? 'silver' : 'bronze'
+                        }`}>
                           {globalRank === 1 ? "🥇 " : globalRank === 2 ? "🥈 " : "🥉 "}
                           {globalRank}위
                         </div>
                       )}
 
-                      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                      <div className="user-profile-section">
                         <img
                           src={resolveAvatarUrl(user.profile_image || user.avatar_path)}
                           alt={user.nickname}
-                          style={{
-                            width: "60px",
-                            height: "60px",
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                          }}
+                          className="user-avatar"
                           onError={(e) => {
                             console.log('❌ 이미지 로드 실패:', e.target.src);
                             e.target.src = defaultAvatar;
                           }}
                         />
-                        <div style={{ flex: 1 }}>
-                          <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "4px" }}>
-                            {user.nickname}
-                          </h3>
-                          <p style={{ fontSize: "13px", color: "#6b7280" }}>
+                        <div className="user-info">
+                          <h3 className="user-nickname">{user.nickname}</h3>
+                          <p className="user-headline">
                             {user.headline || "자기소개가 없습니다"}
                           </p>
                         </div>
                       </div>
 
-                      {/* ✅ 랭킹 점수 표시 (score 정렬일 때만) */}
+                      {/* 랭킹 점수 표시 (score 정렬일 때만) */}
                       {sortBy === "score" && user.score !== undefined && (
-                        <div
-                          style={{
-                            marginTop: "12px",
-                            padding: "8px 12px",
-                            background: "#fef3c7",
-                            borderRadius: "8px",
-                            textAlign: "center",
-                            fontSize: "14px",
-                            fontWeight: "600",
-                            color: "#92400e",
-                          }}
-                        >
-                          ⭐ {user.score} 점
-                        </div>
+                        <div className="score-box">⭐ {user.score} 점</div>
                       )}
 
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "16px",
-                          marginTop: "16px",
-                          fontSize: "13px",
-                          color: "#6b7280",
-                        }}
-                      >
+                      <div className="user-stats">
                         <span>팔로워 {user.follower_count}</span>
                         <span>팔로잉 {user.following_count}</span>
                       </div>
 
                       {/* 스킬 */}
                       {user.skills && user.skills.length > 0 && (
-                        <div
-                          style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: "6px",
-                            marginTop: "12px",
-                          }}
-                        >
+                        <div className="user-skills">
                           {user.skills.slice(0, 5).map((skill) => (
-                            <span
-                              key={skill.id}
-                              style={{
-                                fontSize: "11px",
-                                background: "#e0e7ff",
-                                color: "#4338ca",
-                                padding: "4px 8px",
-                                borderRadius: "6px",
-                              }}
-                            >
+                            <span key={skill.id} className="skill-badge">
                               {skill.name}
                             </span>
                           ))}
                           {user.skills.length > 5 && (
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                color: "#6b7280",
-                                padding: "4px 8px",
-                              }}
-                            >
+                            <span className="skill-more">
                               +{user.skills.length - 5}
                             </span>
                           )}
@@ -446,14 +305,7 @@ export default function UserRanking() {
               </div>
 
               {/* 페이지네이션 */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  gap: "8px",
-                  marginTop: "40px",
-                }}
-              >
+              <div className="pagination">
                 {(() => {
                   const pageGroupSize = 5;
                   const totalPages = Math.max(1, Math.ceil(totalCount / 21));
@@ -467,14 +319,7 @@ export default function UserRanking() {
                       <button
                         key={i}
                         onClick={() => setPage(i)}
-                        style={{
-                          padding: "8px 16px",
-                          border: "1px solid #d1d5db",
-                          background: page === i ? "#3b82f6" : "#fff",
-                          color: page === i ? "#fff" : "#000",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                        }}
+                        className={`pagination-button ${page === i ? 'active' : ''}`}
                       >
                         {i}
                       </button>
@@ -486,14 +331,7 @@ export default function UserRanking() {
                       <button
                         onClick={() => setPage(startPage - 1)}
                         disabled={startPage === 1}
-                        style={{
-                          padding: "8px 16px",
-                          border: "1px solid #d1d5db",
-                          background: "#fff",
-                          borderRadius: "6px",
-                          cursor: startPage === 1 ? "not-allowed" : "pointer",
-                          opacity: startPage === 1 ? 0.5 : 1,
-                        }}
+                        className="pagination-button"
                       >
                         이전
                       </button>
@@ -503,14 +341,7 @@ export default function UserRanking() {
                       <button
                         onClick={() => setPage(endPage + 1)}
                         disabled={endPage >= totalPages}
-                        style={{
-                          padding: "8px 16px",
-                          border: "1px solid #d1d5db",
-                          background: "#fff",
-                          borderRadius: "6px",
-                          cursor: endPage >= totalPages ? "not-allowed" : "pointer",
-                          opacity: endPage >= totalPages ? 0.5 : 1,
-                        }}
+                        className="pagination-button"
                       >
                         다음
                       </button>
