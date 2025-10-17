@@ -4,8 +4,7 @@ const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 // --- 토큰/세션 타이머 관리 ---
 let logoutTimer = null;
 let lastActivityTime = Date.now();
-
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30분 (테스트 시 1분 등으로 조정)
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30분
 
 // --- 토큰 헬퍼 ---
 function getAccessToken() {
@@ -17,10 +16,7 @@ function getRefreshToken() {
 function setTokens({ access_token, refresh_token, expires_in }) {
   if (access_token) localStorage.setItem("access_token", access_token);
   if (refresh_token) localStorage.setItem("refresh_token", refresh_token);
-
-  if (expires_in) {
-    startLogoutTimer(expires_in * 1000);
-  }
+  if (expires_in) startLogoutTimer(expires_in * 1000);
 }
 
 // ✅ redirect 헬퍼
@@ -31,7 +27,6 @@ function redirectToLogin() {
 }
 
 // ✅ 토큰 클리어
-// redirect: "always" | "never" | "auto"
 export function clearTokens(redirect = "always") {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
@@ -57,15 +52,12 @@ export function clearTokens(redirect = "always") {
 // --- 자동 로그아웃 타이머 ---
 function startLogoutTimer(durationMs) {
   stopLogoutTimer();
-
   let remainingSec = Math.floor(durationMs / 1000);
   console.log(`⏳ 세션 타이머 시작: ${remainingSec}초`);
 
   logoutTimer = setInterval(() => {
     remainingSec -= 1;
-    if (remainingSec > 0) {
-      console.log(`⏳ 세션 남은 시간: ${remainingSec}초`);
-    } else {
+    if (remainingSec <= 0) {
       console.log("⏰ 세션 만료 → 모달 호출");
       stopLogoutTimer();
       localStorage.setItem("session_expired", "true");
@@ -93,15 +85,38 @@ function resetActivityTimer() {
 }
 
 // ============================
-// 회원가입
+// ✅ 회원가입 (서버 detail 그대로 전달)
 // ============================
-export async function register(data) {
+export async function register(form) {
+  const payload = {
+    email: form.email,
+    user_id: form.user_id,
+    password: form.password,
+    password_confirm: form.passwordConfirm, // ✅ 백엔드에서 요구하는 필드
+    name: form.name,
+    nickname: form.nickname,
+    phone_number: form.phone_number || null,
+  };
+
   const res = await fetch(`${API_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("회원가입 실패");
+
+  if (!res.ok) {
+    // ✅ 서버 detail 메시지를 그대로 추출
+    let errorMsg = "회원가입 실패";
+    try {
+      const data = await res.json();
+      if (data?.detail) errorMsg = data.detail;
+      else if (data?.msg) errorMsg = data.msg;
+    } catch {
+      errorMsg = await res.text();
+    }
+    throw new Error(errorMsg);
+  }
+
   return res.json();
 }
 
@@ -113,7 +128,7 @@ export async function login(loginId, password) {
   params.append("username", loginId);
   params.append("password", password);
   params.append("grant_type", "password");
-   params.append("scope", "");
+  params.append("scope", "");
 
   const res = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
@@ -126,7 +141,7 @@ export async function login(loginId, password) {
     console.error("로그인 에러:", res.status, errorText);
     throw new Error(String(res.status));
   }
-  
+
   const data = await res.json();
   setTokens(data);
   return data;
@@ -165,9 +180,7 @@ export async function authFetch(url, options = {}, { skipRedirect = false } = {}
   if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
   }
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
+  if (token) headers["Authorization"] = `Bearer ${token}`;
 
   let res = await fetch(`${API_URL}${url}`, { ...options, headers });
 
@@ -210,8 +223,6 @@ export async function loginAndFetchUser(loginId, password) {
 // ============================
 // 아이디 / 비밀번호 찾기 관련
 // ============================
-
-// --- 아이디 찾기 ---
 export async function findUserId(name, phone) {
   const res = await fetch(`${API_URL}/auth/find-id`, {
     method: "POST",
@@ -222,7 +233,6 @@ export async function findUserId(name, phone) {
   return res.json();
 }
 
-// --- 이메일 힌트 조회 ---
 export async function getEmailHint(user_id) {
   const res = await fetch(`${API_URL}/auth/email-hint`, {
     method: "POST",
@@ -233,7 +243,6 @@ export async function getEmailHint(user_id) {
   return res.json();
 }
 
-// --- 비밀번호 재설정 요청 ---
 export async function requestPasswordReset(user_id) {
   const res = await fetch(`${API_URL}/auth/request-password-reset`, {
     method: "POST",
@@ -244,7 +253,6 @@ export async function requestPasswordReset(user_id) {
   return res.json();
 }
 
-// --- 비밀번호 재설정 실행 ---
 export async function resetPassword(reset_token, new_password) {
   const res = await fetch(`${API_URL}/auth/reset-password`, {
     method: "POST",
@@ -255,7 +263,6 @@ export async function resetPassword(reset_token, new_password) {
   return res.json();
 }
 
-// --- 이메일 인증코드 발송 ---
 export async function sendVerificationCode(email) {
   const res = await fetch(`${API_URL}/auth/send-verification-code`, {
     method: "POST",
@@ -263,10 +270,9 @@ export async function sendVerificationCode(email) {
     body: JSON.stringify({ email }),
   });
   if (!res.ok) throw new Error("인증코드 발송 실패");
-  return res.json(); // { message, test_code }
+  return res.json();
 }
 
-// --- 이메일 인증코드 검증 ---
 export async function verifyCode(email, code) {
   const res = await fetch(`${API_URL}/auth/verify-code`, {
     method: "POST",
@@ -274,7 +280,7 @@ export async function verifyCode(email, code) {
     body: JSON.stringify({ email, code }),
   });
   if (!res.ok) throw new Error("인증코드 검증 실패");
-  return res.json(); // { message: "인증 성공" }
+  return res.json();
 }
 
 // ============================

@@ -5,28 +5,33 @@ from sqlalchemy.orm import relationship
 from app.core.base import Base
 import enum
 
+
 class UserRole(str, enum.Enum):
     MEMBER = "MEMBER"
     ADMIN = "ADMIN"
     GUEST = "GUEST"
     LEADER = "LEADER"
 
+
 class UserStatus(str, enum.Enum):
     ACTIVE = "ACTIVE"
     BANNED = "BANNED"
     DELETED = "DELETED"
 
+
 class User(Base):
     __tablename__ = "users"
 
     id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
-    nickname = Column(String(100), nullable=False, unique=True)
+    # ✅ 절충안: unique 제거 (중복 검사 시 DELETED 계정은 제외)
+    nickname = Column(String(100), nullable=False)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
-    email = Column(String(255), nullable=False, unique=True)
-    user_id = Column(String(255), nullable=True, unique=True)
+    email = Column(String(255), nullable=False)
+    user_id = Column(String(255), nullable=True)
     password_hash = Column(String(255), nullable=True)
     auth_provider = Column(Enum("LOCAL", "GOOGLE", "KAKAO", "NAVER", name="auth_provider_enum"),
                            nullable=False, default="LOCAL")
+    # ✅ social_id는 실제 OAuth 식별자이므로 unique 유지
     social_id = Column(String(255), nullable=True, unique=True)
     name = Column(String(50), nullable=False)
     phone_number = Column(String(20), nullable=True)
@@ -53,3 +58,4 @@ class User(Base):
 # ✅ 추가 (순환 참조 방지용)
 # 이 import는 반드시 클래스 정의 "아래"에 넣어야 합니다.
 from app.board import board_model
+
