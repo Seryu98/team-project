@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Modal from "../../components/Modal";
-import { register, login } from "./api";
+import { register, login } from "./api"; // ✅ sendVerificationCode, verifyCode 제거
 import axios from "axios";
 
 function Register() {
@@ -29,6 +29,10 @@ function Register() {
   const [emailCheckMsg, setEmailCheckMsg] = useState("");
   const [isEmailValid, setIsEmailValid] = useState(false);
 
+  // ✅ 이메일 인증 모달 상태
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+
   // ✅ 입력 변경 핸들러
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -36,8 +40,7 @@ function Register() {
 
     // 실시간 비밀번호 일치 검사
     if (name === "password" || name === "passwordConfirm") {
-      const nextPassword =
-        name === "password" ? value : form.password;
+      const nextPassword = name === "password" ? value : form.password;
       const nextConfirm =
         name === "passwordConfirm" ? value : form.passwordConfirm;
 
@@ -62,7 +65,7 @@ function Register() {
     }
   };
 
-  // ✅ 이메일 유효성 검증 (서버 API 호출)
+  // ✅ 이메일 인증 코드 발송 (새 백엔드 구조 반영)
   const handleEmailCheck = async () => {
     if (!form.email) {
       setEmailCheckMsg("⚠️ 이메일을 입력해주세요.");
@@ -70,22 +73,49 @@ function Register() {
       return;
     }
 
-    try {
-      const res = await axios.get(
-        `http://localhost:8000/auth/verify-email?email=${form.email}`
-      );
-      if (res.data.valid) {
-        setEmailCheckMsg("✅ 유효한 이메일 주소입니다.");
-        setIsEmailValid(true);
-      } else {
-        setEmailCheckMsg("❌ 존재하지 않는 이메일입니다.");
-        setIsEmailValid(false);
-      }
-    } catch (error) {
-      setEmailCheckMsg(
-        error.response?.data?.detail || "❌ 이메일 검증 중 오류 발생"
-      );
+    // ✅ 이메일 형식 정규식 검증 추가
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email)) {
+      setEmailCheckMsg("❌ 올바른 이메일 형식을 입력해주세요.");
       setIsEmailValid(false);
+      return;
+    }
+
+    try {
+      // ✅ 새 API 엔드포인트 사용
+      await axios.post("http://localhost:8000/auth/email/send-code", {
+        email: form.email,
+        purpose: "signup",
+      });
+      setShowEmailModal(true);
+      setEmailCheckMsg("✉️ 인증코드가 이메일로 전송되었습니다.");
+    } catch (error) {
+      console.error("이메일 발송 실패:", error);
+      if (error.response?.data?.detail) {
+        setEmailCheckMsg(`❌ ${error.response.data.detail}`);
+      } else {
+        setEmailCheckMsg("❌ 이메일 발송 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      }
+      setIsEmailValid(false);
+    }
+  };
+
+  // ✅ 이메일 인증 코드 확인 (Modal에서 전달받은 code 사용)
+  const handleVerifyEmailCode = async (codeFromModal) => {
+    try {
+      const codeToUse = codeFromModal || verificationCode;
+      // ✅ 새 API 엔드포인트 사용
+      await axios.post("http://localhost:8000/auth/email/verify-code", {
+        email: form.email,
+        code: codeToUse,
+        purpose: "signup",
+      });
+      setIsEmailValid(true);
+      setShowEmailModal(false);
+      setEmailCheckMsg("✅ 이메일 인증이 완료되었습니다.");
+    } catch (error) {
+      console.error("인증코드 검증 실패:", error);
+      setEmailCheckMsg("❌ 인증코드가 올바르지 않습니다.");
     }
   };
 
@@ -121,7 +151,7 @@ function Register() {
 
     // ✅ 이메일 유효성 검증 여부 확인
     if (!isEmailValid) {
-      setMsg("❌ 이메일 유효성 검증을 해주세요.");
+      setMsg("❌ 이메일 인증을 완료해주세요.");
       return;
     }
 
@@ -246,21 +276,23 @@ function Register() {
               <button
                 type="button"
                 onClick={handleEmailCheck}
+                disabled={isEmailValid}
                 style={{
                   ...buttonPrimary,
-                  background: "#4b5563",
+                  background: isEmailValid ? "#9ca3af" : "#4b5563",
+                  cursor: isEmailValid ? "not-allowed" : "pointer",
                   whiteSpace: "nowrap",
                   padding: "10px 14px",
                 }}
               >
-                이메일확인
+                {isEmailValid ? "인증완료" : "이메일확인"}
               </button>
             </div>
             {emailCheckMsg && (
               <p
                 style={{
                   fontSize: "12px",
-                  color: emailCheckMsg.includes("유효") ? "green" : "red",
+                  color: emailCheckMsg.includes("완료") ? "green" : "red",
                   marginTop: "4px",
                 }}
               >
@@ -444,6 +476,18 @@ function Register() {
           </p>
         )}
       </div>
+
+      {/* 이메일 인증 모달 */}
+      {showEmailModal && (
+        <Modal
+          title="이메일 인증"
+          confirmText="확인"
+          onConfirm={handleVerifyEmailCode}
+          onClose={() => setShowEmailModal(false)}
+        >
+          이메일로 전송된 인증코드를 입력해주세요.
+        </Modal>
+      )}
 
       {showDone && (
         <Modal

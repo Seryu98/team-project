@@ -11,6 +11,7 @@ function ChangePassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showModal, setShowModal] = useState(false); // ✅ 비밀번호 변경 성공 모달 표시 여부
   const [showSocialModal, setShowSocialModal] = useState(false); // ✅ 소셜로그인 제한 모달 표시 여부
+  const [isSocialUser, setIsSocialUser] = useState(false); // ✅ 소셜 로그인 사용자 여부 상태 추가
   const navigate = useNavigate();
 
   // 🔹 로그인한 사용자 정보 확인 (소셜 로그인 여부 판별)
@@ -24,6 +25,7 @@ function ChangePassword() {
 
         if (res.data?.auth_provider && res.data.auth_provider !== "LOCAL") {
           // ✅ 소셜 로그인 사용자는 비밀번호 변경 불가 모달 표시
+          setIsSocialUser(true);
           setShowSocialModal(true);
         }
       } catch (err) {
@@ -74,7 +76,7 @@ function ChangePassword() {
   };
 
   // 🔹 소셜 로그인 사용자는 비밀번호 변경 제한 모달 표시
-  if (showSocialModal) {
+  if (showSocialModal && isSocialUser) {
     return (
       <Modal
         title="비밀번호 변경 불가"
@@ -87,33 +89,37 @@ function ChangePassword() {
     );
   }
 
+  // 🔹 일반 회원만 아래 폼 렌더링
   return (
     <div className="account-box">
       <h2>비밀번호 변경</h2>
 
-      <form onSubmit={handleSubmit} className="account-form">
-        <input
-          type="password"
-          placeholder="현재 비밀번호"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="새 비밀번호"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="새 비밀번호 확인"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
-        <button type="submit" className="save-btn">
-          비밀번호 변경
-        </button>
-      </form>
+      {/* ✅ 일반 로그인 사용자에게만 폼 표시 */}
+      {!isSocialUser && (
+        <form onSubmit={handleSubmit} className="account-form">
+          <input
+            type="password"
+            placeholder="현재 비밀번호"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="새 비밀번호"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="새 비밀번호 확인"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+          <button type="submit" className="save-btn">
+            비밀번호 변경
+          </button>
+        </form>
+      )}
 
       {/* ✅ 공용 모달 표시 */}
       {showModal && (

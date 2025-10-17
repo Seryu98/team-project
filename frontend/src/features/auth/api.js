@@ -263,23 +263,37 @@ export async function resetPassword(reset_token, new_password) {
   return res.json();
 }
 
+// ============================
+// ✅ 이메일 인증 관련
+// ============================
+
+// ✅ 인증 코드 발송
 export async function sendVerificationCode(email) {
-  const res = await fetch(`${API_URL}/auth/send-verification-code`, {
+  const res = await fetch(`${API_URL}/auth/email-verification/send`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
-  if (!res.ok) throw new Error("인증코드 발송 실패");
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("인증코드 발송 실패:", res.status, text);
+    throw new Error("인증코드 발송 실패");
+  }
   return res.json();
 }
 
+// ✅ 인증 코드 검증
 export async function verifyCode(email, code) {
-  const res = await fetch(`${API_URL}/auth/verify-code`, {
+  const res = await fetch(`${API_URL}/auth/email-verification/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, code }),
   });
-  if (!res.ok) throw new Error("인증코드 검증 실패");
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("인증코드 검증 실패:", res.status, text);
+    throw new Error("인증코드 검증 실패");
+  }
   return res.json();
 }
 
