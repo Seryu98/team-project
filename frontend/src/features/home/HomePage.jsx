@@ -46,8 +46,8 @@ function Slider({ items, renderItem }) {
     return (
         <div style={{ position: 'relative' }}>
             {/* ✅✅✅ overflow: hidden 추가하고 padding 제거 ✅✅✅ */}
-            <div style={{ 
-                position: 'relative', 
+            <div style={{
+                position: 'relative',
                 overflow: 'hidden',              // ✅ 확실하게 숨김
                 borderRadius: '1rem',
                 marginBottom: '3rem'
@@ -210,7 +210,7 @@ export default function HomePage() {
                     }
                     const projects = Array.isArray(projectsRes.data)
                         ? projectsRes.data
-                        : projectsRes.data.posts || [];
+                        : projectsRes.data.items || [];
 
                     console.log("📦 프로젝트 개수:", projects.length);
                     setTopProjects(projects.slice(0, 3));
@@ -435,7 +435,7 @@ export default function HomePage() {
                     </section>
                 )}
 
-                 {/* 🚀 최신 프로젝트 TOP 3 슬라이더 */}
+                {/* 🚀 최신 프로젝트 TOP 3 슬라이더 */}
                 {topProjects.length > 0 && (
                     <section style={{ marginBottom: '4rem' }}>
                         <h2 style={{
@@ -452,14 +452,14 @@ export default function HomePage() {
                             items={topProjects}
                             renderItem={(project) => {
                                 // ✅ 제목 20글자 제한
-                                const truncatedTitle = project.title.length > 20 
-                                    ? project.title.substring(0, 20) + '...' 
+                                const truncatedTitle = project.title.length > 20
+                                    ? project.title.substring(0, 20) + '...'
                                     : project.title;
-                                
+
                                 // ✅ 설명 10글자 제한
-                                const truncatedDesc = project.description 
-                                    ? (project.description.length > 10 
-                                        ? project.description.substring(0, 10) + '...' 
+                                const truncatedDesc = project.description
+                                    ? (project.description.length > 10
+                                        ? project.description.substring(0, 10) + '...'
                                         : project.description)
                                     : "설명 없음";
 
@@ -493,9 +493,9 @@ export default function HomePage() {
                                         </div>
 
                                         {/* ✅✅✅ 제목 + 설명 (중앙 정렬) ✅✅✅ */}
-                                        <div style={{ 
-                                            flex: 1, 
-                                            display: 'flex', 
+                                        <div style={{
+                                            flex: 1,
+                                            display: 'flex',
                                             flexDirection: 'column',
                                             alignItems: 'center',
                                             justifyContent: 'center',
@@ -503,27 +503,27 @@ export default function HomePage() {
                                             textAlign: 'center'
                                         }}>
                                             {/* 제목 */}
-                                            <h3 style={{ 
-                                                fontSize: '2.5rem', 
-                                                fontWeight: 'bold', 
-                                                marginBottom: '1rem' 
+                                            <h3 style={{
+                                                fontSize: '2.5rem',
+                                                fontWeight: 'bold',
+                                                marginBottom: '1rem'
                                             }}>
                                                 {truncatedTitle}
                                             </h3>
                                             {/* 설명 (10글자) */}
-                                            <p style={{ 
-                                                fontSize: '1.25rem', 
-                                                opacity: 0.9, 
-                                                lineHeight: '1.6' 
+                                            <p style={{
+                                                fontSize: '1.25rem',
+                                                opacity: 0.9,
+                                                lineHeight: '1.6'
                                             }}>
                                                 {truncatedDesc}
                                             </p>
                                         </div>
 
                                         {/* 하단 정보 - 스킬 + 리더 + 인원 */}
-                                        <div style={{ 
-                                            display: 'flex', 
-                                            justifyContent: 'space-between', 
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
                                             alignItems: 'center',
                                             marginTop: '2.5rem',
                                             paddingTop: '2rem',
@@ -605,7 +605,7 @@ export default function HomePage() {
                                                         </span>
                                                     </div>
                                                 )}
-                                                
+
                                                 {/* 인원 */}
                                                 <div style={{
                                                     backgroundColor: 'rgba(255,255,255,0.3)',
@@ -626,25 +626,25 @@ export default function HomePage() {
                     </section>
                 )}
 
-                {/* 💬 인기 게시글 TOP 3 슬라이더 */}
-                {topBoards.length > 0 && (
-                    <section style={{ marginBottom: '4rem' }}>
-                        <h2 style={{
-                            fontSize: '2rem',
-                            fontWeight: 'bold',
-                            color: '#111827',
-                            marginBottom: '2rem',
-                            textAlign: 'center'
-                        }}>
-                            💬 인기 게시글
-                        </h2>
+                {/* 🔥 이번주 인기글 TOP 3 슬라이더 */}
+                <section style={{ marginBottom: '4rem' }}>
+                    <h2 style={{
+                        fontSize: '2rem',
+                        fontWeight: 'bold',
+                        color: '#111827',
+                        marginBottom: '2rem',
+                        textAlign: 'center'
+                    }}>
+                        🔥 이번주 인기글
+                    </h2>
 
+                    {topBoards.length > 0 ? (
                         <Slider
                             items={topBoards}
                             renderItem={(post, idx) => {
                                 // 제목 30글자 제한
-                                const truncatedTitle = post.title.length > 30 
-                                    ? post.title.substring(0, 30) + '...' 
+                                const truncatedTitle = post.title.length > 30
+                                    ? post.title.substring(0, 30) + '...'
                                     : post.title;
 
                                 return (
@@ -657,22 +657,22 @@ export default function HomePage() {
                                                     ? 'linear-gradient(135deg, #8b5cf6, #6366f1)'
                                                     : 'linear-gradient(135deg, #06b6d4, #3b82f6)',
                                             borderRadius: '1.5rem',
-                                            padding: '3rem 5rem',          // ✅ 상하 여백 증가
+                                            padding: '3rem 5rem',
                                             cursor: 'pointer',
                                             boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                                            minHeight: '450px',            // ✅ 높이 증가
+                                            minHeight: '450px',
                                             display: 'flex',
                                             flexDirection: 'column',
                                             justifyContent: 'space-between',
                                             color: 'white'
                                         }}
                                     >
-                                        {/* ✅ 순위 + 카테고리 (여백 증가) */}
-                                        <div style={{ 
-                                            display: 'flex', 
-                                            justifyContent: 'space-between', 
-                                            alignItems: 'center', 
-                                            marginBottom: '3rem'           // ✅ 2rem → 3rem
+                                        {/* 순위 + 카테고리 */}
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            marginBottom: '3rem'
                                         }}>
                                             <div style={{
                                                 backgroundColor: 'rgba(255,255,255,0.3)',
@@ -694,42 +694,42 @@ export default function HomePage() {
                                             </div>
                                         </div>
 
-                                        {/* ✅ 제목 (중앙 정렬, 여백 확보) */}
-                                        <div style={{ 
-                                            flex: 1, 
-                                            display: 'flex', 
+                                        {/* 제목 */}
+                                        <div style={{
+                                            flex: 1,
+                                            display: 'flex',
                                             alignItems: 'center',
-                                            justifyContent: 'center',     // ✅ 중앙 정렬
-                                            padding: '2rem 0'             // ✅ 상하 여백 추가
+                                            justifyContent: 'center',
+                                            padding: '2rem 0'
                                         }}>
-                                            <h3 style={{ 
-                                                fontSize: '2.5rem',        // ✅ 글자 크기 증가
-                                                fontWeight: 'bold', 
+                                            <h3 style={{
+                                                fontSize: '2.5rem',
+                                                fontWeight: 'bold',
                                                 lineHeight: '1.3',
-                                                textAlign: 'center'        // ✅ 텍스트 중앙 정렬
+                                                textAlign: 'center'
                                             }}>
                                                 {truncatedTitle}
                                             </h3>
                                         </div>
 
-                                        {/* ✅ 하단 정보 (여백 증가) */}
+                                        {/* 하단 정보 */}
                                         <div style={{
-                                            marginTop: '2.5rem',           // ✅ 2rem → 2.5rem
-                                            paddingTop: '2rem',            // ✅ 1.5rem → 2rem
+                                            marginTop: '2.5rem',
+                                            paddingTop: '2rem',
                                             borderTop: '1px solid rgba(255,255,255,0.2)'
                                         }}>
-                                            <div style={{ 
-                                                fontSize: '1.125rem', 
-                                                fontWeight: '600', 
-                                                marginBottom: '1.25rem',   // ✅ 1rem → 1.25rem
-                                                opacity: 0.9 
+                                            <div style={{
+                                                fontSize: '1.125rem',
+                                                fontWeight: '600',
+                                                marginBottom: '1.25rem',
+                                                opacity: 0.9
                                             }}>
                                                 {post.author_nickname || "익명"}
                                             </div>
-                                            <div style={{ 
-                                                display: 'flex', 
-                                                gap: '2rem',               // ✅ 1.5rem → 2rem
-                                                fontSize: '1rem', 
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: '2rem',
+                                                fontSize: '1rem',
                                                 opacity: 0.95,
                                                 flexWrap: 'wrap'
                                             }}>
@@ -743,8 +743,12 @@ export default function HomePage() {
                                 );
                             }}
                         />
-                    </section>
-                )}
+                    ) : (
+                        <p style={{ textAlign: 'center', color: '#6b7280', marginTop: '1rem' }}>
+                            이번주 인기글이 없습니다.
+                        </p>
+                    )}
+                </section>
                 {/* 데이터 없을 때 */}
                 {topUsers.length === 0 && topProjects.length === 0 && topBoards.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '5rem 1.5rem' }}>
