@@ -11,11 +11,12 @@ from typing import Optional, List, Dict, Literal
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from fastapi import HTTPException
+from datetime import datetime  # 🩵 [추가] UTC 시간 기록용
 import logging
 
 from app.core.database import get_db
 from app.events.events import on_report_created
-from app.notifications.notification_model import NotificationType
+from app.notifications.notification_model import NotificationType, NotificationCategory  # 🩵 [수정] NotificationCategory 추가
 from app.notifications.notification_service import send_notification
 from app.messages.message_service import send_message
 from app.messages.message_model import MessageCategory
@@ -34,6 +35,7 @@ def _get_db(db: Optional[Session] = None):
         close = True
     return db, close
 
+
 # ----------------------------
 # ✅ 신고 대상 사용자 ID 자동 탐색
 # ----------------------------
@@ -49,6 +51,7 @@ def _resolve_reported_user_id(db: Session, target_type: str, target_id: int) -> 
     elif target_type == "MESSAGE":
         return db.execute(text("SELECT sender_id FROM messages WHERE id=:mid"), {"mid": target_id}).scalar()
     return None
+
 
 # ----------------------------
 # 🚨 신고 생성
@@ -98,59 +101,78 @@ def create_report(
             logger.warning(f"⚠️ 중복 신고 감지: reporter={reporter_user_id}, target={target_type}({target_id})")
             return {"success": False, "message": "이미 신고한 대상입니다.", "already_reported": True}
 
-        # ✅ 신고 등록
+        # ✅ 신고 등록 (UTC 기준)
         db.execute(
             text("""
-                INSERT INTO reports (reported_user_id, reporter_user_id, target_type, target_id, reason, status)
-                VALUES (:ru, :r, :tt, :tid, :reason, 'PENDING')
+                INSERT INTO reports (reported_user_id, reporter_user_id, target_type, target_id, reason, status, created_at)
+                VALUES (:ru, :r, :tt, :tid, :reason, 'PENDING', UTC_TIMESTAMP())
             """),
             {"ru": reported_user_id, "r": reporter_user_id, "tt": target_type, "tid": target_id, "reason": reason.strip()},
         )
         db.flush()
-
         report_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
 
-        # ✅ 신고자에게 "신고 접수 알림" 발송
+        # ===============================
+        # 🩵 신고자 알림 & 관리자 쪽지 전송
+        # ===============================
         try:
+            # 🚨 신고자 알림
             send_notification(
                 user_id=reporter_user_id,
                 type_=NotificationType.REPORT_RECEIVED.value,
-                message=f"신고가 접수되었습니다. (report_id={report_id})",
+                message=f"신고가 접수되었습니다. (ID:{report_id})",
                 related_id=int(report_id),
                 redirect_path="/messages?tab=admin",
-                category=MessageCategory.ADMIN.value,  # 🩵 수정: 관리자 카테고리로 분류
+                category=NotificationCategory.ADMIN.value,  # 🩵 [수정] 관리자 알림 분리
                 db=db,
             )
 
-            # ✅ 관리자에게 쪽지 발송
+            # 🚨 관리자 쪽지
             admin_id = db.execute(text("SELECT id FROM users WHERE role='ADMIN' LIMIT 1")).scalar()
             if admin_id:
                 send_message(
                     sender_id=reporter_user_id,
                     receiver_id=admin_id,
-                    content=f"[신고 접수] 사용자(ID:{reporter_user_id})가 {target_type}(ID:{target_id})를 신고했습니다.\n사유: {reason}",
+                    content=(
+                        f"[신고 접수 알림]\n"
+                        f"신고자 ID: {reporter_user_id}\n"
+                        f"대상: {target_type}(ID:{target_id})\n"
+                        f"사유: {reason}\n"
+                        f"📅 시간: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                    ),
                     db=db,
                     category=MessageCategory.ADMIN.value,
                 )
 
-            logger.info(f"📨 신고자 알림 전송 완료: report_id={report_id}, reporter_id={reporter_user_id}")
-        except Exception as e:
-            logger.error(f"🚨 신고자 알림 전송 실패: {e}")
+            # 🚨 관리자 알림 (대시보드용)
+            send_notification(
+                user_id=admin_id,
+                type_=NotificationType.REPORT_RECEIVED.value,
+                message=f"신고(ID:{report_id})가 접수되었습니다.",
+                related_id=int(report_id),
+                redirect_path="/admin/reports",  # 🩵 [수정] 클릭 시 대시보드 신고 관리 페이지로
+                category=NotificationCategory.ADMIN.value,
+                db=db,
+            )
 
-        # ✅ 관리자 알림 이벤트 트리거
+            logger.info(f"📨 신고 접수 완료: report_id={report_id}, reporter={reporter_user_id}")
+
+        except Exception as e:
+            logger.error(f"🚨 신고자 또는 관리자 알림 전송 실패: {e}")
+
+        # ✅ 이벤트 트리거
         try:
             on_report_created(report_id=int(report_id), reporter_user_id=reporter_user_id, db=db)
         except Exception as e:
             logger.error(f"🚨 신고 이벤트 트리거 실패: report_id={report_id}, err={e}")
 
         db.commit()
-        logger.info(f"🚨 신고 생성 완료: id={report_id}, reporter={reporter_user_id}, target={target_type}({target_id})")
-
         return {"success": True, "message": "신고가 정상적으로 접수되었습니다.", "report_id": int(report_id)}
 
     finally:
         if close:
             db.close()
+
 
 # ----------------------------
 # 📋 내가 한 신고 목록
@@ -161,11 +183,6 @@ def list_my_reports(
     limit: int = 50,
     db: Optional[Session] = None,
 ) -> List[Dict]:
-    """
-    신고 목록 조회
-    - 상태별 필터 (PENDING, RESOLVED, REJECTED)
-    - 최신순 정렬
-    """
     db, close = _get_db(db)
     try:
         base_query = """
@@ -184,6 +201,7 @@ def list_my_reports(
         if close:
             db.close()
 
+
 # ----------------------------
 # 🔍 신고 상세 조회
 # ----------------------------
@@ -192,11 +210,6 @@ def get_report_detail(
     requester_user_id: int,
     db: Optional[Session] = None,
 ) -> Optional[Dict]:
-    """
-    신고 상세조회
-    - 본인 신고만 접근 가능
-    - 관리자가 처리한 경우, 결과(승낙/거절 사유)도 함께 반환
-    """
     db, close = _get_db(db)
     try:
         row = db.execute(
@@ -219,6 +232,7 @@ def get_report_detail(
         if close:
             db.close()
 
+
 # ----------------------------
 # ⚙️ 이미 신고했는지 여부
 # ----------------------------
@@ -228,10 +242,6 @@ def has_already_reported(
     target_id: int,
     db: Optional[Session] = None,
 ) -> bool:
-    """
-    동일한 대상에 대해 이미 신고한 적이 있는지 확인
-    (중복 신고 방지)
-    """
     db, close = _get_db(db)
     try:
         exists = db.execute(
