@@ -301,6 +301,26 @@ const renderButtons = (item, isMine) => {
           <span>💬 댓글({visibleCommentCount})</span>
         </div>
 
+        {/* ✅ 게시글 신고 버튼 (게시글 작성자 아닌 경우만) */}
+        {isLoggedIn && !isOwner && (
+          <button
+            className="report-btn"
+            onClick={async () => {
+              const reason = prompt("이 게시글을 신고하는 이유를 입력해주세요:");
+              if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
+              try {
+                await submitReport("BOARD_POST", post.id, reason);
+                alert("🚨 게시글 신고가 접수되었습니다.");
+              } catch (err) {
+                console.error("❌ 게시글 신고 실패:", err);
+                alert("신고 중 오류가 발생했습니다.");
+              }
+            }}
+          >
+            🚨 게시글 신고
+          </button>
+        )}
+
         <div className="detail-content">{post.content}</div>
 
         {isOwner && (

@@ -1,4 +1,5 @@
 // src/features/message/MessagesPage.jsx
+import { useLocation } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import MessageDetail from "./MessageDetail";
@@ -8,11 +9,21 @@ import "./messages.css";
 
 export default function MessagesPage() {
   // ✅ 상태 정의
+  const location = useLocation();
   const [selectedTab, setSelectedTab] = useState("inbox"); // notice | admin | compose | inbox | sent   // ✅ 추가됨: admin
   const [messages, setMessages] = useState([]); // 목록 데이터
   const [selectedMessage, setSelectedMessage] = useState(null); // 상세보기 데이터
   const [loading, setLoading] = useState(false); // 로딩 상태
   const [error, setError] = useState(null); // 에러 상태
+
+  // ✅ URL 쿼리파라미터로 탭 자동 설정
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get("tab");
+    if (tab === "admin") {
+      setSelectedTab("admin");
+    }
+  }, [location.search]);
 
   // ✅ 메시지 목록 불러오기
   async function fetchMessages() {

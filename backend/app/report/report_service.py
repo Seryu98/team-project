@@ -132,7 +132,7 @@ def create_report(
                 type_=NotificationType.REPORT_RECEIVED.value,
                 message=f"신고가 접수되었습니다. (report_id={report_id})",
                 related_id=int(report_id),
-                redirect_path=None,
+                redirect_path="/messages?tab=admin",
                 category=MessageCategory.ADMIN.value,
                 db=db,
             )

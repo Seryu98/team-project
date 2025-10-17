@@ -17,5 +17,9 @@ export async function submitReport(targetType, targetId, reason) {
     headers: { Authorization: `Bearer ${token}` },
   });
 
+  // ✅ 새로고침 없이 알림 실시간 반영
+  localStorage.setItem("refreshNotifications", Date.now().toString());
+  window.dispatchEvent(new Event("storage"));
+
   return res.data;
 }

@@ -219,3 +219,31 @@ def api_unban_user(
         db=db,
     )
     return {"success": True, "message": f"유저 #{user_id} 제재 해제 완료"}
+
+@router.get("/pending-posts")
+def api_get_pending_posts(
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    승인 대기 중인 게시글 목록
+    """
+    _ensure_admin(user)
+    rows = db.execute(
+        text("""
+            SELECT 
+                p.id,
+                p.title,
+                p.created_at,
+                p.leader_id
+            FROM recipe_posts p
+            WHERE p.status = 'PENDING'
+            ORDER BY p.created_at DESC
+        """)
+    ).mappings().all()
+
+    return {
+        "success": True,
+        "data": [dict(r) for r in rows],
+        "message": "승인 대기 게시글 조회 성공",
+    }

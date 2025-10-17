@@ -21,7 +21,17 @@ export default function NotificationList({ onClose }) {
 
   useEffect(() => {
     fetchList();
-  }, []);
+
+    // ✅ storage 이벤트 감지해서 실시간 새로고침
+  const handleRefresh = (e) => {
+    if (e.key === "refreshNotifications") {
+      fetchList();
+    }
+  };
+  window.addEventListener("storage", handleRefresh);
+
+  return () => window.removeEventListener("storage", handleRefresh);
+}, []);
 
   // ================================================
   // ✅ 알림 클릭 시 동작
@@ -38,19 +48,20 @@ export default function NotificationList({ onClose }) {
 
       // 🩵 [2] 알림 유형별 경로 처리
       if (n.type === "MESSAGE") {
-        // 쪽지 → 쪽지 상세로 이동
         window.location.href = `/messages/${n.related_id}`;
       } 
       else if (n.type === "REPORT_RECEIVED") {
-        // 관리자 신고 접수 알림 → 신고 처리 페이지로
-        window.location.href = "/admin/reports";
+        // ✅ 관리자 신고 접수 알림 → 관리자 쪽지함으로 이동
+        window.location.href = "/messages?tab=admin";
       } 
+      else if (n.type === "REPORT_REJECTED" || n.type === "REPORT_RESOLVED") {
+        // ✅ 신고 결과 알림 (승인/반려) → 관리자 쪽지함으로 이동
+        window.location.href = "/messages?tab=admin";
+      }
       else if (["BAN", "WARNING", "UNBAN"].includes(n.type)) {
-        // 제재/해제 관련 → 쪽지함으로 이동
-        window.location.href = "/messages";
+        window.location.href = "/messages?tab=admin";
       } 
       else {
-        // 나머지는 redirect_path 그대로 이동
         window.location.href = n.redirect_path;
       }
 

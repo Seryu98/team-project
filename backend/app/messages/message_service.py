@@ -9,6 +9,7 @@ from app.users.user_model import User
 from fastapi import HTTPException
 import re
 from app.messages.message_model import MessageCategory
+from app.notifications.notification_model import NotificationType
 
 # ✅ DB 세션 핸들러
 

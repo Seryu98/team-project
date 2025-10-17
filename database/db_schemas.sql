@@ -361,6 +361,7 @@ CREATE TABLE messages (
   receiver_id BIGINT NOT NULL,
   content TEXT NOT NULL,
   is_read TINYINT(1) DEFAULT 0,
+  category ENUM('NORMAL','NOTICE','ADMIN') DEFAULT 'NORMAL',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   deleted_at DATETIME NULL,
   PRIMARY KEY (id),

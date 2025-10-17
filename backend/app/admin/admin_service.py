@@ -25,7 +25,7 @@ def approve_post(post_id: int, admin_id: int, db: Optional[Session] = None) -> b
     db, close = _get_db(db)
     try:
         updated = db.execute(
-            text("UPDATE posts SET status='APPROVED' WHERE id=:pid"),
+            text("UPDATE recipe_posts SET status='APPROVED' WHERE id=:pid"),
             {"pid": post_id},
         ).rowcount
 
@@ -33,7 +33,7 @@ def approve_post(post_id: int, admin_id: int, db: Optional[Session] = None) -> b
             raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
 
         leader_id = db.execute(
-            text("SELECT leader_id FROM posts WHERE id=:pid"), {"pid": post_id}
+            text("SELECT leader_id FROM recipe_posts WHERE id=:pid"), {"pid": post_id}
         ).scalar()
 
         db.commit()
@@ -62,7 +62,7 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
     db, close = _get_db(db)
     try:
         updated = db.execute(text("""
-            UPDATE posts
+            UPDATE recipe_posts
                SET status='REJECTED',
                    recruit_status='CLOSED',
                    project_status='ENDED'
@@ -79,10 +79,12 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
                 VALUES (:aid, :pid, 'REJECT', :reason)
             """), {"aid": admin_id, "pid": post_id, "reason": reason})
 
+
         # ✅ 작성자에게 거절 알림
         leader_id = db.execute(
-            text("SELECT leader_id FROM posts WHERE id=:pid"), {"pid": post_id}
+            text("SELECT leader_id FROM recipe_posts WHERE id=:pid"), {"pid": post_id}
         ).scalar()
+
         if leader_id:
             send_notification(
                 user_id=leader_id,
@@ -156,7 +158,18 @@ def resolve_report(
                 type_=NotificationType.REPORT_RESOLVED.value,
                 message=f"신고(ID:{report_id})가 승인되어 처리되었습니다.",
                 related_id=report_id,
-                redirect_path=None,
+                redirect_path="/messages?tab=admin",
+                category=MessageCategory.ADMIN.value,
+                db=db,
+            )
+
+        # ✅ 신고자에게 쪽지 발송
+            send_message(
+                sender_id=admin_id,
+                receiver_id=reporter_id,
+                content=f"[신고 승인 안내]\n귀하의 신고(ID:{report_id})가 승인되어 처리되었습니다.\n"
+                    f"사유: {reason or '관리자 판단에 의한 승인입니다.'}\n"
+                    "📩 해당 내용은 관리자 쪽지함에서도 확인 가능합니다.",
                 category=MessageCategory.ADMIN.value,
                 db=db,
             )
@@ -206,15 +219,30 @@ def resolve_report(
 
         # 🚫 신고 반려 시
         elif action == "REJECT":
-            send_notification(
-                user_id=reporter_id,
-                type_=NotificationType.REPORT_REJECTED.value,
-                message=f"신고(ID:{report_id})가 반려되었습니다.",
-                related_id=report_id,
-                redirect_path=None,
+            # ✅ 1) 신고자에게 쪽지 (관리자 카테고리)
+            send_message(
+                sender_id=admin_id,
+                receiver_id=reporter_id,
+                content=(
+                    "[신고 반려 안내]\n"
+                    f"귀하의 신고(ID:{report_id})가 관리자 검토 결과 반려되었습니다.\n"
+                    f"사유: {reason or '관리자 판단에 의한 반려입니다.'}\n"
+                    "📩 해당 내용은 관리자 쪽지함에서도 확인 가능합니다."
+                ),
                 category=MessageCategory.ADMIN.value,
                 db=db,
             )
+
+        # ✅ 2) 신고자에게 알림 (클릭 시 관리자 쪽지함으로 이동)
+        send_notification(
+            user_id=reporter_id,
+            type_=NotificationType.REPORT_REJECTED.value,
+            message=f"신고(ID:{report_id})가 반려되었습니다.",
+            related_id=report_id,
+            redirect_path="/messages?tab=admin",   # 관리자 쪽지함으로 이동
+            category=MessageCategory.ADMIN.value,
+            db=db,
+        )
 
         # ✅ 이벤트 트리거 (로그용)
         on_report_resolved(
@@ -238,7 +266,7 @@ def get_admin_stats(db: Session):
     """관리자 대시보드용 통계 데이터"""
     result = {
         "pending_posts": db.execute(
-            text("SELECT COUNT(*) FROM posts WHERE status='PENDING'")
+            text("SELECT COUNT(*) FROM recipe_posts WHERE status='PENDING'")
         ).scalar() or 0,
         "pending_reports": db.execute(
             text("SELECT COUNT(*) FROM reports WHERE status='PENDING'")
@@ -247,7 +275,7 @@ def get_admin_stats(db: Session):
     return result
 
 # ===============================================
-# ✅ [🆕 추가됨] 제재 유저 관리
+# ✅ 제재 유저 관리
 # ===============================================
 def list_banned_users(db: Optional[Session] = None) -> list[dict]:
     """
@@ -274,17 +302,7 @@ def list_banned_users(db: Optional[Session] = None) -> list[dict]:
         if close:
             db.close()
 
-def ban_user(
-    target_user_id: int,
-    admin_id: int,
-    days: Optional[int] = None,   # None이면 영구
-    reason: Optional[str] = None,
-    db: Optional[Session] = None,
-) -> bool:
-    """
-    관리자 수동 밴:
-    - days: 정지 일수 (None이면 영구)
-    """
+def ban_user(target_user_id: int, admin_id: int, days: Optional[int] = None, reason: Optional[str] = None, db: Optional[Session] = None) -> bool:
     db, close = _get_db(db)
     try:
         exists = db.execute(text("SELECT COUNT(*) FROM users WHERE id=:uid"), {"uid": target_user_id}).scalar()
@@ -293,7 +311,6 @@ def ban_user(
 
         until = datetime.utcnow() + timedelta(days=9999 if days is None else int(days))
 
-        # 🩵 수정됨: banned_until 컬럼 사용
         db.execute(text("""
             UPDATE users
                SET status='BANNED',
@@ -307,9 +324,10 @@ def ban_user(
             type_=NotificationType.BAN.value,
             message=f"계정이 제재되었습니다. ({'영구' if days is None else f'{days}일'})",
             related_id=None,
-            redirect_path=None,
+            redirect_path="/messages?tab=admin",   # ✅ 수정됨
             db=db,
         )
+
         send_message(
             sender_id=admin_id,
             receiver_id=target_user_id,
@@ -324,16 +342,8 @@ def ban_user(
         if close:
             db.close()
 
-def unban_user(
-    target_user_id: int,
-    admin_id: int,
-    reason: Optional[str] = None,
-    db: Optional[Session] = None,
-) -> bool:
-    """
-    관리자 수동 해제:
-    - status='ACTIVE', banned_until=NULL
-    """
+# ✅ 밴 해제
+def unban_user(target_user_id: int, admin_id: int, reason: Optional[str] = None, db: Optional[Session] = None) -> bool:
     db, close = _get_db(db)
     try:
         updated = db.execute(text("""
@@ -346,15 +356,15 @@ def unban_user(
         if not updated:
             raise HTTPException(status_code=404, detail="대상 사용자를 찾을 수 없습니다.")
 
-        # 알림 & 쪽지
         send_notification(
             user_id=target_user_id,
             type_=NotificationType.UNBAN.value,
             message="계정 제재가 해제되었습니다.",
             related_id=None,
-            redirect_path=None,
+            redirect_path="/messages?tab=admin",   # ✅ 수정됨
             db=db,
         )
+
         send_message(
             sender_id=admin_id,
             receiver_id=target_user_id,
