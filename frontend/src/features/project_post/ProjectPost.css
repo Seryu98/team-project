@@ -60,7 +60,7 @@
 .filter-group-title {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: #111827; /* ✅ #374151 → #111827 더 진하게 */
   margin-bottom: 10px;
   display: block;
 }
@@ -94,10 +94,11 @@
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #4b5563;
+  color: #111827; /* ✅ #4b5563 → #111827 더 진하게 */
   cursor: pointer;
   padding: 4px 0;
   transition: color 0.2s;
+  font-weight: 500; /* ✅ 글씨 굵게 */
 }
 
 .filter-option-label:hover {
@@ -109,6 +110,7 @@
   cursor: pointer;
   width: 16px;
   height: 16px;
+  accent-color: #2563eb; /* ✅ 체크박스 색상 통일 */
 }
 
 /* 날짜 입력 */
