@@ -1,11 +1,12 @@
 # app/auth/auth_router.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from pydantic import BaseModel
 from datetime import datetime
 import re
+import dns.resolver  # ✅ 추가
 from fastapi.responses import JSONResponse
 
 from app.core.database import get_db
@@ -13,6 +14,9 @@ from app.auth import auth_service
 from app.auth.auth_schema import UserRegister
 from app.core.security import verify_token, hash_password
 from app.users.user_model import User, UserStatus
+
+# ✅ 추가: 이메일 인증 모듈
+from app.core.email_verifier import is_verified as is_email_verified, send_code, verify_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -50,6 +54,33 @@ class UpdateUserRequest(BaseModel):
 
 
 # ===============================
+# 🧩 공용 함수: 이메일 도메인 유효성 검사 (DNS MX)
+# ===============================
+def is_valid_email_domain(email: str) -> bool:
+    """📧 입력된 이메일의 도메인 MX 레코드 존재 여부 확인"""
+    try:
+        domain = email.split("@")[1]
+        dns.resolver.resolve(domain, "MX")
+        return True
+    except (IndexError, dns.resolver.NoAnswer, dns.resolver.NXDOMAIN,
+            dns.resolver.NoNameservers, dns.resolver.LifetimeTimeout):
+        return False
+    except Exception:
+        return False
+
+
+# ===============================
+# ✅ 이메일 유효성 검증 (DNS MX)
+# ===============================
+@router.get("/verify-email")
+def verify_email(email: str = Query(..., description="확인할 이메일 주소")):
+    """📧 실제 존재하는 이메일 도메인 검증 (DNS MX 조회 기반)"""
+    if not is_valid_email_domain(email):
+        return {"valid": False, "message": "존재하지 않는 이메일 주소입니다."}
+    return {"valid": True, "message": "유효한 이메일 주소입니다."}
+
+
+# ===============================
 # ✅ 아이디 중복 확인
 # ===============================
 @router.get("/check-id")
@@ -69,7 +100,7 @@ def check_user_id(user_id: str, db: Session = Depends(get_db)):
 # ===============================
 @router.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
-    """🧩 일반 회원가입 (비밀번호 확인 + 중복 검증 + 이메일 형식 검사)"""
+    """🧩 일반 회원가입 (비밀번호 확인 + 중복 검증 + 이메일 형식 검사 + 인증 확인)"""
     try:
         # ✅ 비밀번호 확인
         if hasattr(user, "password_confirm") and user.password != user.password_confirm:
@@ -79,6 +110,14 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
         if not user.email or not re.match(email_pattern, user.email):
             raise ValueError("이메일 형식이 올바르지 않습니다.")
+
+        # ✅ 실제 이메일 도메인 검증 (무료 DNS MX 기반)
+        if not is_valid_email_domain(user.email):
+            raise ValueError("존재하지 않는 이메일 도메인입니다.")
+
+        # ✅ 이메일 인증 여부 확인 (email_verifier.py)
+        if not is_email_verified(user.email):
+            raise ValueError("이메일 인증이 완료되지 않았습니다. 인증 코드를 확인해주세요.")
 
         # ✅ 이메일 중복 확인 (ACTIVE 계정만)
         if db.query(User).filter(
@@ -273,10 +312,13 @@ def find_id(req: FindIdRequest, db: Session = Depends(get_db)):
 @router.post("/email-hint")
 async def get_email_hint(req: EmailHintRequest, db: Session = Depends(get_db)):
     """✉️ 이메일 힌트 조회 (user_id 기준)"""
-    email_hint = auth_service.get_email_hint(db, req.user_id)
-    if not email_hint:
+    user = db.query(User).filter(User.user_id == req.user_id).first()
+    if not user or not user.email:
         raise HTTPException(status_code=404, detail="등록된 이메일이 없습니다.")
-    return {"email_hint": email_hint}
+
+    email = user.email
+    email_hint = auth_service.get_email_hint(db, req.user_id)
+    return {"email_hint": email_hint, "email": email}  # ✅ 실제 이메일도 함께 반환
 
 
 @router.post("/request-password-reset")
@@ -318,6 +360,9 @@ def social_callback(provider: str, code: str, db: Session = Depends(get_db)):
         return tokens
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="이미 해당 이메일로 가입된 계정이 있습니다.")
     except Exception:
         raise HTTPException(status_code=500, detail="소셜 로그인 중 오류가 발생했습니다.")
 
@@ -332,7 +377,7 @@ def complete_tutorial(token: str = Depends(oauth2_scheme), db: Session = Depends
     user_id = payload.get("sub")
     user = db.query(User).filter(
         User.id == int(user_id),
-        User.status == UserStatus.ACTIVE  # ✅ DELETED 계정은 제외
+        User.status == UserStatus.ACTIVE
     ).first()
 
     if not user:
@@ -340,5 +385,38 @@ def complete_tutorial(token: str = Depends(oauth2_scheme), db: Session = Depends
 
     user.is_tutorial_completed = True
     db.commit()
-
     return {"message": "튜토리얼 완료"}
+
+
+# ===============================
+# ✅ 이메일 인증 (회원가입/비밀번호 찾기 공통 API)
+# ===============================
+from pydantic import EmailStr
+from typing import Literal
+
+class EmailCodeRequest(BaseModel):
+    email: EmailStr
+    purpose: Literal["signup", "reset"]
+
+@router.post("/email/send-code")
+def send_verification_email(req: EmailCodeRequest):
+    """📩 이메일 인증 코드 발송 (회원가입/비밀번호찾기 공통)"""
+    try:
+        send_code(req.email)
+        return {"message": f"{req.purpose}용 인증 코드가 전송되었습니다."}
+    except Exception as e:
+        print("이메일 발송 오류:", e)
+        raise HTTPException(status_code=500, detail="이메일 발송 중 오류가 발생했습니다.")
+
+
+class VerifyCodeRequest(BaseModel):
+    email: EmailStr
+    code: str
+    purpose: Literal["signup", "reset"]
+
+@router.post("/email/verify-code")
+def verify_email_code(req: VerifyCodeRequest):
+    """✅ 이메일 인증 코드 검증 (회원가입/비밀번호찾기 공통)"""
+    if verify_code(req.email, req.code):
+        return {"verified": True, "message": "인증이 완료되었습니다."}
+    raise HTTPException(status_code=400, detail="인증 코드가 유효하지 않거나 만료되었습니다.")

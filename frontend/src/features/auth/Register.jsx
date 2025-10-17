@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Modal from "../../components/Modal";
-import { register, login } from "./api";
+import { register, login } from "./api"; // ✅ sendVerificationCode, verifyCode 제거
 import axios from "axios";
 
 function Register() {
@@ -25,6 +25,14 @@ function Register() {
   const [passwordMatch, setPasswordMatch] = useState(true);
   const [isIdChecked, setIsIdChecked] = useState(false); // ✅ 중복확인 여부 추적
 
+  // ✅ 추가: 이메일 유효성 검증 상태
+  const [emailCheckMsg, setEmailCheckMsg] = useState("");
+  const [isEmailValid, setIsEmailValid] = useState(false);
+
+  // ✅ 이메일 인증 모달 상태
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+
   // ✅ 입력 변경 핸들러
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -32,8 +40,7 @@ function Register() {
 
     // 실시간 비밀번호 일치 검사
     if (name === "password" || name === "passwordConfirm") {
-      const nextPassword =
-        name === "password" ? value : form.password;
+      const nextPassword = name === "password" ? value : form.password;
       const nextConfirm =
         name === "passwordConfirm" ? value : form.passwordConfirm;
 
@@ -49,6 +56,66 @@ function Register() {
     if (name === "user_id") {
       setIsIdChecked(false);
       setIdCheckMsg("");
+    }
+
+    // ✅ 이메일 변경 시 검증 초기화
+    if (name === "email") {
+      setEmailCheckMsg("");
+      setIsEmailValid(false);
+    }
+  };
+
+  // ✅ 이메일 인증 코드 발송 (새 백엔드 구조 반영)
+  const handleEmailCheck = async () => {
+    if (!form.email) {
+      setEmailCheckMsg("⚠️ 이메일을 입력해주세요.");
+      setIsEmailValid(false);
+      return;
+    }
+
+    // ✅ 이메일 형식 정규식 검증 추가
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email)) {
+      setEmailCheckMsg("❌ 올바른 이메일 형식을 입력해주세요.");
+      setIsEmailValid(false);
+      return;
+    }
+
+    try {
+      // ✅ 새 API 엔드포인트 사용
+      await axios.post("http://localhost:8000/auth/email/send-code", {
+        email: form.email,
+        purpose: "signup",
+      });
+      setShowEmailModal(true);
+      setEmailCheckMsg("✉️ 인증코드가 이메일로 전송되었습니다.");
+    } catch (error) {
+      console.error("이메일 발송 실패:", error);
+      if (error.response?.data?.detail) {
+        setEmailCheckMsg(`❌ ${error.response.data.detail}`);
+      } else {
+        setEmailCheckMsg("❌ 이메일 발송 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      }
+      setIsEmailValid(false);
+    }
+  };
+
+  // ✅ 이메일 인증 코드 확인 (Modal에서 전달받은 code 사용)
+  const handleVerifyEmailCode = async (codeFromModal) => {
+    try {
+      const codeToUse = codeFromModal || verificationCode;
+      // ✅ 새 API 엔드포인트 사용
+      await axios.post("http://localhost:8000/auth/email/verify-code", {
+        email: form.email,
+        code: codeToUse,
+        purpose: "signup",
+      });
+      setIsEmailValid(true);
+      setShowEmailModal(false);
+      setEmailCheckMsg("✅ 이메일 인증이 완료되었습니다.");
+    } catch (error) {
+      console.error("인증코드 검증 실패:", error);
+      setEmailCheckMsg("❌ 인증코드가 올바르지 않습니다.");
     }
   };
 
@@ -81,6 +148,12 @@ function Register() {
     // ✅ 회원가입 전에 남은 토큰/세션 완전 초기화 (재가입 시 충돌 방지)
     localStorage.clear();
     sessionStorage.clear();
+
+    // ✅ 이메일 유효성 검증 여부 확인
+    if (!isEmailValid) {
+      setMsg("❌ 이메일 인증을 완료해주세요.");
+      return;
+    }
 
     // ✅ 중복확인 여부 확인
     if (!isIdChecked) {
@@ -130,9 +203,6 @@ function Register() {
       setShowDone(true); // ✅ 가입 완료 모달 표시
     } catch (error) {
       console.error("회원가입 실패:", error);
-
-      // ✅ fetch 기반의 api.js에서는 error.response가 없음
-      // 따라서 message를 직접 표시해야 서버의 detail이 제대로 보임
       const detail = error.message || "회원가입 실패";
       setMsg(`❌ ${detail}`);
     } finally {
@@ -193,15 +263,42 @@ function Register() {
           {/* 이메일 */}
           <label style={{ fontSize: "13px" }}>
             이메일<span style={{ color: "#ef4444" }}> *</span>
-            <input
-              name="email"
-              type="email"
-              placeholder="example@domain.com"
-              value={form.email}
-              onChange={handleChange}
-              style={{ ...inputStyle, marginTop: "6px" }}
-              required
-            />
+            <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+              <input
+                name="email"
+                type="email"
+                placeholder="example@domain.com"
+                value={form.email}
+                onChange={handleChange}
+                style={{ ...inputStyle, flex: 1 }}
+                required
+              />
+              <button
+                type="button"
+                onClick={handleEmailCheck}
+                disabled={isEmailValid}
+                style={{
+                  ...buttonPrimary,
+                  background: isEmailValid ? "#9ca3af" : "#4b5563",
+                  cursor: isEmailValid ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                  padding: "10px 14px",
+                }}
+              >
+                {isEmailValid ? "인증완료" : "이메일확인"}
+              </button>
+            </div>
+            {emailCheckMsg && (
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: emailCheckMsg.includes("완료") ? "green" : "red",
+                  marginTop: "4px",
+                }}
+              >
+                {emailCheckMsg}
+              </p>
+            )}
           </label>
 
           {/* 아이디 + 중복확인 */}
@@ -379,6 +476,18 @@ function Register() {
           </p>
         )}
       </div>
+
+      {/* 이메일 인증 모달 */}
+      {showEmailModal && (
+        <Modal
+          title="이메일 인증"
+          confirmText="확인"
+          onConfirm={handleVerifyEmailCode}
+          onClose={() => setShowEmailModal(false)}
+        >
+          이메일로 전송된 인증코드를 입력해주세요.
+        </Modal>
+      )}
 
       {showDone && (
         <Modal
