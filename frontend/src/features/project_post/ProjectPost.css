@@ -68,6 +68,7 @@
 /* 검색 입력 */
 .search-input {
   width: 100%;
+  max-width: 220px;
   padding: 8px 10px;
   border: 1px solid #d1d5db;
   border-radius: 6px;

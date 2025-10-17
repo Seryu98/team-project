@@ -243,13 +243,13 @@ export default function BoardDetailPage() {
             {/* 🏅 제목 왼쪽 배지 */}
             <div className="badge-inline-left">
               {post.badge?.includes("Gold Medal") && (
-                <span className="badge-medal badge-gold">🥇 Gold Medal</span>
+                <span className="badge-medal badge-gold">🥇 1위</span>
               )}
               {post.badge?.includes("Silver Medal") && (
-                <span className="badge-medal badge-silver">🥈 Silver Medal</span>
+                <span className="badge-medal badge-silver">🥈 2위</span>
               )}
               {post.badge?.includes("Bronze Medal") && (
-                <span className="badge-medal badge-bronze">🥉 Bronze Medal</span>
+                <span className="badge-medal badge-bronze">🥉 3위</span>
               )}
               {post.badge?.includes("인기급상승") && (
                 <span className="badge-hot">🔥 인기급상승</span>
