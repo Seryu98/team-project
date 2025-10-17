@@ -34,6 +34,11 @@ export default function ProfilePage() {
   const [pendingProjects, setPendingProjects] = useState([]);
   const [activeTab, setActiveTab] = useState("ongoing");
 
+  //  게시글/댓글 상태 추가
+  const [myPosts, setMyPosts] = useState([]);
+  const [myComments, setMyComments] = useState([]);
+  const [postTab, setPostTab] = useState("posts");
+
   const SKILL_ICONS = useMemo(
     () => ({ ...buildIconMap(skillGlob1), ...buildIconMap(skillGlob2) }),
     []
@@ -105,35 +110,76 @@ export default function ProfilePage() {
   };
 
   const fetchProjects = async () => {
-  try {
-    const token = localStorage.getItem("access_token");
-    if (!token) return;
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
 
-    const config = { headers: { Authorization: `Bearer ${token}` } };
+      const config = { headers: { Authorization: `Bearer ${token}` } };
 
-    // 내 프로젝트 전부 가져오기
-    const res = await api.get("/recipe/my-projects", config);
-    const allProjects = Array.isArray(res.data) ? res.data : [];
+      // 내 프로젝트 전부 가져오기
+      const res = await api.get("/recipe/my-projects", config);
+      const allProjects = Array.isArray(res.data) ? res.data : [];
 
-    // 승인된 + 진행중
-    setOngoingProjects(
-      allProjects.filter(
-        (p) => p.status === "APPROVED" && p.project_status === "ONGOING"
-      )
-    );
+      // 승인된 + 진행중
+      setOngoingProjects(
+        allProjects.filter(
+          (p) => p.status === "APPROVED" && p.project_status === "ONGOING"
+        )
+      );
 
-    // 승인 보류 (대기중)
-    setPendingProjects(allProjects.filter((p) => p.status === "PENDING"));
+      // 승인 보류 (대기중)
+      setPendingProjects(allProjects.filter((p) => p.status === "PENDING"));
 
-    // 종료된 프로젝트
-    setEndedProjects(allProjects.filter((p) => p.project_status === "ENDED"));
-  } catch (err) {
-    console.error("❌ 프로젝트 불러오기 에러:", err.response?.data || err.message);
-    setOngoingProjects([]);
-    setPendingProjects([]);
-    setEndedProjects([]);
-  }
-};
+      // 종료된 프로젝트
+      setEndedProjects(allProjects.filter((p) => p.project_status === "ENDED"));
+    } catch (err) {
+      console.error("❌ 프로젝트 불러오기 에러:", err.response?.data || err.message);
+      setOngoingProjects([]);
+      setPendingProjects([]);
+      setEndedProjects([]);
+    }
+
+  };
+
+  const fetchMyPosts = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const targetUserId = userId || currentUser?.id;
+      if (!targetUserId) return;
+
+      const res = await api.get(`/board/user/${targetUserId}/posts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMyPosts(Array.isArray(res.data) ? res.data : res.data.posts || []);
+    } catch (err) {
+      console.error("❌ 게시글 불러오기 실패:", err);
+      setMyPosts([]);
+    }
+  };
+
+  // ✅ 내 댓글 가져오기 (본인만)
+  const fetchMyComments = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const targetUserId = userId || currentUser?.id;
+      if (!targetUserId) return;
+
+      // 본인만 볼 수 있도록 체크
+      if (currentUser?.id !== Number(targetUserId)) return;
+
+      const res = await api.get(`/board/user/${targetUserId}/comments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMyComments(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("❌ 댓글 불러오기 실패:", err);
+      setMyComments([]);
+    }
+  };
 
   useEffect(() => {
     fetchCurrentUser();
@@ -143,6 +189,8 @@ export default function ProfilePage() {
   useEffect(() => {
     if (profile) {
       fetchProjects();
+      fetchMyPosts();
+      fetchMyComments();
     }
   }, [profile, currentUser]);
 
@@ -258,6 +306,92 @@ export default function ProfilePage() {
             {project.type === "PROJECT" ? "프로젝트" : "스터디"} · {project.field || "분야 미정"}
           </p>
         </div>
+      </div>
+    ));
+  };
+  // ✅ 게시글 리스트 렌더링
+  const renderPostList = () => {
+    if (myPosts.length === 0) {
+      return (
+        <div style={{ textAlign: "center", padding: "24px", background: "#f9fafb", borderRadius: "8px", color: "#9ca3af" }}>
+          작성한 게시글이 없습니다
+        </div>
+      );
+    }
+
+    return myPosts.map((post) => (
+      <div
+        key={post.id}
+        onClick={() => navigate(`/board/${post.id}`)}
+        style={{
+          padding: "12px",
+          border: "1px solid #e5e7eb",
+          borderRadius: "8px",
+          cursor: "pointer",
+          background: "#fff",
+          marginBottom: "8px",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+          <span style={{
+            fontSize: "11px",
+            color: "#6b7280",
+            background: "#f3f4f6",
+            padding: "2px 8px",
+            borderRadius: "4px"
+          }}>
+            {post.category || "일반"}
+          </span>
+          <span style={{ fontSize: "11px", color: "#9ca3af" }}>
+            {new Date(post.created_at).toLocaleDateString()}
+          </span>
+        </div>
+        <p style={{ fontSize: "14px", fontWeight: "500", marginBottom: "4px" }}>{post.title}</p>
+        <div style={{ display: "flex", gap: "12px", fontSize: "12px", color: "#6b7280" }}>
+          <span>👁️ {post.view_count || 0}</span>
+          <span>❤️ {post.like_count || 0}</span>
+          <span>💬 {post.comment_count || 0}</span>
+        </div>
+      </div>
+    ));
+  };
+
+  // ✅ 댓글 리스트 렌더링 (본인만)
+  const renderCommentList = () => {
+    if (myComments.length === 0) {
+      return (
+        <div style={{ textAlign: "center", padding: "24px", background: "#f9fafb", borderRadius: "8px", color: "#9ca3af" }}>
+          작성한 댓글이 없습니다
+        </div>
+      );
+    }
+
+    return myComments.map((comment) => (
+      <div
+        key={comment.id}
+        onClick={() => navigate(`/board/${comment.board_post_id}`)}
+        style={{
+          padding: "12px",
+          border: "1px solid #e5e7eb",
+          borderRadius: "8px",
+          cursor: "pointer",
+          background: "#fff",
+          marginBottom: "8px",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+          <span style={{ fontSize: "12px", fontWeight: "500", color: "#3b82f6" }}>
+            {comment.post_title || "게시글"}
+          </span>
+          <span style={{ fontSize: "11px", color: "#9ca3af" }}>
+            {new Date(comment.created_at).toLocaleDateString()}
+          </span>
+        </div>
+        <p style={{ fontSize: "13px", color: "#374151" }}>
+          {comment.content.length > 100
+            ? `${comment.content.substring(0, 100)}...`
+            : comment.content}
+        </p>
       </div>
     ));
   };
@@ -389,6 +523,8 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+
+
 
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
@@ -542,6 +678,54 @@ export default function ProfilePage() {
             </div>
           </div>
         )}
+        {/* ✅✅✅ 여기부터 게시글/댓글 섹션 추가! ✅✅✅ */}
+        <div style={{ marginBottom: "40px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "12px" }}>
+            활동 내역
+          </label>
+
+          <div style={{ display: "flex", gap: "8px", marginBottom: "16px", borderBottom: "1px solid #e5e7eb" }}>
+            <button
+              onClick={() => setPostTab("posts")}
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                background: postTab === "posts" ? "#3b82f6" : "transparent",
+                color: postTab === "posts" ? "#fff" : "#6b7280",
+                border: "none",
+                borderBottom: postTab === "posts" ? "2px solid #3b82f6" : "none",
+                cursor: "pointer",
+                fontWeight: postTab === "posts" ? "500" : "normal",
+              }}
+            >
+              게시글 ({myPosts.length})
+            </button>
+
+            {/* ✅ 댓글 탭은 본인만 볼 수 있음 */}
+            {isMyProfile && (
+              <button
+                onClick={() => setPostTab("comments")}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: "13px",
+                  background: postTab === "comments" ? "#3b82f6" : "transparent",
+                  color: postTab === "comments" ? "#fff" : "#6b7280",
+                  border: "none",
+                  borderBottom: postTab === "comments" ? "2px solid #3b82f6" : "none",
+                  cursor: "pointer",
+                  fontWeight: postTab === "comments" ? "500" : "normal",
+                }}
+              >
+                댓글 ({myComments.length})
+              </button>
+            )}
+          </div>
+
+          <div>
+            {postTab === "posts" && renderPostList()}
+            {postTab === "comments" && isMyProfile && renderCommentList()}
+          </div>
+        </div>
 
         {showModal && (
           <div style={{

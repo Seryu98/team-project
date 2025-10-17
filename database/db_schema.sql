@@ -35,13 +35,13 @@ CREATE TABLE users (
   last_fail_time DATETIME NULL COMMENT '마지막 로그인 실패 시각',
   account_locked BOOLEAN NOT NULL DEFAULT FALSE COMMENT '계정 잠금 여부',
   banned_until DATETIME NULL COMMENT '정지 해제 예정일',
-  is_tutorial_completed BOOLEAN NOT NULL DEFAULT FALSE COMMENT '튜토리얼 완료 여부', -- ✅ 새 컬럼 포함
   PRIMARY KEY (id),
   CONSTRAINT uq_users_nickname UNIQUE (nickname),
   CONSTRAINT uq_users_email UNIQUE (email),
   CONSTRAINT uq_users_userid UNIQUE (user_id),
   CONSTRAINT uq_users_social UNIQUE (auth_provider, social_id)
 );
+
 
 -- ===============================================
 -- PROFILES
@@ -311,7 +311,7 @@ CREATE TABLE reports (
   id BIGINT NOT NULL AUTO_INCREMENT,
   reported_user_id BIGINT NOT NULL,
   reporter_user_id BIGINT NOT NULL,
-  target_type ENUM('POST','BOARD_POST','COMMENT','USER','MESSAGE') NOT NULL,
+  target_type ENUM('POST','BOARD_POST','COMMENT','USER') NOT NULL,
   target_id BIGINT NOT NULL,
   reason VARCHAR(255) NOT NULL,
   status ENUM('PENDING','RESOLVED','REJECTED') DEFAULT 'PENDING',
@@ -350,7 +350,6 @@ CREATE TABLE notifications (
   related_id BIGINT NULL,
   is_read BOOLEAN DEFAULT FALSE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  redirect_path VARCHAR(255) NULL COMMENT '알림 클릭 시 이동 경로',
   PRIMARY KEY (id),
   CONSTRAINT FK_notifications_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
@@ -361,7 +360,6 @@ CREATE TABLE messages (
   receiver_id BIGINT NOT NULL,
   content TEXT NOT NULL,
   is_read TINYINT(1) DEFAULT 0,
-  category ENUM('NORMAL','NOTICE','ADMIN') DEFAULT 'NORMAL',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   deleted_at DATETIME NULL,
   PRIMARY KEY (id),
