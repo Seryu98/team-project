@@ -32,8 +32,9 @@ export default function Navbar() {
         const user = await getCurrentUser();
         setCurrentUser(user);
 
-        // 프로필 이미지 가져오기
-        const profileRes = await api.get(`/profiles/${user.id}`, {
+        // 프로필 이미지 가져오기 (캐시 방지용 타임스탬프 추가)
+        const timestamp = new Date().getTime();
+        const profileRes = await api.get(`/profiles/${user.id}?t=${timestamp}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setProfileImage(profileRes.data.profile_image);
@@ -46,7 +47,7 @@ export default function Navbar() {
 
     fetchUser();
 
-    // ✅ refreshProfile flag 감지해서 다시 유저 불러오기
+    // ✅ 1. storage 이벤트 (다른 탭에서의 변경 감지)
     const handleStorageChange = () => {
       if (localStorage.getItem("refreshProfile") === "true") {
         fetchUser();
@@ -54,7 +55,28 @@ export default function Navbar() {
       }
     };
     window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+
+    // ✅ 2. 커스텀 이벤트 (같은 탭에서의 변경 감지)
+    const handleProfileUpdate = () => {
+      console.log("🔄 프로필 업데이트 이벤트 감지");
+      fetchUser();
+    };
+    window.addEventListener("profileUpdated", handleProfileUpdate);
+
+    // ✅ 3. 주기적으로 플래그 체크 (백업 방법)
+    const intervalId = setInterval(() => {
+      if (localStorage.getItem("refreshProfile") === "true") {
+        console.log("🔄 플래그 감지로 프로필 새로고침");
+        fetchUser();
+        localStorage.removeItem("refreshProfile");
+      }
+    }, 1000); // 1초마다 체크
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("profileUpdated", handleProfileUpdate);
+      clearInterval(intervalId);
+    };
   }, []);
 
   // 알림 불러오기
@@ -215,7 +237,7 @@ export default function Navbar() {
               <img
                 src={
                   profileImage
-                    ? `http://localhost:8000${profileImage}`
+                    ? `http://localhost:8000${profileImage}?t=${new Date().getTime()}`
                     : defaultProfile
                 }
                 alt="프로필"

@@ -9,7 +9,9 @@ from fastapi.responses import JSONResponse
 from app.admin.admin_router import router as admin_router
 from app.notifications.notification_router import router as notification_router
 from app.messages.message_router import router as message_router
-from app.board.hot3_scheduler import start_scheduler
+from app.board.hot3_scheduler import start_scheduler   # ✅ team-project 기능
+from app.search import search_router                   # ✅ soldesk 기능
+from app.stats import stats_router                     # ✅ soldesk 기능
 
 import os
 import traceback
@@ -109,11 +111,18 @@ app.include_router(skill_router.router)
 app.include_router(recipe_router.router)
 app.include_router(meta_router.router)
 app.include_router(upload_router.router)
+
+# ✅ board router (public + 일반 둘 다)
+if hasattr(board_router, "public_router"):
+    app.include_router(board_router.public_router)
 app.include_router(board_router.router)
+
 app.include_router(user_router.router)
 app.include_router(admin_router)
 app.include_router(notification_router)
 app.include_router(message_router)
+app.include_router(stats_router.router)       # ✅ soldesk 기능
+app.include_router(search_router.router)      # ✅ soldesk 기능
 
 # ===================================
 # 🏠 기본 라우트

@@ -1,14 +1,13 @@
 # app/users/user_router.py
 from fastapi import APIRouter, Depends, Query, HTTPException, status, Body
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from typing import List, Optional
+from sqlalchemy import or_, text
+from typing import Optional
 from datetime import datetime, timedelta
-import logging
-import re
+import logging, re
 
 from app.core.database import get_db
-from app.users.user_schema import UserRankingResponse, SkillResponse
+from app.users.user_schema import UserRankingResponse, UserRankingListResponse, SkillResponse
 from app.users.user_model import User
 from app.core.security import verify_password, get_password_hash
 from app.auth.auth_service import get_current_user
@@ -29,75 +28,168 @@ logger = logging.getLogger(__name__)
 # ===============================
 # 👥 유저 랭킹 조회
 # ===============================
-@router.get("/ranking", response_model=List[UserRankingResponse])
+@router.get("/ranking", response_model=UserRankingListResponse)
 async def get_user_ranking(
     db: Session = Depends(get_db),
-    sort: str = Query("followers", pattern="^(followers|recent)$"),
-    skill_ids: Optional[List[int]] = Query(None),
+    sort: str = Query("score", pattern="^(score|followers|recent)$"),  # ✅ score 추가
+    skill_ids: Optional[list[int]] = Query(None),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(21, ge=1, le=100),
+    search: Optional[str] = Query(None, description="닉네임 검색어"),
 ):
-    """
-    유저 랭킹 조회
-    - 3개월 이상 미접속 유저 제외
-    - 팔로워순 or 최신순 정렬
-    - 스킬 필터링 가능 (AND 조건)
-    """
     three_months_ago = datetime.utcnow() - timedelta(days=90)
 
-    query = (
-        db.query(User)
-        .join(Profile, Profile.id == User.id)
-        .filter(
-            User.deleted_at.is_(None),
-            User.status == "ACTIVE",
-            or_(
-                User.last_login_at >= three_months_ago,
-                User.last_login_at.is_(None)
-            )
-        )
-    )
+    # ✅ score 정렬인 경우 raw SQL 사용
+    if sort == "score":
+        # 기본 쿼리
+        sql = """
+        SELECT 
+            u.id,
+            u.nickname,
+            u.created_at,
+            p.profile_image,
+            p.headline,
+            p.follower_count,
+            p.following_count,
+            COUNT(DISTINCT f.follower_id) AS followers,
+            COUNT(DISTINCT po.id) AS project_posts,
+            COUNT(DISTINCT b.id) AS board_posts,
+            COUNT(DISTINCT bl.user_id) AS board_likes,
+            (
+              COUNT(DISTINCT f.follower_id) * 1 + 
+              (COUNT(DISTINCT po.id) + COUNT(DISTINCT b.id)) * 2 + 
+              COUNT(DISTINCT bl.user_id) * 3
+            ) AS score
+        FROM users u
+        LEFT JOIN profiles p ON u.id = p.id
+        LEFT JOIN follows f ON u.id = f.following_id
+        LEFT JOIN posts po ON u.id = po.leader_id AND po.deleted_at IS NULL
+        LEFT JOIN board_posts b ON u.id = b.author_id AND b.deleted_at IS NULL
+        LEFT JOIN board_post_likes bl ON b.id = bl.board_post_id
+        WHERE u.deleted_at IS NULL 
+            AND u.status = 'ACTIVE'
+            AND (u.last_login_at >= :three_months_ago OR u.last_login_at IS NULL)
+        """
 
-    # 스킬 필터링 (AND 조건)
-    if skill_ids and len(skill_ids) > 0:
-        for skill_id in skill_ids:
-            query = query.filter(
-                User.id.in_(
-                    db.query(UserSkill.user_id)
-                    .filter(UserSkill.skill_id == skill_id)
+        params = {"three_months_ago": three_months_ago}
+
+        # 검색어 추가
+        if search:
+            sql += " AND u.nickname LIKE :search"
+            params["search"] = f"%{search}%"
+
+        sql += " GROUP BY u.id, u.nickname, u.created_at, p.profile_image, p.headline, p.follower_count, p.following_count"
+
+        # 스킬 필터 (별도 처리)
+        if skill_ids:
+            skill_user_ids = []
+            for skill_id in skill_ids:
+                user_ids_with_skill = db.query(UserSkill.user_id).filter(
+                    UserSkill.skill_id == skill_id
+                ).all()
+                if not skill_user_ids:
+                    skill_user_ids = set(uid[0] for uid in user_ids_with_skill)
+                else:
+                    skill_user_ids &= set(uid[0] for uid in user_ids_with_skill)
+            
+            if skill_user_ids:
+                sql += f" HAVING u.id IN ({','.join(map(str, skill_user_ids))})"
+            else:
+                # 조건에 맞는 유저가 없으면 빈 결과 반환
+                return {"users": [], "total_count": 0}
+
+        # 전체 개수 쿼리
+        count_sql = f"SELECT COUNT(*) FROM ({sql}) AS subquery"
+        total_count = db.execute(text(count_sql), params).scalar()
+
+        # 정렬 및 페이징
+        sql += " ORDER BY score DESC LIMIT :limit OFFSET :offset"
+        params["limit"] = page_size
+        params["offset"] = (page - 1) * page_size
+
+        result = db.execute(text(sql), params).fetchall()
+
+        users_list = []
+        for row in result:
+            # 스킬 조회
+            skills = (
+                db.query(Skill)
+                .join(UserSkill, UserSkill.skill_id == Skill.id)
+                .filter(UserSkill.user_id == row[0])
+                .all()
+            )
+            
+            users_list.append(UserRankingResponse(
+                id=row[0],
+                nickname=row[1],
+                profile_image=row[3],
+                headline=row[4],
+                follower_count=row[5] or 0,
+                following_count=row[6] or 0,
+                created_at=row[2],
+                score=row[11],  # ✅ score 필드 추가
+                skills=[SkillResponse(id=s.id, name=s.name) for s in skills]
+            ))
+
+        return {"users": users_list, "total_count": total_count}
+
+    # ✅ followers, recent 정렬 (기존 로직)
+    else:
+        query = (
+            db.query(User)
+            .join(Profile, Profile.id == User.id)
+            .filter(
+                User.deleted_at.is_(None),
+                User.status == "ACTIVE",
+                or_(
+                    User.last_login_at >= three_months_ago,
+                    User.last_login_at.is_(None)
                 )
             )
-
-    # 정렬
-    if sort == "followers":
-        query = query.order_by(Profile.follower_count.desc())
-    else:
-        query = query.order_by(User.created_at.desc())
-
-    users = query.offset((page - 1) * page_size).limit(page_size).all()
-
-    # DTO 변환
-    result = []
-    for user in users:
-        profile = db.query(Profile).filter(Profile.id == user.id).first()
-        skills = (
-            db.query(Skill)
-            .join(UserSkill, UserSkill.skill_id == Skill.id)
-            .filter(UserSkill.user_id == user.id)
-            .all()
         )
-        result.append(UserRankingResponse(
-            id=user.id,
-            nickname=user.nickname,
-            profile_image=profile.profile_image if profile else None,
-            headline=profile.headline if profile else None,
-            follower_count=profile.follower_count if profile else 0,
-            following_count=profile.following_count if profile else 0,
-            created_at=user.created_at,
-            skills=[SkillResponse(id=s.id, name=s.name) for s in skills]
-        ))
 
-    return result
+        if search:
+            query = query.filter(User.nickname.ilike(f"%{search}%"))
+
+        if skill_ids:
+            for skill_id in skill_ids:
+                query = query.filter(
+                    User.id.in_(db.query(UserSkill.user_id).filter(UserSkill.skill_id == skill_id))
+                )
+
+        # 전체 개수
+        total_count = query.count()
+
+        # 정렬
+        if sort == "followers":
+            query = query.order_by(Profile.follower_count.desc())
+        else:
+            query = query.order_by(User.created_at.desc())
+
+        users = query.offset((page - 1) * page_size).limit(page_size).all()
+
+        result = []
+        for user in users:
+            profile = db.query(Profile).filter(Profile.id == user.id).first()
+            skills = (
+                db.query(Skill)
+                .join(UserSkill, UserSkill.skill_id == Skill.id)
+                .filter(UserSkill.user_id == user.id)
+                .all()
+            )
+            result.append(UserRankingResponse(
+                id=user.id,
+                nickname=user.nickname,
+                profile_image=profile.profile_image if profile else None,
+                headline=profile.headline if profile else None,
+                follower_count=profile.follower_count if profile else 0,
+                following_count=profile.following_count if profile else 0,
+                created_at=user.created_at,
+                score=None,  # ✅ followers/recent 정렬 시에는 score 없음
+                skills=[SkillResponse(id=s.id, name=s.name) for s in skills]
+            ))
+
+        return {"users": result, "total_count": total_count}
 
 
 # ===============================
