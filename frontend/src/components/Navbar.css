@@ -63,24 +63,35 @@
 }
 
 /* 아이콘 버튼 */
+.icon-button {
+    position: relative;
+}
 .icon-button button {
     background: none;
     border: none;
     cursor: pointer;
     font-size: 20px;
     position: relative;
+    color: #333;
+    transition: transform 0.1s ease-in-out;
+}
+.icon-button button:hover {
+    transform: scale(1.1);
+    color: #2563eb;
 }
 
+/* 아이콘 배지 (알림/쪽지 숫자) */
 .icon-badge {
     position: absolute;
-    top: -5px;
-    right: -5px;
-    background: red;
+    top: -6px;
+    right: -6px;
+    background: #ef4444;
     color: white;
     border-radius: 50%;
     padding: 2px 6px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: bold;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.15);
 }
 
 /* 프로필 */
@@ -99,25 +110,32 @@
 /* 드롭다운 메뉴 */
 .dropdown-menu {
     position: absolute;
-    top: 40px;
+    top: 42px;
     right: 0;
     background: #fff;
     border: 1px solid #ddd;
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
     z-index: 2000;
-    min-width: 120px;
+    min-width: 130px;
+    overflow: hidden;
+    animation: dropdownFade 0.15s ease-in;
+}
+
+@keyframes dropdownFade {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .dropdown-item {
     width: 100%;
-    padding: 8px 12px;
+    padding: 9px 14px;
     border: none;
     background: none;
     text-align: left;
     cursor: pointer;
+    font-size: 14px;
 }
-
 .dropdown-item:hover {
     background-color: #f0f0f0;
 }
@@ -137,12 +155,121 @@
     background: #1748b3;
 }
 
-/*알림 메세지*/
+/* ==============================
+   🔔 알림 드롭다운 시각 개선 (최적 폭/정렬)
+   ============================== */
 .notification-popup {
-  animation: fadeIn 0.15s ease-in;
+  position: absolute;
+  right: 0;
+  top: 38px;
+  width: 230px; /* 기존 260 → 줄임 */
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  z-index: 3000;
+  overflow: hidden;
+  animation: fadeIn 0.2s ease-in-out;
 }
 
+/* 알림 헤더 */
+.notification-popup .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  font-size: 13px;
+  color: #111827;
+}
+
+/* 알림 리스트 */
+.notification-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* 개별 항목 */
+.notification-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.notification-item:hover {
+  background: #f3f4f6;
+}
+
+.notification-item.unread {
+  background: #f0f6ff;
+  border-left: 3px solid #3b82f6;
+}
+
+.notification-message {
+  color: #1f2937;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.notification-time {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* ✅ 페이지네이션 영역 */
+.notification-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+}
+
+.nav-btn {
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.nav-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.page-indicator {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* 빈 알림 */
+.notification-empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 20px 0;
+  font-size: 12px;
+}
+
+/* 애니메이션 */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

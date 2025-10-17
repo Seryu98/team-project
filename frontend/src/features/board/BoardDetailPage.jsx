@@ -11,6 +11,7 @@ import {
 } from "./BoardAPI";
 import { getCurrentUser } from "../auth/api";
 import "./Board.css";
+import { submitReport } from "../../shared/api/reportApi";
 
 export default function BoardDetailPage() {
   const { id } = useParams();
@@ -179,6 +180,16 @@ export default function BoardDetailPage() {
   };
 
   // ===============================
+  // 🩵 [추가] 실시간 알림 갱신 (신고 시 반영)
+  // ===============================
+  const bumpNotificationList = () => {
+    try {
+      localStorage.setItem("refreshNotifications", Date.now().toString());
+      setTimeout(() => localStorage.removeItem("refreshNotifications"), 50);
+    } catch {}
+  };
+
+  // ===============================
   // 렌더링 보조
   // ===============================
   if (loading) return <p>로딩 중...</p>;
@@ -196,34 +207,39 @@ export default function BoardDetailPage() {
 
   // ✅ 권한별 버튼 렌더
   const renderButtons = (item, isMine) => {
-    if (isOwner) {
-      return (
-        <>
-          {isMine && (
+    // 🩵 [수정] 신고 버튼 조건/로직 개선 — 모든 댓글에 신고 가능
+    return (
+      <>
+        {isMine ? (
+          <>
             <button className="edit-btn" onClick={() => startEdit(item.id, item.content)}>
               수정
             </button>
-          )}
-          <button className="delete-btn" onClick={() => handleCommentDelete(item.id)}>
-            삭제
+            <button className="delete-btn" onClick={() => handleCommentDelete(item.id)}>
+              삭제
+            </button>
+          </>
+        ) : (
+          <button
+            className="report-btn"
+            onClick={async () => {
+              const reason = prompt("신고 사유를 입력해주세요:");
+              if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
+              try {
+                await submitReport("COMMENT", item.id, reason);
+                alert("🚨 댓글 신고가 접수되었습니다.");
+                bumpNotificationList(); // 🩵 [추가] 실시간 알림 반영
+              } catch (err) {
+                console.error("❌ 댓글 신고 실패:", err);
+                alert("신고 중 오류가 발생했습니다.");
+              }
+            }}
+          >
+            🚨 신고
           </button>
-          {!isMine && <button className="report-btn">🚨 신고</button>}
-        </>
-      );
-    }
-    if (isMine) {
-      return (
-        <>
-          <button className="edit-btn" onClick={() => startEdit(item.id, item.content)}>
-            수정
-          </button>
-          <button className="delete-btn" onClick={() => handleCommentDelete(item.id)}>
-            삭제
-          </button>
-        </>
-      );
-    }
-    return <button className="report-btn">🚨 신고</button>;
+        )}
+      </>
+    );
   };
 
   // ===============================
@@ -307,6 +323,36 @@ export default function BoardDetailPage() {
             </button>
           )}
         </div>
+        <h2 className="detail-title">{post.title}</h2>
+
+        <div className="detail-actions">
+          <span>👁 {post.view_count}</span>
+          {isLoggedIn && <button onClick={handleLike}>❤️ {post.like_count}</button>}
+          <span>💬 댓글({visibleCommentCount})</span>
+        </div>
+
+        {/* ✅ 게시글 신고 버튼 (게시글 작성자 아닌 경우만) */}
+        {isLoggedIn && !isOwner && (
+          <button
+            className="report-btn"
+            onClick={async () => {
+              const reason = prompt("이 게시글을 신고하는 이유를 입력해주세요:");
+              if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
+              try {
+                await submitReport("BOARD_POST", post.id, reason);
+                alert("🚨 게시글 신고가 접수되었습니다.");
+                bumpNotificationList(); // 🩵 [추가] 실시간 알림 반영
+              } catch (err) {
+                console.error("❌ 게시글 신고 실패:", err);
+                alert("신고 중 오류가 발생했습니다.");
+              }
+            }}
+          >
+            🚨 게시글 신고
+          </button>
+        )}
+
+        <div className="detail-content">{post.content}</div>
 
         {/* 수정 / 삭제 */}
         {isOwner && (
@@ -338,6 +384,7 @@ export default function BoardDetailPage() {
           ) : (
             <p>💡 로그인 후 댓글을 작성할 수 있습니다.</p>
           )}
+
 
           {/* 댓글 + 대댓글 */}
           {comments.map((thread) => {

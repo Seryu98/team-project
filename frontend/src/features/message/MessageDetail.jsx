@@ -1,66 +1,78 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
 import axios from "axios";
+import { submitReport } from "../../shared/api/reportApi";
 
-export default function MessageDetail() {
-  const { id } = useParams();
-  const [message, setMessage] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default function MessageDetail({ message }) {
+  const [msg, setMsg] = useState(message); // ✅ 상태로 관리
   const [currentUser, setCurrentUser] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // ✅ 로그인 사용자 불러오기
   useEffect(() => {
-    async function fetchMessage() {
+    async function fetchCurrentUser() {
       try {
         const token = localStorage.getItem("access_token");
-        if (!token) {
-          setError("로그인이 필요합니다.");
-          return;
-        }
-
-        // 1️⃣ 현재 로그인한 사용자
-        const userRes = await axios.get("http://localhost:8000/users/me", {
+        if (!token) return;
+        const res = await axios.get("http://localhost:8000/users/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setCurrentUser(userRes.data);
-
-        // 2️⃣ 메시지 상세
-        const msgRes = await axios.get(`http://localhost:8000/messages/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!msgRes.data?.data) throw new Error("데이터가 없습니다.");
-        setMessage(msgRes.data.data);
-
-        // 3️⃣ 읽음 처리
-        await axios.post(
-          `http://localhost:8000/messages/${id}/read`,
-          null,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        setCurrentUser(res.data);
       } catch (err) {
-        console.error("❌ 메시지 상세 불러오기 실패:", err);
-        if (err.response?.status === 404) setError("메시지를 찾을 수 없습니다.");
-        else if (err.response?.status === 401)
-          setError("인증이 만료되었습니다. 다시 로그인해주세요.");
-        else setError("오류가 발생했습니다.");
+        console.error("❌ 사용자 정보 불러오기 실패:", err);
       } finally {
         setLoading(false);
       }
     }
+    fetchCurrentUser();
+  }, []);
 
-    fetchMessage();
-  }, [id]);
+  // ✅ 메시지 상세 재조회 (application_status 포함)
+  useEffect(() => {
+    async function fetchDetail() {
+      if (!message?.id) return;
+      const token = localStorage.getItem("access_token");
+      try {
+        const { data } = await axios.get(`http://localhost:8000/messages/${message.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (data?.data) setMsg(data.data); // ✅ 상세 데이터로 교체
+      } catch (err) {
+        console.error("❌ 쪽지 상세 불러오기 실패:", err);
+      }
+    }
+    fetchDetail();
+  }, [message?.id]);
 
-  // ✅ message.content에서 application_id, post_id 추출
-  const applicationId = message?.content?.match(/application_id=(\d+)/)?.[1];
-  const postId = message?.content?.match(/post_id=(\d+)/)?.[1];
+  // ✅ 읽음 처리 (수신자일 때만)
+  useEffect(() => {
+    async function markAsRead() {
+      if (!msg?.id) return;
+      const token = localStorage.getItem("access_token");
+      try {
+        await axios.post(
+          `http://localhost:8000/messages/${msg.id}/read`,
+          null,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        localStorage.setItem("refreshNotifications", "true");
+        window.dispatchEvent(new Event("storage"));
+      } catch (err) {
+        console.error("❌ 읽음 처리 실패:", err);
+      }
+    }
+    if (msg?.receiver_id === currentUser?.id) markAsRead();
+  }, [msg, currentUser]);
+
+  const applicationId = msg?.content?.match(/application_id=(\d+)/)?.[1];
+  const postId = msg?.content?.match(/post_id=(\d+)/)?.[1];
 
   async function decideApplication(accepted) {
-    if (!applicationId || !postId) return alert("지원서 ID 또는 게시글 ID를 찾을 수 없습니다.");
+    if (!applicationId || !postId)
+      return alert("지원서 ID 또는 게시글 ID를 찾을 수 없습니다.");
+
     const token = localStorage.getItem("access_token");
     try {
-      // ✅ 백엔드 구조에 맞춘 실제 요청 경로
       const endpoint = accepted
         ? `http://localhost:8000/recipe/${postId}/applications/${applicationId}/approve`
         : `http://localhost:8000/recipe/${postId}/applications/${applicationId}/reject`;
@@ -77,33 +89,42 @@ export default function MessageDetail() {
     }
   }
 
-  if (loading) return <p className="p-4">불러오는 중...</p>;
+  // ✅ 디버깅 로그
+  useEffect(() => {
+    console.log("🧩 msg data:", msg);
+    console.log("👉 msg.application_status:", msg?.application_status);
+    console.log("👉 currentUser:", currentUser?.id, "receiver:", msg?.receiver_id);
+  }, [msg, currentUser]);
+
+  if (loading) return <p className="p-4 text-gray-500">불러오는 중...</p>;
+  if (!msg) return <p className="p-4 text-gray-500">쪽지를 선택하세요.</p>;
   if (error) return <p className="p-4 text-red-600">{error}</p>;
-  if (!message) return <p className="p-4 text-gray-600">메시지를 찾을 수 없습니다.</p>;
 
   return (
     <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">메시지 상세</h1>
+      <h1 className="text-lg font-bold mb-4">쪽지 상세</h1>
 
       <div className="border rounded p-3 bg-white shadow-sm">
-        <p className="mb-2">
-          <strong>보낸 사람 ID:</strong> {message.sender_id}
+        <p className="text-sm mb-1">
+          <strong>보낸 사람:</strong> {msg.sender_nickname || msg.sender_id}
         </p>
-        <p className="mb-2">
-          <strong>받은 사람 ID:</strong> {message.receiver_id}
+        <p className="text-sm mb-1">
+          <strong>받은 사람:</strong> {msg.receiver_nickname || msg.receiver_id}
         </p>
-        <p className="my-3 whitespace-pre-line text-sm leading-relaxed">
-          {message.content}
-        </p>
-        <p className="text-xs opacity-70">
-          {new Date(message.created_at).toLocaleString()}
+
+        <div className="my-3 whitespace-pre-line text-sm leading-relaxed">
+          {msg.content}
+        </div>
+
+        <p className="text-xs text-right opacity-60">
+          {new Date(msg.created_at).toLocaleString()}
         </p>
       </div>
 
-      {/* ✅ 리더(수신자)만 승인/거절 버튼 노출 */}
+      {/* ✅ 리더만 승인/거절 버튼 표시 */}
       {applicationId &&
-        currentUser?.id === message.receiver_id &&
-        message.application_status === "PENDING" && ( // ✅ 상태 확인 추가
+        currentUser?.id === msg.receiver_id &&
+        msg.application_status?.toUpperCase?.() === "PENDING" && (
           <div className="mt-4 flex gap-3">
             <button
               onClick={() => decideApplication(true)}
@@ -120,6 +141,27 @@ export default function MessageDetail() {
           </div>
         )}
 
+      {/* ✅ 신고 버튼 */}
+      {currentUser?.id === msg.receiver_id && (
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={async () => {
+              const reason = prompt("신고 사유를 입력해주세요:");
+              if (!reason?.trim()) return alert("신고 사유를 입력해야 합니다.");
+              try {
+                await submitReport("MESSAGE", msg.id, reason);
+                alert("🚨 신고가 접수되었습니다.");
+              } catch (err) {
+                console.error("❌ 신고 실패:", err);
+                alert("신고 중 오류가 발생했습니다.");
+              }
+            }}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+          >
+            🚨 신고
+          </button>
+        </div>
+      )}
     </div>
   );
 }

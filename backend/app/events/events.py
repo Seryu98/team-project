@@ -7,6 +7,8 @@ from sqlalchemy import text
 from app.core.database import get_db
 from app.notifications.notification_service import send_notification
 from app.messages.message_service import send_message
+from app.notifications.notification_model import NotificationType, NotificationCategory
+from app.messages.message_model import MessageCategory  # ✅ 추가
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +35,15 @@ def on_post_submitted(post_id: int, leader_id: int, db: Optional[Session] = None
         for admin_id in _get_admin_ids(db):
             send_notification(
                 user_id=admin_id,
-                type_="APPLICATION",
-                message=f"승인 요청이 도착했습니다. (post_id={post_id})",
+                type_=NotificationType.APPLICATION.value,
+                message=f"새 프로젝트 승인 요청이 도착했습니다. (post_id={post_id})",
                 related_id=post_id,
+                redirect_path="/admin/pending",
+                category=NotificationCategory.ADMIN.value,
                 db=db,
             )
         db.commit()
-        logger.info(f"📨 게시글 승인요청 알림 전송 완료: post_id={post_id}")
+        logger.info(f"📨 관리자 승인요청 알림 전송 완료: post_id={post_id}")
     finally:
         if close:
             db.close()
@@ -51,7 +55,7 @@ def on_post_approved(post_id: int, leader_id: int, db: Optional[Session] = None)
     try:
         send_notification(
             user_id=leader_id,
-            type_="APPLICATION",
+            type_=NotificationType.APPLICATION.value,
             message=f"게시글이 승인되었습니다. (post_id={post_id})",
             related_id=post_id,
             db=db,
@@ -71,10 +75,12 @@ def on_application_submitted(
     applicant_id: int,
     db: Optional[Session] = None,
 ):
-    """지원서 제출 시 리더에게 알림 + 메시지."""
+    """
+    지원서 제출 시 리더에게 알림 + 쪽지 자동 발송
+    """
     db, close = _get_db(db)
     try:
-        # ✅ 지원서 답변들 불러오기
+        # 지원서 답변들 불러오기
         answers = db.execute(text("""
             SELECT f.name AS field_name, a.answer_text
             FROM application_answers a
@@ -82,7 +88,7 @@ def on_application_submitted(
             WHERE a.application_id = :app_id
         """), {"app_id": application_id}).mappings().all()
 
-        # ✅ 답변 내용을 문자열로 구성
+        # 답변 내용을 문자열로 구성
         if answers:
             answer_texts = "\n".join(
                 [f"{row['field_name']}: {row['answer_text']}" for row in answers]
@@ -90,29 +96,36 @@ def on_application_submitted(
         else:
             answer_texts = "(답변 내용 없음)"
 
-        # ✅ 알림 (관리자 알림)
+        # 리더에게 알림
         send_notification(
             user_id=leader_id,
-            type_="APPLICATION",
+            type_=NotificationType.APPLICATION.value,
             message=f"새 지원서가 도착했습니다. (application_id={application_id}, post_id={post_id})",
             related_id=application_id,
             db=db,
         )
 
-        # ✅ 메시지 (리더에게 보냄)
+        # ✅ 쪽지 전송 — application_id, post_id, 상태 포함
+        content = (
+            f"안녕하세요. 지원서를 제출했습니다. "
+            f"(application_id={application_id}, post_id={post_id})\n\n"
+            f"지원 내용:\n{answer_texts}"
+        )
+
         send_message(
             sender_id=applicant_id,
             receiver_id=leader_id,
-            content=(
-                f"안녕하세요. 지원서를 제출했습니다. (application_id={application_id}, post_id={post_id})\n\n"
-                f"📝 지원서 내용:\n{answer_texts}"
-            ),
+            content=content,
             db=db,
+            category=MessageCategory.NORMAL.value,  # 🔹 명시적 카테고리
         )
+
+        db.commit()
+        logger.info(f"📨 지원서 제출 쪽지 발송 완료: app_id={application_id}, post_id={post_id}")
+
     finally:
         if close:
             db.close()
-
 
 
 # ✅ 지원 승인/거절 결과 알림
@@ -142,11 +155,21 @@ def on_report_created(report_id: int, reporter_user_id: int, db: Optional[Sessio
         for admin_id in _get_admin_ids(db):
             send_notification(
                 user_id=admin_id,
-                type_="REPORT_RECEIVED",
+                type_=NotificationType.REPORT_RECEIVED.value,
                 message=f"신고가 접수되었습니다. (report_id={report_id})",
                 related_id=report_id,
+                redirect_path="/admin/reports",
                 db=db,
             )
+
+        send_notification(
+            user_id=reporter_user_id,
+            type_=NotificationType.REPORT_RECEIVED.value,
+            message=f"신고가 접수되었습니다. (report_id={report_id})",
+            related_id=report_id,
+            db=db,
+        )
+
         db.commit()
         logger.info(f"🚨 신고 접수 알림 전송 완료: report_id={report_id}")
     finally:
@@ -155,20 +178,17 @@ def on_report_created(report_id: int, reporter_user_id: int, db: Optional[Sessio
 
 
 # ✅ 신고 처리 결과 알림
-def on_report_resolved(report_id: int, reporter_user_id: int, resolved: bool, db: Optional[Session] = None):
+def on_report_resolved(
+    report_id: int,
+    reporter_user_id: int,
+    resolved: bool,
+    db: Optional[Session] = None,
+):
     db, close = _get_db(db)
     try:
         typ = "REPORT_RESOLVED" if resolved else "REPORT_REJECTED"
-        msg = "신고가 처리되었습니다." if resolved else "신고가 반려되었습니다."
-        send_notification(
-            user_id=reporter_user_id,
-            type_=typ,
-            message=msg,
-            related_id=report_id,
-            db=db,
-        )
+        logger.info(f"✅ 신고 처리 완료 이벤트: report_id={report_id}, type={typ}, reporter={reporter_user_id}")
         db.commit()
-        logger.info(f"✅ 신고 결과 알림 전송 완료: report_id={report_id}, type={typ}")
     finally:
         if close:
             db.close()

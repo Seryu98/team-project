@@ -59,8 +59,11 @@ import BoardEditPage from "./features/board/BoardEditPage";
 // 알림, 메시지, 관리자 페이지
 // ---------------------------------------
 import AdminDashboard from "./features/admin/AdminDashboard";
-import MessageInbox from "./features/message/MessageInbox";
 import MessageDetail from "./features/message/MessageDetail";
+import MessagesPage from "./features/message/MessagePage"; 
+import AdminPendingPage from "./features/admin/AdminPendingPage";
+import AdminReportsPage from "./features/admin/AdminReportsPage";
+import AdminUsersPage from "./features/admin/AdminUsersPage.jsx";
 
 // ---------------------------------------
 // 🏠 홈 페이지
@@ -236,17 +239,45 @@ export default function App() {
             }
           />
 
-          {/* ---------------------------------------
-              ✅ 메시지
-          --------------------------------------- */}
           <Route
-            path="/messages"
+            path="/admin/pending"
             element={
-              <ProtectedRoute>
-                <MessageInbox />
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminPendingPage />
               </ProtectedRoute>
             }
           />
+
+
+          <Route
+            path="/admin/reports"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminReportsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <AdminUsersPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ✅ 수정: 기존 MessageInbox → MessagesPage로 교체 */}
+          <Route
+            path="/messages/*"
+            element={
+              <ProtectedRoute>
+                <MessagesPage /> {/* ← 삼분할 쪽지함 전체 페이지 */}
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ✅ 유지: 특정 메시지 개별 접근용 (필요 시) */}
           <Route
             path="/messages/:id"
             element={

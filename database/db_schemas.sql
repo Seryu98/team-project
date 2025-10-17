@@ -281,6 +281,19 @@ CREATE TABLE board_post_views (
   CONSTRAINT FK_board_post_views_post FOREIGN KEY (board_post_id) REFERENCES board_posts (id) ON DELETE CASCADE
 );
 
+CREATE TABLE hot3_cache (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    target_date DATETIME NOT NULL COMMENT 'KST 자정 기준 날짜 (YYYY-MM-DD)',
+    board_post_id BIGINT NOT NULL,
+    recent_views INT NOT NULL DEFAULT 0,
+    recent_likes INT NOT NULL DEFAULT 0,
+    hot_score FLOAT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_hot3_post FOREIGN KEY (board_post_id)
+        REFERENCES board_posts(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 
 -- ===============================================
 -- COMMENTS / REPORTS / 기타 관리 테이블
@@ -311,7 +324,7 @@ CREATE TABLE reports (
   id BIGINT NOT NULL AUTO_INCREMENT,
   reported_user_id BIGINT NOT NULL,
   reporter_user_id BIGINT NOT NULL,
-  target_type ENUM('POST','BOARD_POST','COMMENT','USER') NOT NULL,
+  target_type ENUM('POST','BOARD_POST','COMMENT','USER','MESSAGE') NOT NULL,
   target_id BIGINT NOT NULL,
   reason VARCHAR(255) NOT NULL,
   status ENUM('PENDING','RESOLVED','REJECTED') DEFAULT 'PENDING',
@@ -350,6 +363,7 @@ CREATE TABLE notifications (
   related_id BIGINT NULL,
   is_read BOOLEAN DEFAULT FALSE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  redirect_path VARCHAR(255) NULL COMMENT '알림 클릭 시 이동 경로',
   PRIMARY KEY (id),
   CONSTRAINT FK_notifications_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
@@ -360,6 +374,7 @@ CREATE TABLE messages (
   receiver_id BIGINT NOT NULL,
   content TEXT NOT NULL,
   is_read TINYINT(1) DEFAULT 0,
+  category ENUM('NORMAL','NOTICE','ADMIN') DEFAULT 'NORMAL',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   deleted_at DATETIME NULL,
   PRIMARY KEY (id),
@@ -409,3 +424,23 @@ CREATE TABLE user_warnings (
 ALTER TABLE profiles
 MODIFY profile_image VARCHAR(255)
 DEFAULT '/assets/profile/default_profile.png';
+
+
+--재신청 무제한 + 24h 쿨타임 적용 마이그레이션
+-- 1) applications.status ENUM에 WITHDRAWN 추가
+ALTER TABLE applications
+  MODIFY COLUMN status ENUM('PENDING','APPROVED','REJECTED','WITHDRAWN')
+  NOT NULL;
+
+-- 2) 상태 변경 시각(UTC) 추적 컬럼 추가
+ALTER TABLE applications
+  ADD COLUMN status_changed_at DATETIME NULL
+  AFTER updated_at;
+
+-- 3) 기존 데이터 보정: status_changed_at 없으면 created_at으로 채움
+UPDATE applications
+SET status_changed_at = IFNULL(status_changed_at, created_at);
+
+-- 4) 조회 최적화 인덱스 (쿨타임 계산)
+CREATE INDEX idx_app_user_post_status_changed
+  ON applications (user_id, post_id, status_changed_at);
