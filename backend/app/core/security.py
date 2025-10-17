@@ -1,6 +1,6 @@
 # app/core/security.py
 from datetime import datetime, timedelta
-from jose import jwt, JWTError
+from jose import jwt, JWTError, ExpiredSignatureError
 from passlib.context import CryptContext
 from typing import Optional
 import os
@@ -81,11 +81,17 @@ def create_reset_token(data: dict, expires_delta: timedelta | None = None):
     )
 
 
+# ===============================
+# ✅ 개선된 토큰 검증 로직
+# ===============================
 def verify_token(token: str, expected_type: Optional[str] = None):
-    """JWT 토큰 검증"""
+    """JWT 토큰 검증 (Access / Refresh / Reset 구분 가능)"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print("[verify_token] payload:", payload)
+        print("[verify_token] ✅ payload:", payload)
+    except ExpiredSignatureError:
+        print("[verify_token] ❌ 만료된 토큰입니다.")
+        return None
     except JWTError as e:
         print("[verify_token] ❌ JWTError:", repr(e))
         return None
@@ -98,6 +104,11 @@ def verify_token(token: str, expected_type: Optional[str] = None):
     # 타입 검증
     if expected_type and payload.get("type") != expected_type:
         print("[verify_token] ❌ type mismatch:", payload.get("type"), "≠", expected_type)
+        return None
+
+    # 필수 키 검증
+    if not payload.get("sub"):
+        print("[verify_token] ❌ sub (user_id) 누락")
         return None
 
     return payload
