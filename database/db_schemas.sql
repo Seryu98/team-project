@@ -281,6 +281,19 @@ CREATE TABLE board_post_views (
   CONSTRAINT FK_board_post_views_post FOREIGN KEY (board_post_id) REFERENCES board_posts (id) ON DELETE CASCADE
 );
 
+CREATE TABLE hot3_cache (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    target_date DATETIME NOT NULL COMMENT 'KST 자정 기준 날짜 (YYYY-MM-DD)',
+    board_post_id BIGINT NOT NULL,
+    recent_views INT NOT NULL DEFAULT 0,
+    recent_likes INT NOT NULL DEFAULT 0,
+    hot_score FLOAT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_hot3_post FOREIGN KEY (board_post_id)
+        REFERENCES board_posts(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 
 -- ===============================================
 -- COMMENTS / REPORTS / 기타 관리 테이블
@@ -411,3 +424,23 @@ CREATE TABLE user_warnings (
 ALTER TABLE profiles
 MODIFY profile_image VARCHAR(255)
 DEFAULT '/assets/profile/default_profile.png';
+
+
+--재신청 무제한 + 24h 쿨타임 적용 마이그레이션
+-- 1) applications.status ENUM에 WITHDRAWN 추가
+ALTER TABLE applications
+  MODIFY COLUMN status ENUM('PENDING','APPROVED','REJECTED','WITHDRAWN')
+  NOT NULL;
+
+-- 2) 상태 변경 시각(UTC) 추적 컬럼 추가
+ALTER TABLE applications
+  ADD COLUMN status_changed_at DATETIME NULL
+  AFTER updated_at;
+
+-- 3) 기존 데이터 보정: status_changed_at 없으면 created_at으로 채움
+UPDATE applications
+SET status_changed_at = IFNULL(status_changed_at, created_at);
+
+-- 4) 조회 최적화 인덱스 (쿨타임 계산)
+CREATE INDEX idx_app_user_post_status_changed
+  ON applications (user_id, post_id, status_changed_at);

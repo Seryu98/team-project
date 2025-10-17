@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from app.core.database import get_db
 from app.events.events import on_post_approved, on_report_resolved
 from app.notifications.notification_service import send_notification
-from app.notifications.notification_model import NotificationType, NotificationCategory  # 🩵 [수정] NotificationCategory import
+from app.notifications.notification_model import NotificationType, NotificationCategory
 from app.messages.message_service import send_message
 from app.messages.message_model import MessageCategory
 
@@ -26,7 +26,7 @@ def approve_post(post_id: int, admin_id: int, db: Optional[Session] = None) -> b
     db, close = _get_db(db)
     try:
         updated = db.execute(
-            text("UPDATE recipe_posts SET status='APPROVED' WHERE id=:pid"),
+            text("UPDATE posts SET status='APPROVED' WHERE id=:pid"),
             {"pid": post_id},
         ).rowcount
 
@@ -34,7 +34,8 @@ def approve_post(post_id: int, admin_id: int, db: Optional[Session] = None) -> b
             raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
 
         leader_id = db.execute(
-            text("SELECT leader_id FROM recipe_posts WHERE id=:pid"), {"pid": post_id}
+            text("SELECT leader_id FROM posts WHERE id=:pid"),
+            {"pid": post_id},
         ).scalar()
 
         db.commit()
@@ -46,7 +47,7 @@ def approve_post(post_id: int, admin_id: int, db: Optional[Session] = None) -> b
             message=f"게시글 #{post_id}이 승인되었습니다.",
             related_id=post_id,
             redirect_path=f"/posts/{post_id}",
-            category=NotificationCategory.ADMIN.value,  # 🩵 [수정] MessageCategory → NotificationCategory
+            category=NotificationCategory.ADMIN.value,
             db=db,
         )
 
@@ -64,7 +65,7 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
     db, close = _get_db(db)
     try:
         updated = db.execute(text("""
-            UPDATE recipe_posts
+            UPDATE posts
                SET status='REJECTED',
                    recruit_status='CLOSED',
                    project_status='ENDED'
@@ -81,9 +82,9 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
                 VALUES (:aid, :pid, 'REJECT', :reason)
             """), {"aid": admin_id, "pid": post_id, "reason": reason})
 
-        # ✅ 작성자에게 거절 알림
         leader_id = db.execute(
-            text("SELECT leader_id FROM recipe_posts WHERE id=:pid"), {"pid": post_id}
+            text("SELECT leader_id FROM posts WHERE id=:pid"),
+            {"pid": post_id},
         ).scalar()
 
         if leader_id:
@@ -93,7 +94,7 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
                 message=f"게시글 #{post_id}이 거절되었습니다. 사유: {reason or '관리자에 의해 거절되었습니다.'}",
                 related_id=post_id,
                 redirect_path="/myposts",
-                category=NotificationCategory.ADMIN.value,  # 🩵 [수정] 카테고리 통일
+                category=NotificationCategory.ADMIN.value,
                 db=db,
             )
 
@@ -105,9 +106,7 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
             db.close()
 
 
-# ----------------------------
 # ✅ 신고 처리
-# ----------------------------
 def resolve_report(
     report_id: int,
     admin_id: int,
@@ -116,12 +115,6 @@ def resolve_report(
     penalty_type: Optional[str] = None,
     db: Optional[Session] = None,
 ) -> bool:
-    """
-    ✅ 신고 처리 로직
-    - action: 'RESOLVE' 또는 'REJECT'
-    - penalty_type: 'WARNING', 'BAN_3DAYS', 'BAN_7DAYS', 'BAN_PERMANENT'
-    - 관리자 사유 입력 + 제재 수위 선택 가능
-    """
     if action not in {"RESOLVE", "REJECT"}:
         raise HTTPException(status_code=400, detail="action은 RESOLVE 또는 REJECT 중 하나여야 합니다.")
 
@@ -141,31 +134,26 @@ def resolve_report(
         target_type = report["target_type"]
         target_id = report["target_id"]
 
-        # 상태 업데이트
         status = "RESOLVED" if action == "RESOLVE" else "REJECTED"
         db.execute(text("UPDATE reports SET status=:st WHERE id=:rid"), {"st": status, "rid": report_id})
 
-        # 처리 로그
         db.execute(text("""
             INSERT INTO report_actions (report_id, admin_id, action, reason)
             VALUES (:rid, :aid, :act, :reason)
         """), {"rid": report_id, "aid": admin_id, "act": action, "reason": reason or "(사유 없음)"})
 
-
         # 🚨 신고 승인 시
         if action == "RESOLVE":
-            # --- 신고자 알림 (클릭 시 관리자 쪽지함)
             send_notification(
                 user_id=reporter_id,
                 type_=NotificationType.REPORT_RESOLVED.value,
                 message=f"신고(ID:{report_id})가 승인되어 처리되었습니다.",
                 related_id=report_id,
                 redirect_path="/messages?tab=admin",
-                category=NotificationCategory.ADMIN.value,  # 🩵 [수정]
+                category=NotificationCategory.ADMIN.value,
                 db=db,
             )
 
-            # ✅ 신고자에게 쪽지 발송
             send_message(
                 sender_id=admin_id,
                 receiver_id=reporter_id,
@@ -176,7 +164,6 @@ def resolve_report(
                 db=db,
             )
 
-            # --- 피신고자 제재 쪽지
             penalty_msg = {
                 "WARNING": "경고 조치되었습니다.",
                 "BAN_3DAYS": "3일 정지되었습니다.",
@@ -187,12 +174,12 @@ def resolve_report(
             send_message(
                 sender_id=admin_id,
                 receiver_id=reported_id,
-                content=f"[제재 안내]\n귀하의 {target_type} (ID:{target_id})가 신고되어 {penalty_msg}\n사유: {reason or '관리자 판단에 의한 제재입니다.'}",
+                content=f"[제재 안내]\n귀하의 {target_type} (ID:{target_id})가 신고되어 {penalty_msg}\n"
+                        f"사유: {reason or '관리자 판단에 의한 제재입니다.'}",
                 category=MessageCategory.ADMIN.value,
                 db=db,
             )
 
-            # ✅ 신고된 대상 삭제
             delete_map = {
                 "POST": "posts",
                 "BOARD_POST": "board_posts",
@@ -202,7 +189,6 @@ def resolve_report(
             if target_type in delete_map:
                 db.execute(text(f"DELETE FROM {delete_map[target_type]} WHERE id=:tid"), {"tid": target_id})
 
-            # ✅ 정지 처리
             suspend_until = None
             if penalty_type == "BAN_3DAYS":
                 suspend_until = datetime.utcnow() + timedelta(days=3)
@@ -221,7 +207,6 @@ def resolve_report(
 
         # 🚫 신고 반려 시
         elif action == "REJECT":
-            # ✅ 신고자 쪽지
             send_message(
                 sender_id=admin_id,
                 receiver_id=reporter_id,
@@ -235,18 +220,16 @@ def resolve_report(
                 db=db,
             )
 
-            # ✅ 신고자 알림
             send_notification(
                 user_id=reporter_id,
                 type_=NotificationType.REPORT_REJECTED.value,
                 message=f"신고(ID:{report_id})가 반려되었습니다.",
                 related_id=report_id,
                 redirect_path="/messages?tab=admin",
-                category=NotificationCategory.ADMIN.value,  # 🩵 [수정]
+                category=NotificationCategory.ADMIN.value,
                 db=db,
             )
 
-        # ✅ 로그 트리거
         on_report_resolved(
             report_id=report_id,
             reporter_user_id=reporter_id,
@@ -262,21 +245,17 @@ def resolve_report(
             db.close()
 
 
-# ----------------------------
 # ✅ 관리자 대시보드 통계
-# ----------------------------
 def get_admin_stats(db: Session):
-    """관리자 대시보드용 통계 데이터"""
     result = {
         "pending_posts": db.execute(
-            text("SELECT COUNT(*) FROM recipe_posts WHERE status='PENDING'")
+            text("SELECT COUNT(*) FROM posts WHERE status='PENDING'")
         ).scalar() or 0,
         "pending_reports": db.execute(
             text("SELECT COUNT(*) FROM reports WHERE status='PENDING'")
         ).scalar() or 0,
     }
     return result
-
 
 # ===============================================
 # ✅ 제재 유저 관리

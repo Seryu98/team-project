@@ -27,9 +27,9 @@ class NotificationType(str, enum.Enum):
 # =======================================
 class NotificationCategory(str, enum.Enum):
     """알림 구분용 카테고리"""
-    USER = "USER"        # 일반 사용자용 알림 (팔로우, 쪽지 등)
+    NORMAL = "NORMAL"        # 일반 사용자용 알림 (팔로우, 쪽지 등)
     ADMIN = "ADMIN"      # 관리자 관련 알림 (신고, 제재 등)
-    SYSTEM = "SYSTEM"    # 시스템 자동 알림 (업데이트, 점검 등)
+    NOTICE = "NOTICE"    # 시스템 자동 알림 (업데이트, 점검 등)
 
 # =======================================
 # 📦 알림 테이블 모델
@@ -52,8 +52,8 @@ class Notification(Base):
     category: Mapped[NotificationCategory | None] = mapped_column(
         Enum(NotificationCategory),
         nullable=True,
-        default=NotificationCategory.USER,
-        comment="알림 카테고리 (관리자/일반/시스템)",
+        default=NotificationCategory.NORMAL,
+        comment="알림 카테고리 (NORMAL / ADMIN / NOTICE)",
     )
 
     # ✅ 관계 설정

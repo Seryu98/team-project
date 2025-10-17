@@ -34,7 +34,7 @@ def send_notification(
 ) -> int:
     """
     알림 전송
-    - 기본값 USER
+    - 기본값 NORMAL
     - 관리자 알림 등은 category='ADMIN' 으로 구분
     - redirect_path가 None일 경우 클릭 시 이동 없음
     """
@@ -44,9 +44,9 @@ def send_notification(
         if isinstance(category, NotificationCategory):
             category_value = category.value
         elif isinstance(category, MessageCategory):
-            category_value = "ADMIN" if category.value == "ADMIN" else "USER"
+            category_value = "ADMIN" if category.value == "ADMIN" else "NORMAL"
         else:
-            category_value = category or NotificationCategory.USER.value
+            category_value = category or NotificationCategory.NORMAL.value
 
         # 🩵 [수정] redirect_path 기본값 보정 (명시적으로 None 문자열 방지)
         redirect_value = redirect_path if redirect_path not in [None, "None"] else None

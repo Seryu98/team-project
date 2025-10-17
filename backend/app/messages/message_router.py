@@ -14,6 +14,8 @@ from app.messages.message_service import (
 )
 from app.messages.message_schema import MessageCreate
 from app.messages.message_model import MessageCategory
+from fastapi.responses import JSONResponse
+from datetime import datetime
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
@@ -72,7 +74,13 @@ def api_get_message(
     m = get_message(user_id=user.id, message_id=message_id, db=db)
     if not m:
         raise HTTPException(status_code=404, detail="메시지를 찾을 수 없습니다.")
-    return {"success": True, "data": m, "message": "조회 성공"}
+
+    # ✅ datetime → 문자열 변환 추가
+    for k, v in m.items():
+        if isinstance(v, datetime):
+            m[k] = v.isoformat()  # 예: "2025-10-17T10:19:27"
+
+    return JSONResponse(content={"success": True, "data": m, "message": "조회 성공"})
 
 # ---------------------------------------------------------------------
 # ✅ 메시지 전송 (닉네임 또는 ID 기반)

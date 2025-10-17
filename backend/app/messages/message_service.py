@@ -11,6 +11,7 @@ import re
 from datetime import datetime  # 🩵 [추가] UTC 시간 기록용
 from app.messages.message_model import MessageCategory
 from app.notifications.notification_model import NotificationType, NotificationCategory  # 🩵 [추가] NotificationCategory import
+import copy
 
 # ✅ DB 세션 핸들러
 def _get_db(db: Optional[Session] = None):
@@ -73,7 +74,7 @@ def send_message(
         noti_category = (
             NotificationCategory.ADMIN.value
             if category == MessageCategory.ADMIN.value
-            else NotificationCategory.USER.value
+            else NotificationCategory.NORMAL.value
         )
 
         send_notification(
@@ -192,11 +193,10 @@ def list_sent(user_id: int, limit: int = 50, db: Optional[Session] = None) -> Li
 # ---------------------------------------------------------------------
 # ✅ 단일 메시지 조회 (상세)
 # ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# ✅ 단일 메시지 조회 (상세)
+# ---------------------------------------------------------------------
 def get_message(user_id: int, message_id: int, db: Optional[Session] = None) -> Optional[Dict]:
-    """
-    단일 메시지 상세보기
-    - 본인 관련 메시지 외 접근 불가
-    """
     db, close = _get_db(db)
     try:
         row = db.execute(text("""
@@ -214,19 +214,32 @@ def get_message(user_id: int, message_id: int, db: Optional[Session] = None) -> 
         if not row:
             return None
 
-        data = dict(row)
-        data["application_status"] = None
+        # ✅ 완전한 일반 dict 복제 (RowMapping → Pure dict)
+        data = copy.deepcopy(dict(row))
+
+        # ✅ 기본값 세팅
+        data["application_status"] = "PENDING"
+
         app_id = _extract_application_id(data.get("content"))
         if app_id:
-            data["application_status"] = db.execute(
-                text("SELECT status FROM applications WHERE id=:aid"),
+            result = db.execute(
+                text("SELECT status FROM applications WHERE id=:aid LIMIT 1"),
                 {"aid": app_id}
-            ).scalar()
+            ).fetchone()
+            if result and result[0]:
+                data["application_status"] = result[0]
+
+        if not data.get("application_status"):
+            data["application_status"] = "PENDING"
+
+        # ✅ 디버그 출력
+        print(f"📤 [get_message] 응답 데이터: {data}")
 
         return data
     finally:
         if close:
             db.close()
+
 
 
 # ---------------------------------------------------------------------

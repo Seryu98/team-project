@@ -236,8 +236,9 @@ def api_get_pending_posts(
                 p.title,
                 p.created_at,
                 p.leader_id
-            FROM recipe_posts p
+            FROM posts p
             WHERE p.status = 'PENDING'
+              AND p.deleted_at IS NULL
             ORDER BY p.created_at DESC
         """)
     ).mappings().all()
