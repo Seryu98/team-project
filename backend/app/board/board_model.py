@@ -28,18 +28,18 @@ class ReportTarget(str, enum.Enum):
     COMMENT = "COMMENT"
 
 
-# ===============================
-# 게시판 테이블
-# ===============================
-class Board(Base):
-    __tablename__ = "boards"
+# # ===============================
+# # 게시판 테이블
+# # ===============================
+# class Board(Base):
+#     __tablename__ = "boards"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    name = Column(String(100), nullable=False)
-    description = Column(String(255), nullable=True)
+#     id = Column(BigInteger, primary_key=True, autoincrement=True)
+#     name = Column(String(100), nullable=False)
+#     description = Column(String(255), nullable=True)
 
-    # 관계
-    posts = relationship("BoardPost", back_populates="board", cascade="all, delete")
+#     # 관계
+#     posts = relationship("BoardPost", back_populates="board", cascade="all, delete")
 
 
 # ===============================
@@ -77,7 +77,7 @@ class BoardPost(Base):
     deleted_at = Column(DateTime, nullable=True)
 
     # 관계
-    board = relationship("Board", back_populates="posts")
+    #board = relationship("Board", back_populates="posts")
     category = relationship("Category", back_populates="posts")
     author = relationship("User", back_populates="board_posts")
 
@@ -156,3 +156,20 @@ class Report(Base):
 
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     deleted_at = Column(DateTime, nullable=True)
+
+# ===============================
+# 🔥 인기글 캐시 테이블 (매일 0시 갱신)
+# ===============================
+class Hot3Cache(Base):
+    __tablename__ = "hot3_cache"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    target_date = Column(DateTime, nullable=False, comment="KST 자정 기준 날짜 (YYYY-MM-DD)")
+    board_post_id = Column(BigInteger, ForeignKey("board_posts.id"), nullable=False)
+    recent_views = Column(Integer, nullable=False, default=0)
+    recent_likes = Column(Integer, nullable=False, default=0)
+    hot_score = Column(Integer, nullable=False, default=0)
+
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    post = relationship("BoardPost")

@@ -50,3 +50,12 @@ class User(Base):
     # ✅ Relationships
     joined_posts = relationship("PostMember", back_populates="user", cascade="all, delete-orphan")
     led_posts = relationship("RecipePost", back_populates="leader")
+    board_posts = relationship("BoardPost", back_populates="author", cascade="all, delete-orphan")
+    liked_posts = relationship("BoardPostLike", back_populates="user", cascade="all, delete-orphan")
+    comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
+
+
+# ✅ 추가 (순환 참조 방지용)
+# 이 import는 반드시 클래스 정의 "아래"에 넣어야 합니다.
+from app.board import board_model
+
