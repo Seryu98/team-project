@@ -9,12 +9,14 @@ from fastapi.responses import JSONResponse
 from app.admin.admin_router import router as admin_router
 from app.notifications.notification_router import router as notification_router
 from app.messages.message_router import router as message_router
+from app.board.hot3_scheduler import start_scheduler
 
 import os
 import traceback
 import logging
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
+
 
 # ===================================
 # 📁 경로 설정 (team-project 기준)
@@ -52,6 +54,11 @@ app = FastAPI(
     description="회원 관리, 프로필, 모집공고, 게시판 API, 소셜 로그인 API 서버",
     version="1.0.0",
 )
+
+# ✅ 서버 시작 시 스케줄러 실행
+@app.on_event("startup")
+def on_startup():
+    start_scheduler()
 
 # ===================================
 # 🌐 CORS 설정 (라우터 등록보다 위)

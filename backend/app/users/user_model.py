@@ -1,4 +1,4 @@
-#app/users/user_model.py
+# app/users/user_model.py
 from sqlalchemy import Column, BigInteger, String, Enum, Boolean, DateTime, Integer
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -48,3 +48,8 @@ class User(Base):
     board_posts = relationship("BoardPost", back_populates="author", cascade="all, delete-orphan")
     liked_posts = relationship("BoardPostLike", back_populates="user", cascade="all, delete-orphan")
     comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
+
+
+# ✅ 추가 (순환 참조 방지용)
+# 이 import는 반드시 클래스 정의 "아래"에 넣어야 합니다.
+from app.board import board_model

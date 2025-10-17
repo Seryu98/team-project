@@ -3,6 +3,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from datetime import datetime
+from sqlalchemy import text
 from app.board import board_service as svc
 from app.board.board_schema import (
     BoardPostCard,
@@ -31,6 +32,10 @@ def list_categories(db: Session = Depends(get_db)):
 # ===============================
 # 🔥 주간 Top3 (최근 7일 기준)
 # ===============================
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from datetime import datetime, timedelta, timezone
+
 @router.get("/top3-weekly")
 def top3_weekly(
     days_offset: int = Query(0, description="KST 자정 기준 일 단위 오프셋 (예: -1=어제, +1=내일)"),
@@ -41,35 +46,57 @@ def top3_weekly(
     - ?days_offset=-1 → 어제 0시 기준
     - ?days_offset=1  → 내일 0시 기준
     """
-    from datetime import datetime, timedelta, timezone
-
     KST = timezone(timedelta(hours=9))
-
-    # ✅ 현재 UTC 시각을 KST로 변환해서 '자정' 단위로 내림
     now_kst = datetime.now(KST)
     base_kst_midnight = datetime(
         year=now_kst.year, month=now_kst.month, day=now_kst.day, tzinfo=KST
     )
-
-    # ✅ days_offset 만큼 KST 자정 단위로 이동
     target_kst = base_kst_midnight + timedelta(days=days_offset)
-
-    # ✅ 다시 UTC로 변환해서 서비스 레벨에서 사용
     now_utc = target_kst.astimezone(timezone.utc)
 
+    # 🔥 주간 인기글 계산
     results = svc.get_weekly_hot3(db, now_utc=now_utc)
 
-    simplified = [
-        {
-            "id": r["id"],
-            "title": r["title"],
-            "recent_views": r.get("recent_views", 0),
-            "recent_likes": r.get("recent_likes", 0),
-            "hot_score": r.get("hot_score", 0.0),
-        }
-        for r in results
-    ]
-    return JSONResponse(content=simplified)
+    # ✅ 각 게시글의 상세 정보 보강
+    enriched = []
+    for r in results:
+        post = db.execute(
+            text("""
+                SELECT 
+                    bp.id, bp.title, bp.view_count, bp.like_count, bp.created_at,
+                    ct.name AS category_name,
+                    au.id AS author_id, au.nickname, p.profile_image
+                FROM board_posts bp
+                LEFT JOIN users au ON au.id = bp.author_id
+                LEFT JOIN profiles p ON p.id = au.id
+                LEFT JOIN categories ct ON ct.id = bp.category_id
+                WHERE bp.id = :pid
+            """),
+            {"pid": r["id"]},
+        ).mappings().first()
+
+        if post:
+            enriched.append({
+                "id": r["id"],
+                "title": post["title"],
+                "category_name": post["category_name"],
+                "author": {
+                    "id": post["author_id"],
+                    "nickname": post["nickname"] or "탈퇴한 사용자",
+                    "profile_image": post["profile_image"],
+                },
+                # ✅ datetime → 문자열로 변환 (핵심 수정)
+                "created_at": post["created_at"].isoformat() if post["created_at"] else None,
+                "view_count": post["view_count"],
+                "like_count": post["like_count"],
+                "recent_views": r.get("recent_views", 0),
+                "recent_likes": r.get("recent_likes", 0),
+                "hot_score": r.get("hot_score", 0.0),
+                "badge": r.get("badge"),  # 🔥 추가!
+            })
+
+    # ✅ FastAPI에서 안전하게 JSON 직렬화
+    return JSONResponse(content=jsonable_encoder(enriched))
 
 
 
@@ -121,8 +148,46 @@ def list_posts(
         page=page,
         page_size=page_size,
     )
-    top3 = svc.get_weekly_hot3(db)
-    return {"posts": items, "top_posts": top3, "total": total}
+
+    # ✅ Top3도 enriched 버전으로 보강
+    top3_raw = svc.get_weekly_hot3(db)
+    enriched = []
+    for r in top3_raw:
+        post = db.execute(
+            text("""
+                SELECT 
+                    bp.id, bp.title, bp.view_count, bp.like_count, bp.created_at,
+                    ct.name AS category_name,
+                    au.id AS author_id, au.nickname, p.profile_image
+                FROM board_posts bp
+                LEFT JOIN users au ON au.id = bp.author_id
+                LEFT JOIN profiles p ON p.id = au.id
+                LEFT JOIN categories ct ON ct.id = bp.category_id
+                WHERE bp.id = :pid
+            """),
+            {"pid": r["id"]},
+        ).mappings().first()
+
+        if post:
+            enriched.append({
+                "id": r["id"],
+                "title": post["title"],
+                "category_name": post["category_name"],
+                "author": {
+                    "id": post["author_id"],
+                    "nickname": post["nickname"] or "탈퇴한 사용자",
+                    "profile_image": post["profile_image"],
+                },
+                "created_at": post["created_at"],
+                "view_count": post["view_count"],
+                "like_count": post["like_count"],
+                "recent_views": r.get("recent_views", 0),
+                "recent_likes": r.get("recent_likes", 0),
+                "hot_score": r.get("hot_score", 0.0),
+                "badge": r.get("badge"),
+            })
+
+    return {"posts": items, "top_posts": enriched, "total": total}
 
 
 # ===============================
