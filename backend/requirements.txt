@@ -1,3 +1,11 @@
+#만약 numpy, apscheduler관련 오류로 인스톨이 안될경우에는 파이썬 버전이 3.11이 아닐가능성이 높음.
+#wheel 지원을 3.11은 자동으로 지원하는데 처음우리가 하던 3.13.5 최신버전은 자동지원이 안되고있는상황이라 버전체크를한번 해봐야함
+#기존 백엔드 가상화상태에서 python --version 쳤을떄 3.11.x 나와야함. 안나오면 아래 따라하삼 물론 3.11.x가 깔려있다는 전제
+#기존 가상화 백엔드 터미널에 rmdir /s /q venv 해서 venv 삭제
+#본인 컴 사용자이름으로 교체해서 venv 설치 "C:\Users\<사용자이름>\AppData\Local\Programs\Python\Python311\python.exe" -m venv venv
+#가상화 활성화 venv\Scripts\activate 
+#버전확인 python --version 해서 3.11.x인지 확인하고 pip install -r requirements.txt 다시 설치
+ 
 fastapi==0.111.0
 uvicorn[standard]==0.30.0
 sqlalchemy==2.0.31

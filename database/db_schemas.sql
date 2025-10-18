@@ -368,6 +368,10 @@ CREATE TABLE notifications (
   CONSTRAINT FK_notifications_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
+ALTER TABLE notifications
+ADD COLUMN category ENUM('NORMAL','NOTICE','ADMIN') DEFAULT 'NORMAL'
+COMMENT '알림 카테고리 (NORMAL / NOTICE / ADMIN)';
+
 CREATE TABLE messages (
   id BIGINT NOT NULL AUTO_INCREMENT,
   sender_id BIGINT NOT NULL,
@@ -426,20 +430,22 @@ MODIFY profile_image VARCHAR(255)
 DEFAULT '/assets/profile/default_profile.png';
 
 
---재신청 무제한 + 24h 쿨타임 적용 마이그레이션
+-- 재신청 무제한 + 24h 쿨타임 적용 마이그레이션
 -- 1) applications.status ENUM에 WITHDRAWN 추가
 ALTER TABLE applications
   MODIFY COLUMN status ENUM('PENDING','APPROVED','REJECTED','WITHDRAWN')
   NOT NULL;
 
--- 2) 상태 변경 시각(UTC) 추적 컬럼 추가
+-- 2) 상태 변경 시각(UTC) 추적 컬럼 추가 (맨 뒤에 추가)
 ALTER TABLE applications
-  ADD COLUMN status_changed_at DATETIME NULL
-  AFTER updated_at;
+  ADD COLUMN status_changed_at DATETIME NULL;
 
+-- 만약 에러가 나오면 워크벤치 설정에 안전모드때문에 그런거니깐 임시로 껐다 키면됨 아래 SET 써서 
+SET SQL_SAFE_UPDATES = 0;
 -- 3) 기존 데이터 보정: status_changed_at 없으면 created_at으로 채움
 UPDATE applications
 SET status_changed_at = IFNULL(status_changed_at, created_at);
+SET SQL_SAFE_UPDATES = 1;
 
 -- 4) 조회 최적화 인덱스 (쿨타임 계산)
 CREATE INDEX idx_app_user_post_status_changed
