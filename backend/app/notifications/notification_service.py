@@ -262,3 +262,51 @@ def notify_report_result(
     finally:
         if close:
             db.close()
+
+# ----------------------------
+# ✅ [추가됨 10/18] 전체 사용자에게 알림 전송 (공지사항용)
+# ----------------------------
+def send_notification_to_all(
+    type_: str,
+    message: str,
+    redirect_path: str = "/messages?tab=notice",
+    category: str = NotificationCategory.ADMIN.value,
+    db: Optional[Session] = None,
+) -> dict:
+    """
+    전체 유저에게 알림 전송 (관리자 공지사항 등)
+    - ACTIVE 이면서 ADMIN 이 아닌 모든 사용자에게 개별 알림 생성
+    - redirect_path: 알림 클릭 시 이동 경로 (기본: 공지사항 탭)
+    """
+    db, close = _get_db(db)
+    try:
+        users = db.execute(text("""
+            SELECT id
+              FROM users
+             WHERE status='ACTIVE'
+               AND role != 'ADMIN'
+        """)).fetchall()
+
+        if not users:
+            return {"count": 0, "message": "대상 사용자가 없습니다."}
+
+        for (uid,) in users:
+            db.execute(text("""
+                INSERT INTO notifications
+                    (user_id, type, message, related_id, redirect_path, is_read, created_at, category)
+                VALUES
+                    (:uid, :type, :msg, NULL, :path, 0, UTC_TIMESTAMP(), :cat)
+            """), {
+                "uid": uid,
+                "type": type_,
+                "msg": message,
+                "path": redirect_path if redirect_path not in [None, "None"] else None,
+                "cat": category,
+            })
+
+        db.commit()
+        print(f"✅ 전체 유저 알림 전송 완료 ({len(users)}명)")
+        return {"count": len(users), "message": "전체 알림 전송 완료"}
+    finally:
+        if close:
+            db.close()

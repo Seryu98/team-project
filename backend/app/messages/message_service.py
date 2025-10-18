@@ -70,19 +70,28 @@ def send_message(
         db.commit()
 
         # ✅ 해당 쪽지에 대한 알림 발송
-        # 🩵 [수정] category 기반으로 ADMIN 쪽지는 관리자 알림 분리
+        # 🩵 [수정] category 기반으로 ADMIN 쪽지는 관리자 알림 분리, 공지사항일 경우 알림 타입/메시지/경로 구분
         noti_category = (
             NotificationCategory.ADMIN.value
             if category == MessageCategory.ADMIN.value
             else NotificationCategory.NORMAL.value
         )
 
+        if category == MessageCategory.NOTICE.value:
+            noti_type = NotificationType.ADMIN_NOTICE.value if hasattr(NotificationType, "ADMIN_NOTICE") else NotificationType.MESSAGE.value
+            noti_message = "📢 새로운 공지사항이 도착했습니다!"
+            redirect_path = "/messages?tab=notice"
+        else:
+            noti_type = NotificationType.MESSAGE.value
+            noti_message = "새 메시지가 도착했습니다."
+            redirect_path = f"/messages/{message_id}"
+
         send_notification(
             user_id=receiver_id,
-            type_=NotificationType.MESSAGE.value,
-            message="새 메시지가 도착했습니다.",
+            type_=noti_type,
+            message=noti_message,
             related_id=message_id,
-            redirect_path=f"/messages/{message_id}",
+            redirect_path=redirect_path,
             category=noti_category,
             db=db,
         )
@@ -120,6 +129,44 @@ def send_message_by_nickname(
             db=db,
             category=MessageCategory.NORMAL.value,
         )
+    finally:
+        if close:
+            db.close()
+
+# ---------------------------------------------------------------------
+# ✅ 🩵 [추가됨] 10/18 관리자 공지사항 발송 (모든 사용자에게 쪽지 + 알림 전송)
+# ---------------------------------------------------------------------
+def send_admin_announcement(
+    admin_id: int,
+    title: str,
+    content: str,
+    db: Optional[Session] = None,
+):
+    """
+    관리자 공지사항 발송
+    - 모든 ACTIVE 사용자에게 ADMIN 카테고리 쪽지 생성 및 알림 전송
+    """
+    db, close = _get_db(db)
+    try:
+        users = db.execute(text("""
+            SELECT id FROM users WHERE status='ACTIVE' AND role != 'ADMIN'
+        """)).fetchall()
+
+        if not users:
+            raise HTTPException(status_code=400, detail="활성화된 일반 사용자가 없습니다.")
+
+        for (uid,) in users:
+            msg_text = f"📢 [공지사항] {title}\n\n{content}"
+            send_message(
+                sender_id=admin_id,
+                receiver_id=uid,
+                content=msg_text,
+                db=db,
+                category=MessageCategory.NOTICE.value
+            )
+
+        print(f"✅ 공지사항 발송 완료 ({len(users)}명 대상)")
+        return {"count": len(users), "message": "공지사항 전송 완료"}
     finally:
         if close:
             db.close()
@@ -190,9 +237,6 @@ def list_sent(user_id: int, limit: int = 50, db: Optional[Session] = None) -> Li
             db.close()
 
 
-# ---------------------------------------------------------------------
-# ✅ 단일 메시지 조회 (상세)
-# ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
 # ✅ 단일 메시지 조회 (상세)
 # ---------------------------------------------------------------------
