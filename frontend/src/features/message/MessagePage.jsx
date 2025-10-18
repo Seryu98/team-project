@@ -22,6 +22,8 @@ export default function MessagesPage() {
     const tab = params.get("tab");
     if (tab === "admin") {
       setSelectedTab("admin");
+    } else if (tab === "notice") {
+      setSelectedTab("notice");  // ✅ 추가됨
     }
   }, [location.search]);
 
@@ -40,7 +42,7 @@ export default function MessagesPage() {
       let url = "";
       if (selectedTab === "inbox") url = "http://localhost:8000/messages";
       else if (selectedTab === "sent") url = "http://localhost:8000/messages/sent";
-      else if (selectedTab === "notice") url = "http://localhost:8000/announcements";
+      else if (selectedTab === "notice") url = "http://localhost:8000/messages?category=NOTICE";
       else if (selectedTab === "admin") {
         // 기본 권장 경로(쿼리 파라미터 방식)
         url = "http://localhost:8000/messages?category=ADMIN"; // ✅ 추가됨

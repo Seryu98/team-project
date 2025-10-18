@@ -67,16 +67,15 @@ def send_message(
             VALUES (:m, :sender, 1), (:m, :receiver, 0)
         """), {"m": message_id, "sender": sender_id, "receiver": receiver_id})
 
-        db.commit()
+        # ✅ [수정됨] category별 알림 카테고리 구분
+        if category == MessageCategory.ADMIN.value:
+            noti_category = NotificationCategory.ADMIN.value
+        elif category == MessageCategory.NOTICE.value:
+            noti_category = NotificationCategory.NOTICE.value
+        else:
+            noti_category = NotificationCategory.NORMAL.value
 
-        # ✅ 해당 쪽지에 대한 알림 발송
-        # 🩵 [수정] category 기반으로 ADMIN 쪽지는 관리자 알림 분리, 공지사항일 경우 알림 타입/메시지/경로 구분
-        noti_category = (
-            NotificationCategory.ADMIN.value
-            if category == MessageCategory.ADMIN.value
-            else NotificationCategory.NORMAL.value
-        )
-
+        # ✅ [공지사항 전용 알림 타입/메시지/경로]
         if category == MessageCategory.NOTICE.value:
             noti_type = NotificationType.ADMIN_NOTICE.value if hasattr(NotificationType, "ADMIN_NOTICE") else NotificationType.MESSAGE.value
             noti_message = "📢 새로운 공지사항이 도착했습니다!"
@@ -96,6 +95,7 @@ def send_message(
             db=db,
         )
 
+        db.commit()  # ✅ 공지사항 전송 후 커밋 확실히!
         print(f"📨 메시지 전송 완료: sender={sender_id}, receiver={receiver_id}, cat={category}")
         return int(message_id)
     finally:
@@ -144,7 +144,7 @@ def send_admin_announcement(
 ):
     """
     관리자 공지사항 발송
-    - 모든 ACTIVE 사용자에게 ADMIN 카테고리 쪽지 생성 및 알림 전송
+    - 모든 ACTIVE 사용자에게 NOTICE 카테고리 쪽지 생성 및 알림 전송
     """
     db, close = _get_db(db)
     try:
@@ -164,6 +164,9 @@ def send_admin_announcement(
                 db=db,
                 category=MessageCategory.NOTICE.value
             )
+
+        # ✅ 루프 완료 후 한 번만 커밋
+        db.commit()
 
         print(f"✅ 공지사항 발송 완료 ({len(users)}명 대상)")
         return {"count": len(users), "message": "공지사항 전송 완료"}

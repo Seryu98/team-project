@@ -54,6 +54,11 @@ export default function NotificationList({ onClose }) {
 
       // 🩵 [수정] 유형별 이동 로직 (서버 Enum과 일치)
       switch (n.type) {
+         case "ADMIN_NOTICE":
+        // ✅ [추가됨 10/18] 공지사항 알림 클릭 시 → 공지사항 쪽지함으로 이동
+          window.location.href = "/messages?tab=notice";
+          break;
+
         case "MESSAGE":
           // [수정됨 10/18: 공지사항 쪽지 상세 이동 추가]
           if (n.category === "ADMIN" && n.related_id) {
@@ -63,11 +68,6 @@ export default function NotificationList({ onClose }) {
             // ✅ 일반 쪽지
             window.location.href = `/messages/${n.related_id}`;
           }
-          break;
-
-        case "ADMIN_NOTICE":
-          // ✅ [추가됨 10/18] 공지사항 알림 클릭 시 → 공지사항 쪽지함으로 이동
-          window.location.href = "/messages?tab=notice";
           break;
 
         case "REPORT_RECEIVED":
