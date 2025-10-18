@@ -436,7 +436,7 @@ ALTER TABLE applications
   MODIFY COLUMN status ENUM('PENDING','APPROVED','REJECTED','WITHDRAWN')
   NOT NULL;
 
--- 2) 상태 변경 시각(UTC) 추적 컬럼 추가 (맨 뒤에 추가)
+-- 2) 상태 변경 시각(UTC) 추적 컬럼 추가
 ALTER TABLE applications
   ADD COLUMN status_changed_at DATETIME NULL;
 
