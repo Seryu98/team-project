@@ -93,23 +93,25 @@ export default function ProjectPostDetail() {
   };
 
   // ✅ 모집 상태 변경
+  // ✅ 모집 상태 변경
   const updateRecruitStatus = async (status) => {
     if (busy) return;
     setBusy(true);
     try {
-      await authFetch(`/recipe/${postId}/recruit-status`, {
+      const res = await authFetch(`/recipe/${postId}/recruit-status`, {
         method: "POST",
         body: JSON.stringify({ status }),
       });
       alert(`✅ 모집 상태가 ${status}로 변경되었습니다.`);
-      const refreshed = await authFetch(`/recipe/${postId}`, { method: "GET" });
-      setPost(refreshed);
+      // ✅ 응답으로 바로 갱신 (GET 생략 가능)
+      setPost(res);
     } catch (err) {
       alert("❌ 상태 변경 실패: " + err.message);
     } finally {
       setBusy(false);
     }
   };
+
 
   // ✅ 프로젝트 종료 → 게시판 이동
   const endProject = async () => {

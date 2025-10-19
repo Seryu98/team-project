@@ -533,7 +533,7 @@ async def reject_application(
 # ---------------------------------------------------------------------
 # ✅ 모집 상태 수동 변경 (리더 전용)
 # ---------------------------------------------------------------------
-@router.post("/{post_id}/recruit-status")
+@router.post("/{post_id}/recruit-status", response_model=RecipePostResponse)
 async def update_recruit_status(
     post_id: int,
     payload: dict = Body(...),
@@ -559,10 +559,13 @@ async def update_recruit_status(
     if status_value == "OPEN" and member_count >= post.capacity:
         raise HTTPException(status_code=403, detail="정원이 가득 차서 모집을 열 수 없습니다.")
 
+    # ✅ 상태 갱신
     post.recruit_status = status_value
     db.commit()
+    db.refresh(post)
 
-    return {"message": f"✅ 모집 상태가 {status_value}로 변경되었습니다."}
+    # ✅ 최신 DTO 반환 (프론트 즉시 반영 가능)
+    return to_dto(post)
 
 
 # ---------------------------------------------------------------------
