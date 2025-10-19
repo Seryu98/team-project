@@ -74,9 +74,30 @@ export default function ApplicationModal({ postId, fields, onClose }) {
       setShowModal(true);
       setTimeout(onClose, 1000);
     } catch (err) {
-      setModalMessage("❌ 지원 실패: " + err.message);
+      console.error("🔥 지원 실패:", err);
+
+      // 1️⃣ 서버 detail 메시지 → 우선순위 최고
+      let msg =
+        err?.response?.data?.detail ||
+        err?.data?.detail ||
+        err?.detail ||
+        err?.message ||
+        "지원 실패: 알 수 없는 오류가 발생했습니다.";
+
+      // 2️⃣ 쿨타임 메시지 처리
+      if (msg.includes("쿨타임")) {
+        const sec = parseInt(msg.match(/\d+/)?.[0] || "0", 10);
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const remain = h > 0 ? `${h}시간 ${m}분` : `${m}분`;
+        msg = `⏳ 재신청은 ${remain} 이후에 가능합니다.`;
+      }
+
+      setModalMessage(msg);
       setShowModal(true);
     }
+
+
   };
 
   // ================================

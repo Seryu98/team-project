@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
-from datetime import date, datetime
-from sqlalchemy import func
+from datetime import date, datetime, timedelta  # ✅ timedelta 추가 (쿨타임 계산용)
+from sqlalchemy import func, text  # ✅ text 추가 (RAW SQL로 status_changed_at 다룸)
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -346,10 +346,10 @@ async def get_post_detail(post_id: int, db: Session = Depends(get_db)):
     return to_dto(post)
     
 
-
 # ---------------------------------------------------------------------
-# ✅ 지원서 제출 (중복신청 방지 + 정원 체크 + 모집상태 체크)
+# ✅ 지원서 제출 (중복신청 방지 + 정원 체크 + 모집상태 체크 + 24h 쿨타임)
 #     - PENDING/APPROVED 상태만 재신청 차단 (REJECTED/WITHDRAWN 은 재신청 허용)
+#     - 단, REJECTED/WITHDRAWN 후 24시간 이내엔 신청 불가
 #     - 정원 가득/모집마감이면 신청 불가
 # ---------------------------------------------------------------------
 @router.post("/{post_id}/apply")
@@ -384,7 +384,7 @@ async def apply_post(
             db.commit()
         raise HTTPException(status_code=400, detail="정원이 가득 찼습니다.")
 
-    # 3) 중복 신청 방지
+    # 3) 중복 신청 방지 (PENDING/APPROVED 진행 중이면 차단)
     existing_app = (
         db.query(models.Application)
         .filter(
@@ -397,7 +397,37 @@ async def apply_post(
     if existing_app:
         raise HTTPException(status_code=400, detail="이미 지원 진행 중입니다.")
 
-    # 4) 신청 생성 (PENDING)
+    # 4) ✅ 24시간 쿨타임 체크 (REJECTED / WITHDRAWN 최근 변경시각 기준)
+    latest_row = db.execute(
+        text(
+            """
+            SELECT status_changed_at
+            FROM applications
+            WHERE post_id = :post_id
+              AND user_id = :user_id
+              AND status IN ('REJECTED','WITHDRAWN')
+            ORDER BY COALESCE(status_changed_at, created_at) DESC
+            LIMIT 1
+            """
+        ),
+        {"post_id": post_id, "user_id": current_user.id},
+    ).mappings().first()
+
+    if latest_row and latest_row["status_changed_at"]:
+        last_changed = latest_row["status_changed_at"]
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+        if last_changed > cutoff:
+            remaining = last_changed + timedelta(hours=24) - datetime.utcnow()
+            remaining_sec = int(remaining.total_seconds())
+            if remaining_sec < 0:
+                remaining_sec = 0
+            # ⛔ 쿨타임 활성
+            raise HTTPException(
+                status_code=403,
+                detail=f"쿨타임이 남았습니다. {remaining_sec}초 후 재신청 가능",
+            )
+
+    # 5) 신청 생성 (PENDING)
     application = models.Application(
         post_id=post_id,
         user_id=current_user.id,
@@ -407,7 +437,7 @@ async def apply_post(
     db.commit()
     db.refresh(application)
 
-    # 5) 지원자 답변 저장
+    # 6) 지원자 답변 저장
     for ans in answers:
         db.add(
             models.ApplicationAnswer(
@@ -418,7 +448,7 @@ async def apply_post(
         )
     db.commit()
 
-    # 6) 이벤트 (있으면 호출)
+    # 7) 이벤트 (있으면 호출)
     try:
         from app.events.events import on_application_submitted
         on_application_submitted(
@@ -434,7 +464,54 @@ async def apply_post(
 
 
 # ---------------------------------------------------------------------
-# ✅ 지원서 승인
+# ✅ 지원서 거절 (status_changed_at 기록)
+# ---------------------------------------------------------------------
+@router.post("/{post_id}/applications/{application_id}/reject")
+async def reject_application(
+    post_id: int,
+    application_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    post = db.query(models.RecipePost).filter(models.RecipePost.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="게시글 없음")
+
+    if current_user.id != post.leader_id:
+        raise HTTPException(status_code=403, detail="리더만 거절 가능")
+
+    application = db.query(models.Application).filter(
+        models.Application.id == application_id,
+        models.Application.post_id == post_id,
+    ).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="지원서 없음")
+
+    # ✅ REJECTED + 변경시각 기록 (RAW SQL)
+    db.execute(
+        text(
+            "UPDATE applications SET status='REJECTED', status_changed_at=:now WHERE id=:id"
+        ),
+        {"now": datetime.utcnow(), "id": application.id},
+    )
+    db.commit()
+
+    # 이벤트 알림
+    try:
+        from app.events.events import on_application_decided
+        on_application_decided(
+            application_id=application.id,
+            applicant_id=application.user_id,
+            accepted=False,
+        )
+    except Exception:
+        pass
+
+    return {"message": "🚫 거절 처리 완료"}
+
+
+# ---------------------------------------------------------------------
+# ✅ 지원서 승인 (status_changed_at 기록)
 # ---------------------------------------------------------------------
 @router.post("/{post_id}/applications/{application_id}/approve")
 async def approve_application(
@@ -464,8 +541,13 @@ async def approve_application(
     if not application:
         raise HTTPException(status_code=404, detail="지원서 없음")
 
-    # 승인 처리
-    application.status = "APPROVED"
+    # ✅ 승인 처리 + 변경시각 기록 (RAW SQL)
+    db.execute(
+        text(
+            "UPDATE applications SET status='APPROVED', status_changed_at=:now WHERE id=:id"
+        ),
+        {"now": datetime.utcnow(), "id": application.id},
+    )
     db.add(models.PostMember(post_id=post_id, user_id=application.user_id, role="MEMBER"))
     db.commit()
 
@@ -487,47 +569,6 @@ async def approve_application(
         pass
 
     return {"message": "✅ 승인 완료"}
-
-
-# ---------------------------------------------------------------------
-# ✅ 지원서 거절
-# ---------------------------------------------------------------------
-@router.post("/{post_id}/applications/{application_id}/reject")
-async def reject_application(
-    post_id: int,
-    application_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    post = db.query(models.RecipePost).filter(models.RecipePost.id == post_id).first()
-    if not post:
-        raise HTTPException(status_code=404, detail="게시글 없음")
-
-    if current_user.id != post.leader_id:
-        raise HTTPException(status_code=403, detail="리더만 거절 가능")
-
-    application = db.query(models.Application).filter(
-        models.Application.id == application_id,
-        models.Application.post_id == post_id,
-    ).first()
-    if not application:
-        raise HTTPException(status_code=404, detail="지원서 없음")
-
-    application.status = "REJECTED"
-    db.commit()
-
-    # 이벤트 알림
-    try:
-        from app.events.events import on_application_decided
-        on_application_decided(
-            application_id=application.id,
-            applicant_id=application.user_id,
-            accepted=False,
-        )
-    except Exception:
-        pass
-
-    return {"message": "🚫 거절 처리 완료"}
 
 
 # ---------------------------------------------------------------------
@@ -618,7 +659,7 @@ async def delete_post(
 
 
 # ---------------------------------------------------------------------
-# ✅ 탈퇴하기 (정원 자동 open 포함)
+# ✅ 탈퇴하기 (정원 자동 open 포함) + WITHDRAWN 시각 기록
 # ---------------------------------------------------------------------
 @router.post("/{post_id}/leave")
 async def leave_post(
@@ -649,7 +690,7 @@ async def leave_post(
     db.delete(membership)
     db.commit()
 
-    # ✅ 기존 Application 상태 변경 (APPROVED → WITHDRAWN)
+    # ✅ 기존 Application 상태 변경 (APPROVED → WITHDRAWN) + 변경시각 기록
     application = (
         db.query(models.Application)
         .filter(
@@ -660,7 +701,12 @@ async def leave_post(
         .first()
     )
     if application:
-        application.status = "WITHDRAWN"
+        db.execute(
+            text(
+                "UPDATE applications SET status='WITHDRAWN', status_changed_at=:now WHERE id=:id"
+            ),
+            {"now": datetime.utcnow(), "id": application.id},
+        )
         db.commit()
 
     # ✅ 탈퇴 후 인원 감소 → 자동 OPEN
