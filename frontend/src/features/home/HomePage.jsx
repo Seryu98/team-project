@@ -504,7 +504,7 @@ export default function HomePage() {
                                         }}>
                                             {/* 제목 */}
                                             <h3 style={{
-                                                fontSize: '2.5rem',
+                                                fontSize: '4rem',
                                                 fontWeight: 'bold',
                                                 marginBottom: '1rem'
                                             }}>
@@ -703,7 +703,7 @@ export default function HomePage() {
                                             padding: '2rem 0'
                                         }}>
                                             <h3 style={{
-                                                fontSize: '2.5rem',
+                                                fontSize: '4rem',
                                                 fontWeight: 'bold',
                                                 lineHeight: '1.3',
                                                 textAlign: 'center'

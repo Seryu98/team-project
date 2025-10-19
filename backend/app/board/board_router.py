@@ -19,6 +19,7 @@ from app.board.board_schema import (
 )
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.models import User
 
 # 🔹 기존 보호 라우터 (작성/수정/삭제 등)
 router = APIRouter(prefix="/board", tags=["Board"])
@@ -408,34 +409,31 @@ def get_user_posts(
 def get_user_comments(
     user_id: int,
     db: Session = Depends(get_db),
-    me = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    """특정 유저가 작성한 댓글 목록 (본인만 조회 가능)"""
-    # 본인만 볼 수 있도록 체크
-    if me.id != user_id:
-        raise HTTPException(status_code=403, detail="본인의 댓글만 조회할 수 있습니다")
-    
-    # ✅ comments 테이블 정확한 컬럼명 사용
-    result = db.execute(text("""
-        SELECT
-            c.id,
-            c.content,
-            c.created_at,
-            c.board_post_id,
-            bp.title AS post_title
-        FROM comments c
-        LEFT JOIN board_posts bp ON bp.id = c.board_post_id
-        WHERE c.user_id = :user_id
-          AND c.board_post_id IS NOT NULL
-          AND c.status = 'VISIBLE'
-          AND c.deleted_at IS NULL
-        ORDER BY c.created_at DESC
-    """), {"user_id": user_id}).mappings().all()
-    
-    return [{
-        "id": r["id"],
-        "content": r["content"],
-        "created_at": r["created_at"],
-        "board_post_id": r["board_post_id"],
-        "post_title": r["post_title"],
-    } for r in result]
+    """
+    특정 유저가 작성한 댓글 목록
+    - 본인 또는 관리자만 조회 가능
+    """
+    if current_user.id != user_id and current_user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="권한이 없습니다")
+
+    rows = db.execute(
+        text("""
+            SELECT 
+                c.id,
+                c.content,
+                c.created_at,
+                c.board_post_id,
+                bp.title AS post_title
+            FROM comments c
+            JOIN board_posts bp ON c.board_post_id = bp.id
+            WHERE c.user_id = :uid
+              AND c.deleted_at IS NULL
+              AND c.status = 'VISIBLE'
+            ORDER BY c.created_at DESC
+        """),
+        {"uid": user_id}
+    ).mappings().all()
+
+    return [dict(r) for r in rows]
