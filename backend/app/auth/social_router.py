@@ -19,7 +19,9 @@ def social_login(provider: str):
     try:
         provider = provider.lower()
         if provider not in ["google", "naver", "kakao"]:
-            raise ValueError("지원하지 않는 소셜 로그인입니다. (google/naver/kakao 중 하나)")
+            raise ValueError(
+                "지원하지 않는 소셜 로그인입니다. (google/naver/kakao 중 하나)"
+            )
 
         login_url = auth_service.get_oauth_login_url(provider)
         return RedirectResponse(login_url)
@@ -34,7 +36,7 @@ def social_login(provider: str):
 def social_callback(
     provider: str,
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     ✅ 소셜 로그인 콜백
@@ -46,12 +48,16 @@ def social_callback(
     try:
         provider = provider.lower()
         if provider not in ["google", "naver", "kakao"]:
-            raise ValueError("지원하지 않는 소셜 로그인입니다. (google/naver/kakao 중 하나)")
+            raise ValueError(
+                "지원하지 않는 소셜 로그인입니다. (google/naver/kakao 중 하나)"
+            )
 
         # 🔹 쿼리 파라미터에서 code 추출
         code = request.query_params.get("code")
         if not code:
-            raise HTTPException(status_code=400, detail="OAuth 인증 코드(code)가 누락되었습니다.")
+            raise HTTPException(
+                status_code=400, detail="OAuth 인증 코드(code)가 누락되었습니다."
+            )
 
         # 🔹 토큰 발급 및 사용자 정보 처리
         jwt_tokens = auth_service.handle_oauth_callback(db, provider, code)
@@ -69,16 +75,20 @@ def social_callback(
             return RedirectResponse(redirect_url)
 
         # ✅ JSON 응답 방식 (프론트가 직접 토큰 처리할 때)
-        return JSONResponse(content={
-            "msg": f"{provider.capitalize()} 로그인 성공",
-            "access_token": jwt_tokens["access_token"],
-            "refresh_token": jwt_tokens["refresh_token"],
-            "token_type": "bearer"
-        })
+        return JSONResponse(
+            content={
+                "msg": f"{provider.capitalize()} 로그인 성공",
+                "access_token": jwt_tokens["access_token"],
+                "refresh_token": jwt_tokens["refresh_token"],
+                "token_type": "bearer",
+            }
+        )
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"소셜 로그인 처리 중 오류: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"소셜 로그인 처리 중 오류: {str(e)}"
+        )

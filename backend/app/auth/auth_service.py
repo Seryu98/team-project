@@ -5,6 +5,7 @@ import os
 import re
 import secrets
 import random
+import hashlib
 from urllib.parse import urlencode, quote_plus
 from typing import Optional, Tuple, Dict, Any, Callable
 
@@ -38,6 +39,27 @@ RESET_TOKEN_EXPIRE_MINUTES = 30
 HTTP_TIMEOUT = 8
 
 logger = logging.getLogger(__name__)
+
+# ===============================
+# [세션 관리 추가] user_sessions ORM 모델 정의
+# ===============================
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    device_id = Column(String(100), nullable=False)
+    token = Column(String(512), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+
 
 # ===============================
 # 🌐 공통 유틸
@@ -98,15 +120,17 @@ def _get_json(url: str, headers: dict) -> dict:
         logger.exception("OAuth userinfo request failed: %s", e)
         raise ValueError("사용자 정보 조회 실패")
 
+
 # ===============================
 # 🔐 비밀번호 유효성 검사
 # ===============================
 def validate_password(password: str) -> bool:
-    pattern = r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$'
+    pattern = r"^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$"
     return bool(re.match(pattern, password))
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
 
 # ===============================
 # 🔹 랜덤 닉네임 생성
@@ -116,6 +140,7 @@ def _generate_unique_nickname(db: Session, provider: str) -> str:
         nickname = f"{provider}_user_{secrets.token_hex(3)}"
         if not db.query(User).filter(User.nickname == nickname).first():
             return nickname
+
 
 # ===============================
 # 👇 소셜 사용자 등록 / 복귀
@@ -199,6 +224,7 @@ def _upsert_social_user(
 
     return user, True  # 신규 가입자
 
+
 # ===============================
 # 🔑 JWT 발급
 # ===============================
@@ -210,25 +236,40 @@ def _issue_jwt_pair(user_id: int) -> Tuple[str, str]:
     refresh_token = create_refresh_token(data={"sub": str(user_id)})
     return access_token, refresh_token
 
+
 # ===============================
 # 🧩 회원가입 처리 (수정됨)
 # ===============================
 def register_user(db: Session, user: UserRegister) -> User:
     # ✅ ACTIVE 상태의 사용자만 중복으로 간주
-    if db.query(User).filter(User.email == user.email, User.status == UserStatus.ACTIVE).first():
+    if (
+        db.query(User)
+        .filter(User.email == user.email, User.status == UserStatus.ACTIVE)
+        .first()
+    ):
         raise ValueError("이미 존재하는 이메일입니다.")
-    if db.query(User).filter(User.user_id == user.user_id, User.status == UserStatus.ACTIVE).first():
+    if (
+        db.query(User)
+        .filter(User.user_id == user.user_id, User.status == UserStatus.ACTIVE)
+        .first()
+    ):
         raise ValueError("이미 존재하는 아이디입니다.")
-    if db.query(User).filter(User.nickname == user.nickname, User.status == UserStatus.ACTIVE).first():
+    if (
+        db.query(User)
+        .filter(User.nickname == user.nickname, User.status == UserStatus.ACTIVE)
+        .first()
+    ):
         raise ValueError("이미 존재하는 닉네임입니다.")
 
     if not validate_password(user.password):
         raise ValueError("비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.")
 
     # ✅ 탈퇴 계정 복구 로직 추가
-    existing_deleted = db.query(User).filter(
-        User.user_id == user.user_id, User.status == UserStatus.DELETED
-    ).first()
+    existing_deleted = (
+        db.query(User)
+        .filter(User.user_id == user.user_id, User.status == UserStatus.DELETED)
+        .first()
+    )
     if existing_deleted:
         existing_deleted.email = user.email
         existing_deleted.password_hash = hash_password(user.password)
@@ -265,6 +306,7 @@ def register_user(db: Session, user: UserRegister) -> User:
 
     logger.info("회원가입 성공: id=%s email=%s", new_user.id, new_user.email)
     return new_user
+
 
 # ===============================
 # 🔒 계정 잠금
@@ -323,6 +365,7 @@ def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User
         return None
     return user
 
+
 # ===============================
 # 👤 로그인 / 인증 / 토큰 재발급
 # ===============================
@@ -334,7 +377,9 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
     # 🚫 탈퇴 계정 로그인 차단
     if user and user.status == UserStatus.DELETED:
         logger.warning("🚫 탈퇴 계정 로그인 시도 차단: user_id=%s", login_id)
-        raise HTTPException(status_code=403, detail="탈퇴한 계정은 로그인할 수 없습니다.")
+        raise HTTPException(
+            status_code=403, detail="탈퇴한 계정은 로그인할 수 없습니다."
+        )
 
     if user and _is_locked(user):
         db.commit()
@@ -356,6 +401,42 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
     access_token, refresh_token = _issue_jwt_pair(db_user.id)
     logger.info("로그인 성공: user_id=%s id=%s", db_user.user_id, db_user.id)
 
+    # ===============================
+    # [세션 관리 추가] user_sessions 기록
+    # ===============================
+    try:
+        # device_id 생성 (프론트에서 전달되면 form_data.scopes[0]로 받는 것도 가능)
+        raw_device = form_data.client_id if hasattr(form_data, "client_id") else None
+        if not raw_device:
+            raw_device = f"{form_data.username}-{random.randint(1000,9999)}"
+        device_id = hashlib.sha256(raw_device.encode()).hexdigest()[:64]
+
+        # 관리자(ROLE_ADMIN)는 단일 세션만 유지
+        if db_user.role == "ADMIN":
+            db.query(UserSession).filter(UserSession.user_id == db_user.id).delete()
+            db.commit()
+
+        # 기존 동일 디바이스 세션이 있으면 삭제 후 새로 추가
+        db.query(UserSession).filter(
+            UserSession.user_id == db_user.id,
+            UserSession.device_id == device_id,
+        ).delete()
+
+        new_session = UserSession(
+            user_id=db_user.id,
+            device_id=device_id,
+            token=access_token,
+        )
+        db.add(new_session)
+        db.commit()
+        logger.info("세션 등록 완료: user_id=%s device_id=%s", db_user.id, device_id)
+
+    except Exception as e:
+        logger.warning("⚠️ 세션 기록 실패: %s", e)
+        db.rollback()
+
+    # ===============================
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -363,37 +444,16 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
 
-def refresh_access_token(refresh_token: str) -> Optional[dict]:
-    payload = verify_token(refresh_token, expected_type="refresh")
-    if not payload:
-        logger.warning("잘못된 리프레시 토큰 사용")
-        return None
-
-    user_id = payload.get("sub")
-    if not user_id:
-        logger.warning("리프레시 토큰에 사용자 ID 없음")
-        return None
-
-    new_access_token = create_access_token(
-        data={"sub": user_id},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
-    new_refresh_token = create_refresh_token(data={"sub": user_id})
-
-    return {
-        "access_token": new_access_token,
-        "refresh_token": new_refresh_token,
-        "token_type": "bearer",
-        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    }
 
 # ===============================
 # 🌍 소셜 로그인 URL 발급 + Callback
 # ===============================
 
+
 # 리다이렉트 URI 빌더(기존 동작 유지)
 def _provider_redirect_uri(provider: str) -> str:
     return f"{_oauth_base_redirect()}/{provider}"
+
 
 # 각 provider별 Auth URL/스코프만 선언(동작 동일, 표현만 일원화)
 _AUTH_AUTHORIZE: Dict[str, Dict[str, Any]] = {
@@ -455,11 +515,13 @@ _PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
             "state": "naver_state",
         },
         "userinfo_url": "https://openapi.naver.com/v1/nid/me",
-        "extract": lambda data: (lambda profile: {
-            "email": profile.get("email"),
-            "name": _safe_name("naver", profile.get("name")),
-            "social_id": profile.get("id"),
-        })((data.get("response") or {})),
+        "extract": lambda data: (
+            lambda profile: {
+                "email": profile.get("email"),
+                "name": _safe_name("naver", profile.get("name")),
+                "social_id": profile.get("id"),
+            }
+        )((data.get("response") or {})),
         "missing_token_msg": "네이버 액세스 토큰 없음",
     },
     "kakao": {
@@ -472,14 +534,17 @@ _PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
             "code": code,
         },
         "userinfo_url": "https://kapi.kakao.com/v2/user/me",
-        "extract": lambda data: (lambda acc: {
-            "email": acc.get("email"),
-            "name": _safe_name("kakao", (acc.get("profile") or {}).get("nickname")),
-            "social_id": str(data.get("id")),
-        })((data.get("kakao_account") or {})),
+        "extract": lambda data: (
+            lambda acc: {
+                "email": acc.get("email"),
+                "name": _safe_name("kakao", (acc.get("profile") or {}).get("nickname")),
+                "social_id": str(data.get("id")),
+            }
+        )((data.get("kakao_account") or {})),
         "missing_token_msg": "카카오 액세스 토큰 없음",
     },
 }
+
 
 def get_oauth_login_url(provider: str) -> str:
     base = _AUTH_AUTHORIZE.get(provider)
@@ -526,11 +591,47 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
     access_token, refresh_token = _issue_jwt_pair(user.id)
     logger.info(
         "%s 로그인 성공: user_id=%s email=%s is_new=%s",
-        provider.capitalize(), user.id, user.email, is_new_user
+        provider.capitalize(),
+        user.id,
+        user.email,
+        is_new_user,
     )
+
+    # ===============================
+    # [세션 관리 추가] 소셜 로그인 세션 기록
+    # ===============================
+    try:
+        device_id = hashlib.sha256(f"{provider}_{user.id}".encode()).hexdigest()[:64]
+
+        # 관리자 단일 세션 정책
+        if user.role == "ADMIN":
+            db.query(UserSession).filter(UserSession.user_id == user.id).delete()
+            db.commit()
+
+        # 기존 동일 기기 세션 삭제
+        db.query(UserSession).filter(
+            UserSession.user_id == user.id,
+            UserSession.device_id == device_id,
+        ).delete()
+
+        new_session = UserSession(
+            user_id=user.id,
+            device_id=device_id,
+            token=access_token,
+        )
+        db.add(new_session)
+        db.commit()
+        logger.info(
+            "소셜 로그인 세션 등록 완료: user_id=%s provider=%s", user.id, provider
+        )
+
+    except Exception as e:
+        logger.warning("⚠️ 소셜 로그인 세션 기록 실패: %s", e)
+        db.rollback()
 
     redirect_url = build_frontend_redirect_url(access_token, refresh_token, is_new_user)
     return RedirectResponse(url=redirect_url)
+
 
 # ===============================
 # 🔹 현재 로그인된 사용자 조회 (JWT)
@@ -556,6 +657,7 @@ def get_current_user(
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
     return user
 
+
 # ===============================
 # 🔑 비밀번호 재설정 토큰 발급
 # ===============================
@@ -570,6 +672,7 @@ def generate_reset_token_by_user_id(db: Session, user_id: str) -> Optional[str]:
     )
     logger.info("Reset token issued for user_id=%s", user_id)
     return reset_token
+
 
 # ===============================
 # ✉️ 이메일 힌트 및 인증번호 발송
@@ -627,6 +730,7 @@ def get_email_hint(db: Session, user_id: str) -> Optional[str]:
             logger.warning("⚠️ 이메일 전송 실패: %s", e)
 
     return email_hint
+
 
 # ===============================
 # 🔑 비밀번호 재설정 (Reset Token)
