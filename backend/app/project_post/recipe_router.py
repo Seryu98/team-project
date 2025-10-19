@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, aliased
 from typing import List, Optional
 from datetime import date, datetime, timedelta  # ✅ timedelta 추가 (쿨타임 계산용)
 from sqlalchemy import func, text  # ✅ text 추가 (RAW SQL로 status_changed_at 다룸)
+from app.profile.profile_model import Profile
+from app.users.user_model import User
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -69,6 +71,16 @@ def _apply_auto_state_updates_for_single(db: Session, post: models.RecipePost):
 # ✅ DTO 변환
 # ---------------------------------------------------------------------
 def to_dto(post: models.RecipePost) -> RecipePostResponse:
+    """게시글 → DTO 변환"""
+
+    # ✅ 이미지 경로를 절대경로로 보정하는 헬퍼
+    def _full_url(path: str | None):
+        if not path:
+            return None
+        if path.startswith("http"):
+            return path
+        return f"http://localhost:8000{path}"  # ✅ 로컬 서버 기준
+
     return RecipePostResponse(
         id=post.id,
         title=post.title,
@@ -85,17 +97,29 @@ def to_dto(post: models.RecipePost) -> RecipePostResponse:
         recruit_status=post.recruit_status,
         created_at=post.created_at,
         current_members=len(post.members),
-        image_url=post.image_url,
+        image_url=_full_url(post.image_url),
         leader_id=post.leader_id,
-        skills=[SkillResponse(id=s.skill.id, name=s.skill.name) for s in post.skills],
+        skills=[
+            SkillResponse(id=s.skill.id, name=s.skill.name)
+            for s in post.skills
+        ],
         application_fields=[
             ApplicationFieldResponse(id=f.field.id, name=f.field.name)
             for f in post.application_fields
         ],
         members=[
-            PostMemberResponse(user_id=m.user_id, role=m.role) for m in post.members
+            PostMemberResponse(
+                user_id=m.user_id,
+                role=m.role,
+                nickname=getattr(m.user, "nickname", None),
+                profile_image=_full_url(
+                    getattr(m.user.profile, "profile_image", None)
+                ),  # ✅ 여기서 절대경로로 보정
+            )
+            for m in post.members
         ],
     )
+
 
 
 # ---------------------------------------------------------------------
@@ -325,26 +349,40 @@ async def get_my_applications(
 # ---------------------------------------------------------------------
 @router.get("/{post_id}", response_model=RecipePostResponse)
 async def get_post_detail(post_id: int, db: Session = Depends(get_db)):
+    ProfileAlias = aliased(Profile)
+
     post = (
         db.query(models.RecipePost)
+        # ✅ 리더(User) + 프로필(Profile) Outer Join
+        .join(User, models.RecipePost.leader_id == User.id)
+        .outerjoin(ProfileAlias, ProfileAlias.id == User.id)
         .options(
             joinedload(models.RecipePost.skills).joinedload(models.RecipePostSkill.skill),
             joinedload(models.RecipePost.application_fields).joinedload(models.RecipePostRequiredField.field),
-            joinedload(models.RecipePost.members),
+            joinedload(models.RecipePost.members)
+                .joinedload(models.PostMember.user)
+                .joinedload(User.profile),
         )
         .filter(models.RecipePost.id == post_id)
         .filter(models.RecipePost.deleted_at.is_(None))
         .first()
     )
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"🧩 members: {[m.user_id for m in post.members]}")
+
     if not post:
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
 
     _apply_auto_state_updates_for_single(db, post)
-    return to_dto(post)
-    
+    try:
+        dto = to_dto(post)
+    except Exception as e:
+        import traceback
+        print("❌ [DEBUG] 상세 to_dto 변환 중 오류 발생:", e)
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"DTO 변환 오류: {str(e)}")
+
+    return dto
+
+
 
 # ---------------------------------------------------------------------
 # ✅ 지원서 제출 (중복신청 방지 + 정원 체크 + 모집상태 체크 + 24h 쿨타임)
@@ -398,14 +436,15 @@ async def apply_post(
         raise HTTPException(status_code=400, detail="이미 지원 진행 중입니다.")
 
     # 4) ✅ 24시간 쿨타임 체크 (REJECTED / WITHDRAWN 최근 변경시각 기준)
+    # 4) ✅ 24시간 쿨타임 체크 (REJECTED / WITHDRAWN / KICKED 최근 변경시각 기준)
     latest_row = db.execute(
         text(
             """
-            SELECT status_changed_at
+            SELECT status_changed_at, status
             FROM applications
             WHERE post_id = :post_id
-              AND user_id = :user_id
-              AND status IN ('REJECTED','WITHDRAWN')
+            AND user_id = :user_id
+            AND status IN ('REJECTED','WITHDRAWN','KICKED')
             ORDER BY COALESCE(status_changed_at, created_at) DESC
             LIMIT 1
             """
@@ -413,19 +452,25 @@ async def apply_post(
         {"post_id": post_id, "user_id": current_user.id},
     ).mappings().first()
 
-    if latest_row and latest_row["status_changed_at"]:
+    if latest_row:
         last_changed = latest_row["status_changed_at"]
-        cutoff = datetime.utcnow() - timedelta(hours=24)
-        if last_changed > cutoff:
-            remaining = last_changed + timedelta(hours=24) - datetime.utcnow()
-            remaining_sec = int(remaining.total_seconds())
-            if remaining_sec < 0:
-                remaining_sec = 0
-            # ⛔ 쿨타임 활성
+        if latest_row["status"] == "KICKED":
+            # 🚫 강퇴된 유저는 재신청 불가
             raise HTTPException(
                 status_code=403,
-                detail=f"쿨타임이 남았습니다. {remaining_sec}초 후 재신청 가능",
+                detail="이 프로젝트에서 제외된 유저는 다시 신청할 수 없습니다.",
             )
+
+        if last_changed:
+            cutoff = datetime.utcnow() - timedelta(hours=24)
+            if last_changed > cutoff:
+                remaining = last_changed + timedelta(hours=24) - datetime.utcnow()
+                remaining_sec = int(remaining.total_seconds())
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"쿨타임이 남았습니다. {remaining_sec}초 후 재신청 가능",
+                )
+
 
     # 5) 신청 생성 (PENDING)
     application = models.Application(
@@ -716,3 +761,68 @@ async def leave_post(
         db.commit()
 
     return {"message": "✅ 탈퇴 완료"}
+
+@router.post("/{post_id}/kick/{user_id}")
+async def kick_member(
+    post_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    리더가 프로젝트에서 특정 멤버를 제외
+    """
+    post = db.query(models.RecipePost).filter(
+        models.RecipePost.id == post_id,
+        models.RecipePost.deleted_at.is_(None)
+    ).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="게시글 없음")
+
+    if current_user.id != post.leader_id:
+        raise HTTPException(status_code=403, detail="리더만 멤버를 제외할 수 있습니다.")
+
+    membership = (
+        db.query(models.PostMember)
+        .filter(
+            models.PostMember.post_id == post_id,
+            models.PostMember.user_id == user_id,
+        )
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=404, detail="해당 유저는 참여중이 아닙니다.")
+
+    # ✅ PostMember 삭제
+    db.delete(membership)
+    db.commit()
+
+    # ✅ Application 상태를 KICKED로 변경 (새 enum)
+    db.execute(
+        text(
+            "UPDATE applications SET status='KICKED', status_changed_at=:now WHERE post_id=:post_id AND user_id=:user_id"
+        ),
+        {"now": datetime.utcnow(), "post_id": post_id, "user_id": user_id},
+    )
+    db.commit()
+
+    # ✅ 정원 감소 → 자동 OPEN 처리
+    current_count = db.query(models.PostMember).filter(
+        models.PostMember.post_id == post_id
+    ).count()
+    if current_count < post.capacity and post.recruit_status == "CLOSED":
+        post.recruit_status = "OPEN"
+        db.commit()
+
+    # ✅ 알림 이벤트 (있으면)
+    try:
+        from app.events.events import on_member_kicked
+        on_member_kicked(
+            post_id=post.id,
+            leader_id=current_user.id,
+            kicked_user_id=user_id,
+        )
+    except Exception:
+        pass
+
+    return {"message": "🚫 멤버를 제외했습니다."}
