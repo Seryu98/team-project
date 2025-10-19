@@ -28,40 +28,54 @@ def _get_admin_ids(db: Session) -> list[int]:
     return [r["id"] for r in rows]
 
 
-# ✅ 게시글 생성 시 관리자에게 승인 요청 알림
+# ✅ [10/19수정]게시글 생성 시 관리자에게 승인 요청 알림
 def on_post_submitted(post_id: int, leader_id: int, db: Optional[Session] = None):
+    """
+    프로젝트/스터디 게시글 생성 시 관리자에게 승인 대기 알림 전송
+    """
     db, close = _get_db(db)
     try:
+        # 게시글 정보 가져오기 (type, title)
+        post_info = db.execute(text("""
+            SELECT type, title FROM posts WHERE id=:pid
+        """), {"pid": post_id}).mappings().first()
+
+        post_type = post_info["type"].upper() if post_info else "PROJECT"
+        title = post_info["title"] if post_info else "(제목 없음)"
+
+        # 🔹 관리자 알림: 프로젝트/스터디 승인 대기
         for admin_id in _get_admin_ids(db):
             send_notification(
                 user_id=admin_id,
                 type_=NotificationType.APPLICATION.value,
-                message=f"새 프로젝트 승인 요청이 도착했습니다. (post_id={post_id})",
+                message=f"새로운 {post_type} 승인 대기 게시글이 있습니다.\n제목: {title}",
                 related_id=post_id,
                 redirect_path="/admin/pending",
                 category=NotificationCategory.ADMIN.value,
                 db=db,
             )
+
         db.commit()
-        logger.info(f"📨 관리자 승인요청 알림 전송 완료: post_id={post_id}")
+        logger.info(f"📨 관리자 승인 대기 알림 전송 완료: post_id={post_id}, type={post_type}")
     finally:
         if close:
             db.close()
 
-
-# ✅ 게시글 승인 시 리더에게 승인 알림
+# ✅ [10/19수정] 게시글 승인 시 리더에게 승인 알림
 def on_post_approved(post_id: int, leader_id: int, db: Optional[Session] = None):
     db, close = _get_db(db)
     try:
         send_notification(
             user_id=leader_id,
-            type_=NotificationType.APPLICATION.value,
-            message=f"게시글이 승인되었습니다. (post_id={post_id})",
+            type_=NotificationType.APPLICATION_ACCEPTED.value,  # 🔧 APPLICATION → APPLICATION_ACCEPTED
+            message=f"게시글 #{post_id}이 승인되었습니다.",         # 🔧 메시지 통일
             related_id=post_id,
+            redirect_path=None,                                   # 🔧 이동 없음 (클릭 시 읽음만)
+            category=NotificationCategory.ADMIN.value,            # 🔧 관리자 카테고리로 고정
             db=db,
         )
         db.commit()
-        logger.info(f"✅ 게시글 승인 알림 전송: post_id={post_id}, leader_id={leader_id}")
+        logger.info(f"✅ 게시글 승인 알림 전송(단일): post_id={post_id}, leader_id={leader_id}")
     finally:
         if close:
             db.close()

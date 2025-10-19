@@ -40,17 +40,6 @@ def approve_post(post_id: int, admin_id: int, db: Optional[Session] = None) -> b
 
         db.commit()
 
-        # ✅ 승인 알림 전송
-        send_notification(
-            user_id=leader_id,
-            type_=NotificationType.APPLICATION_ACCEPTED.value,
-            message=f"게시글 #{post_id}이 승인되었습니다.",
-            related_id=post_id,
-            redirect_path=f"/posts/{post_id}",
-            category=NotificationCategory.ADMIN.value,
-            db=db,
-        )
-
         # ✅ 이벤트 트리거 (로그용)
         on_post_approved(post_id=post_id, leader_id=int(leader_id), db=db)
         return True
@@ -93,7 +82,7 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
                 type_=NotificationType.APPLICATION_REJECTED.value,
                 message=f"게시글 #{post_id}이 거절되었습니다. 사유: {reason or '관리자에 의해 거절되었습니다.'}",
                 related_id=post_id,
-                redirect_path="/myposts",
+                redirect_path=None,
                 category=NotificationCategory.ADMIN.value,
                 db=db,
             )

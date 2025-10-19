@@ -1,5 +1,5 @@
 // src/features/message/MessagesPage.jsx
-import { useLocation } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom"; // ✅ [10/18]useParams 추가
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import MessageDetail from "./MessageDetail";
@@ -10,11 +10,28 @@ import "./messages.css";
 export default function MessagesPage() {
   // ✅ 상태 정의
   const location = useLocation();
+  const { id: messageId } = useParams(); // ✅ [10/18] URL 파라미터
   const [selectedTab, setSelectedTab] = useState("inbox"); // notice | admin | compose | inbox | sent   // ✅ 추가됨: admin
   const [messages, setMessages] = useState([]); // 목록 데이터
   const [selectedMessage, setSelectedMessage] = useState(null); // 상세보기 데이터
   const [loading, setLoading] = useState(false); // 로딩 상태
   const [error, setError] = useState(null); // 에러 상태
+
+    // ✅ [추가됨 10/18] 쿼리 파라미터 id 있을 경우 자동 전환 처리
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const idFromQuery = params.get("id");
+    const tab = params.get("tab");
+    if (idFromQuery) {
+      if (tab === "notice") {
+        setSelectedTab("notice");
+      } else {
+        setSelectedTab("inbox");
+      }
+      // URL 정리 (/messages/:id 형태로 변경)
+      window.history.replaceState({}, "", `/messages/${idFromQuery}`);
+    }
+  }, [location.search]);
 
   // ✅ URL 쿼리파라미터로 탭 자동 설정
   useEffect(() => {
@@ -26,6 +43,36 @@ export default function MessagesPage() {
       setSelectedTab("notice");  // ✅ 추가됨
     }
   }, [location.search]);
+
+  // ✅ [10/18] URL이 /messages/:id 형태일 경우 → 받은쪽지함 자동 열기 + 상세보기 표시
+useEffect(() => {
+   if (messageId && selectedTab !== "notice") {
+     setSelectedTab("inbox");
+   }
+}, [messageId]);
+
+// ✅ 두 번째: 실제 쪽지 목록 + 상세 데이터 불러오기
+useEffect(() => {
+  const token = localStorage.getItem("access_token");
+  if (!messageId || selectedTab !== "inbox" || !token) return;
+
+  // ✅ 받은쪽지 목록 먼저
+  fetchMessages();
+
+  // ✅ 상세 쪽지 불러오기
+  axios
+    .get(`http://localhost:8000/messages/${messageId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then((res) => {
+      const msg = res.data?.data;
+      if (msg) setSelectedMessage(msg);
+    })
+    .catch((err) => {
+      console.error("❌ 쪽지 상세 불러오기 실패:", err);
+    });
+}, [messageId, selectedTab]);
+
 
   // ✅ 메시지 목록 불러오기
   async function fetchMessages() {
@@ -55,17 +102,20 @@ export default function MessagesPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // 안전한 데이터 접근 및 구조 확인
-      const items = res.data?.data || res.data?.items || [];
-      setMessages(items);
-      setSelectedMessage(null); // 탭 변경 시 상세 초기화
-    } catch (err) {
-      console.error("❌ 메시지 목록 불러오기 실패:", err);
-      setError("메시지를 불러오는 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
+    // ✅ 쪽지 상세 페이지일 때는 선택 유지
+    if (!messageId) {
+      setSelectedMessage(null);
     }
+
+    const items = res.data?.data || res.data?.items || [];
+    setMessages(items);
+  } catch (err) {
+    console.error("❌ 메시지 목록 불러오기 실패:", err);
+    setError("메시지를 불러오는 중 오류가 발생했습니다.");
+  } finally {
+    setLoading(false);
   }
+}
 
   // selectedTab이 변경될 때마다 실행되지만,
   // "compose"일 때는 요청하지 않고 messages를 초기화만 함

@@ -63,24 +63,21 @@ export default function NotificationList({ onClose }) {
           // [수정됨 10/18: 공지사항 쪽지 상세 이동 추가]
           if (n.category === "ADMIN" && n.related_id) {
             // ✅ 공지사항 쪽지 → 상세 페이지로 직접 이동
-            window.location.href = `/messages/${n.related_id}`;
+            window.location.href = `/messages?tab=notice&id=${n.related_id}`;
           } else {
             // ✅ 일반 쪽지
             window.location.href = `/messages/${n.related_id}`;
           }
           break;
 
+        
+        // ✅ 관리자 관련 → 관리자 쪽지함으로 이동 [수정 10/19]
         case "REPORT_RECEIVED":
-          // ✅ 관리자 신고 접수 알림 → 관리자 쪽지함 이동
-          window.location.href = "/messages?tab=admin";
-          break;
-
         case "REPORT_RESOLVED":
         case "REPORT_REJECTED":
-          // ✅ 신고 승인·반려 결과 → 관리자 쪽지함 이동
-          window.location.href = "/messages?tab=admin";
-          break;
-
+        case "BAN":
+        case "WARNING":
+        case "UNBAN":
         case "BAN":
         case "WARNING":
         case "UNBAN":
@@ -90,9 +87,8 @@ export default function NotificationList({ onClose }) {
 
         case "APPLICATION_ACCEPTED":
         case "APPLICATION_REJECTED":
-          // ✅ 게시글 승인/거절 → 마이페이지 or 해당 게시글
-          if (redirectPath) window.location.href = redirectPath;
-          else window.location.href = "/myposts";
+          // ✅ 게시글 승인/거절 알림은 이동 없이 읽음 처리만 [10/19 수정]
+          console.log("✅ 승인/거절 알림 클릭: 이동 없이 읽음 처리 완료");
           break;
 
         case "REPORT_ADMIN_NOTICE":
