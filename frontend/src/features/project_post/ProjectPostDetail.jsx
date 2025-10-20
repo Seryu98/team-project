@@ -5,6 +5,9 @@ import { authFetch, getCurrentUser } from "../auth/api";
 import ApplicationModal from "./ApplicationModal";
 import { submitReport } from "../../shared/api/reportApi";
 
+// ✅ 환경변수 기반 API 기본 URL 추가
+const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 export default function ProjectPostDetail() {
   const { postId } = useParams();
   const navigate = useNavigate();
@@ -124,7 +127,6 @@ export default function ProjectPostDetail() {
   };
 
   // ✅ 모집 상태 변경
-  // ✅ 모집 상태 변경
   const updateRecruitStatus = async (status) => {
     if (busy) return;
     setBusy(true);
@@ -195,7 +197,14 @@ export default function ProjectPostDetail() {
         <div style={{ display: "flex", alignItems: "flex-start" }}>
           {post.image_url && (
             <img
-              src={`http://localhost:8000${post.image_url}`}
+              src={
+                post.image_url.startsWith("http")
+                  ? post.image_url // ✅ 이미 절대경로면 그대로 사용
+                  : `${API_URL}${post.image_url.startsWith("/")
+                    ? post.image_url
+                    : "/" + post.image_url
+                  }`
+              }
               alt="대표 이미지"
               style={{
                 width: "200px",
@@ -252,7 +261,6 @@ export default function ProjectPostDetail() {
             )}
           </div>
         </div>
-
         {/* 오른쪽: 프로젝트 리더 */}
         <div style={{ textAlign: "right" }}>
           <h4>프로젝트 리더</h4>
@@ -268,8 +276,8 @@ export default function ProjectPostDetail() {
             <img
               src={
                 leaderInfo?.profile_image
-                  ? `http://localhost:8000${leaderInfo.profile_image}`
-                  : "http://localhost:8000/assets/profile/default_profile.png"
+                  ? `${API_URL}${leaderInfo.profile_image}` // ✅ 수정됨
+                  : `${API_URL}/assets/profile/default_profile.png`
               }
               alt="리더 프로필"
               style={{
@@ -323,8 +331,6 @@ export default function ProjectPostDetail() {
               🚨 게시글 신고
             </button>
           )}
-
-
 
           {/* ✅ 리더만 보이는 버튼 */}
           {isLeader && !ended && (
@@ -418,9 +424,9 @@ export default function ProjectPostDetail() {
                       ? member.profile_image.startsWith("http")
                         ? member.profile_image // 절대경로면 그대로 사용
                         : member.profile_image.startsWith("/")
-                          ? `http://localhost:8000${member.profile_image}` // /로 시작하면 서버 주소만 붙이기
-                          : `http://localhost:8000/${member.profile_image}` // 혹시 / 빠졌을 경우 대비
-                      : "http://localhost:8000/assets/profile/default_profile.png" // 기본 프로필
+                          ? `${API_URL}${member.profile_image}` // ✅ 수정됨
+                          : `${API_URL}/${member.profile_image}`
+                      : `${API_URL}/assets/profile/default_profile.png` // ✅ 수정됨
                   }
                   alt={member.nickname}
                   style={{
@@ -451,7 +457,6 @@ export default function ProjectPostDetail() {
                     ? `${member.nickname} (리더)`
                     : member.nickname}
                 </p>
-
                 {/* 드롭다운 */}
                 {activeDropdown === member.user_id && (
                   <div
@@ -608,7 +613,6 @@ export default function ProjectPostDetail() {
         ) : (
           <p style={{ fontSize: "13px", color: "#aaa" }}>로그인 정보 불러오는 중...</p>
         )}
-
       </div>
 
       {/* ✅ 지원서 모달 */}
