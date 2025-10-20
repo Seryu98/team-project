@@ -450,3 +450,20 @@ SET SQL_SAFE_UPDATES = 1;
 -- 4) 조회 최적화 인덱스 (쿨타임 계산)
 CREATE INDEX idx_app_user_post_status_changed
   ON applications (user_id, post_id, status_changed_at);
+
+-- 5) 공지사항 컬럼 추가
+ALTER TABLE notifications
+MODIFY COLUMN type ENUM(
+  'FOLLOW',
+  'APPLICATION',
+  'APPLICATION_ACCEPTED',
+  'APPLICATION_REJECTED',
+  'WARNING',
+  'BAN',
+  'UNBAN',
+  'MESSAGE',
+  'REPORT_RECEIVED',
+  'REPORT_RESOLVED',
+  'REPORT_REJECTED',
+  'ADMIN_NOTICE'  -- ✅ 오늘 추가된 타입
+) NOT NULL;

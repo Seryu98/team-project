@@ -6,11 +6,13 @@ from sqlalchemy import text
 from fastapi import HTTPException
 from datetime import datetime, timedelta
 from app.core.database import get_db
-from app.events.events import on_post_approved, on_report_resolved
-from app.notifications.notification_service import send_notification
+from app.events.events import on_post_approved
+from app.notifications.notification_service import send_notification,notify_report_result  #10/20 추가
 from app.notifications.notification_model import NotificationType, NotificationCategory
 from app.messages.message_service import send_message
 from app.messages.message_model import MessageCategory
+import logging
+logger = logging.getLogger(__name__)
 
 # ✅ DB 세션 핸들러
 def _get_db(db: Optional[Session] = None):
@@ -40,8 +42,9 @@ def approve_post(post_id: int, admin_id: int, db: Optional[Session] = None) -> b
 
         db.commit()
 
-        # ✅ 이벤트 트리거 (로그용)
+        # ✅ 이벤트 트리거 (리더에게 승인 알림)
         on_post_approved(post_id=post_id, leader_id=int(leader_id), db=db)
+        logger.info(f"✅ 게시글 승인 처리 완료: post_id={post_id}, leader_id={leader_id}")
         return True
 
     finally:
@@ -65,11 +68,11 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
             raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
 
         # 거절 사유 로그 기록
-        if reason:
-            db.execute(text("""
-                INSERT INTO admin_actions (admin_id, post_id, action, reason)
-                VALUES (:aid, :pid, 'REJECT', :reason)
-            """), {"aid": admin_id, "pid": post_id, "reason": reason})
+        #if reason:
+        #    db.execute(text("""
+        #        INSERT INTO admin_actions (admin_id, post_id, action, reason)
+        #        VALUES (:aid, :pid, 'REJECT', :reason)
+        #    """), {"aid": admin_id, "pid": post_id, "reason": reason})
 
         leader_id = db.execute(
             text("SELECT leader_id FROM posts WHERE id=:pid"),
@@ -88,12 +91,12 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
             )
 
         db.commit()
+        logger.info(f"🚫 게시글 거절 완료: post_id={post_id}, reason={reason}")
         return True
 
     finally:
         if close:
             db.close()
-
 
 # ✅ 신고 처리
 def resolve_report(
@@ -104,6 +107,12 @@ def resolve_report(
     penalty_type: Optional[str] = None,
     db: Optional[Session] = None,
 ) -> bool:
+    """
+    신고 처리 로직
+    - RESOLVE 시: 신고자 승인 알림 + 피신고자 제재 (선택)
+    - REJECT 시: 신고자 거절 알림
+    - 모든 결과는 notify_report_result()를 통해 통합 알림 처리
+    """
     if action not in {"RESOLVE", "REJECT"}:
         raise HTTPException(status_code=400, detail="action은 RESOLVE 또는 REJECT 중 하나여야 합니다.")
 
@@ -126,6 +135,7 @@ def resolve_report(
         status = "RESOLVED" if action == "RESOLVE" else "REJECTED"
         db.execute(text("UPDATE reports SET status=:st WHERE id=:rid"), {"st": status, "rid": report_id})
 
+        # 처리 로그 기록
         db.execute(text("""
             INSERT INTO report_actions (report_id, admin_id, action, reason)
             VALUES (:rid, :aid, :act, :reason)
@@ -138,11 +148,11 @@ def resolve_report(
                 type_=NotificationType.REPORT_RESOLVED.value,
                 message=f"신고(ID:{report_id})가 승인되어 처리되었습니다.",
                 related_id=report_id,
-                redirect_path="/messages?tab=admin",
-                category=NotificationCategory.ADMIN.value,
+                redirect_path=None,
+                category=NotificationCategory.NORMAL.value,
                 db=db,
             )
-
+            
             send_message(
                 sender_id=admin_id,
                 receiver_id=reporter_id,
@@ -153,6 +163,7 @@ def resolve_report(
                 db=db,
             )
 
+            # 피신고자 제재 안내
             penalty_msg = {
                 "WARNING": "경고 조치되었습니다.",
                 "BAN_3DAYS": "3일 정지되었습니다.",
@@ -168,7 +179,7 @@ def resolve_report(
                 category=MessageCategory.ADMIN.value,
                 db=db,
             )
-
+            # 대상 콘텐츠 삭제
             delete_map = {
                 "POST": "posts",
                 "BOARD_POST": "board_posts",
@@ -178,6 +189,7 @@ def resolve_report(
             if target_type in delete_map:
                 db.execute(text(f"DELETE FROM {delete_map[target_type]} WHERE id=:tid"), {"tid": target_id})
 
+            # 밴 처리
             suspend_until = None
             if penalty_type == "BAN_3DAYS":
                 suspend_until = datetime.utcnow() + timedelta(days=3)
@@ -194,15 +206,15 @@ def resolve_report(
                      WHERE id = :uid
                 """), {"uid": reported_id, "until": suspend_until})
 
-        # 🚫 신고 반려 시
+        # 🚫 신고 거절 시
         elif action == "REJECT":
             send_message(
                 sender_id=admin_id,
                 receiver_id=reporter_id,
                 content=(
-                    "[신고 반려 안내]\n"
-                    f"귀하의 신고(ID:{report_id})가 관리자 검토 결과 반려되었습니다.\n"
-                    f"사유: {reason or '관리자 판단에 의한 반려입니다.'}\n"
+                    "[신고 거절 안내]\n"
+                    f"귀하의 신고(ID:{report_id})가 관리자 검토 결과 거절되었습니다.\n"
+                    f"사유: {reason or '관리자 판단에 의한 거절입니다.'}\n"
                     "📩 해당 내용은 관리자 쪽지함에서도 확인 가능합니다."
                 ),
                 category=MessageCategory.ADMIN.value,
@@ -212,21 +224,25 @@ def resolve_report(
             send_notification(
                 user_id=reporter_id,
                 type_=NotificationType.REPORT_REJECTED.value,
-                message=f"신고(ID:{report_id})가 반려되었습니다.",
+                message=f"신고(ID:{report_id})가 거절되었습니다.",
                 related_id=report_id,
-                redirect_path="/messages?tab=admin",
-                category=NotificationCategory.ADMIN.value,
+                redirect_path=None,
+                category=NotificationCategory.NORMAL.value,
                 db=db,
             )
 
-        on_report_resolved(
+        # 🩵 [10/20 추가] 통합 알림 함수로 결과 반영
+        notify_report_result(
+            reporter_id=reporter_id,
             report_id=report_id,
-            reporter_user_id=reporter_id,
             resolved=(action == "RESOLVE"),
             db=db,
         )
-
         db.commit()
+
+        # 🩵 [10/20 수정] print → logger.info 로 변경
+        logger.info(f"📢 신고 처리 완료: report_id={report_id}, action={action}, reporter={reporter_id}, reported={reported_id}")
+
         return True
 
     finally:
@@ -298,7 +314,7 @@ def ban_user(target_user_id: int, admin_id: int, days: Optional[int] = None, rea
             message=f"계정이 제재되었습니다. ({'영구' if days is None else f'{days}일'})",
             related_id=None,
             redirect_path="/messages?tab=admin",
-            category=NotificationCategory.ADMIN.value,  # 🩵 [수정]
+            category=NotificationCategory.ADMIN.value, 
             db=db,
         )
         send_message(
@@ -336,7 +352,7 @@ def unban_user(target_user_id: int, admin_id: int, reason: Optional[str] = None,
             message="계정 제재가 해제되었습니다.",
             related_id=None,
             redirect_path="/messages?tab=admin",
-            category=NotificationCategory.ADMIN.value,  # 🩵 [수정]
+            category=NotificationCategory.ADMIN.value,
             db=db,
         )
 
