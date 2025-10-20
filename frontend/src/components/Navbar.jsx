@@ -14,14 +14,27 @@ export default function Navbar() {
   const [currentUser, setCurrentUser] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [page, setPage] = useState(0);
 
   // 알림 팝업 관련 상태
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
-  // 메시지 카운트 (추후 API로 대체 예정)
-  const [unreadMessages] = useState(5);
+    const handleNotificationClick = () => {
+      setNotificationOpen((prev) => !prev);
+      setMenuOpen(false);
+    };
+
+
+  // ✅ 페이지 이동 시 스크롤 맨 위로 부드럽게 이동
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    const list = document.querySelector(".notification-list");
+    if (list) list.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
 
   // 로그인 상태 확인 및 프로필 이미지 가져오기
   useEffect(() => {
@@ -79,44 +92,35 @@ export default function Navbar() {
     };
   }, []);
 
-  // 알림 불러오기
-  useEffect(() => {
-    if (!currentUser) return;
+  async function fetchNotifications() {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
 
-    async function fetchNotifications() {
-      try {
-        const { data } = await axios.get("http://localhost:8000/notifications", {
-          params: { only_unread: false },
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
-        if (data?.data) setNotifications(data.data);
+      // ✅ 읽지 않은 알림만 가져오기
+      const { data } = await axios.get("http://localhost:8000/notifications", {
+        params: { only_unread: true },
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-        const unreadRes = await axios.get(
-          "http://localhost:8000/notifications/unread_count",
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-            },
-          }
-        );
-        if (unreadRes?.data?.data?.count !== undefined)
-          setUnreadCount(unreadRes.data.data.count);
-      } catch (e) {
-        console.error("❌ 알림 불러오기 실패:", e);
-      }
+
+      if (data?.data) setNotifications(data.data);
+      else if (data?.items) setNotifications(data.items);
+
+      // ✅ 안읽은 개수 갱신
+      const unreadRes = await axios.get(
+        "http://localhost:8000/notifications/unread_count",
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (unreadRes?.data?.data?.count !== undefined)
+        setUnreadCount(unreadRes.data.data.count);
+    } catch (e) {
+      console.error("❌ 알림 불러오기 실패:", e);
+
     }
+  }
 
-    fetchNotifications();
-
-    // 일정 주기(30초)마다 갱신
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [currentUser]);
-
-  // 로그아웃
-  const handleLogout = () => {
+    const handleLogout = () => {
     clearTokens();
     setCurrentUser(null);
     setProfileImage(null);
@@ -124,18 +128,85 @@ export default function Navbar() {
     navigate("/login");
   };
 
-  // 알림 클릭
-  const handleNotificationClick = () => {
-    setNotificationOpen((prev) => !prev);
-    setMenuOpen(false); // 프로필 메뉴는 닫기
+  // -----------------------------
+  // [3️⃣ 수정된 부분]
+  // 항상 fetchNotifications 실행되도록 currentUser 조건 제거
+  // -----------------------------
+  useEffect(() => {
+    async function autoFetch() {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+      await fetchNotifications();
+    }
+
+    autoFetch(); // 초기 실행
+    const interval = setInterval(autoFetch, 30000); // 30초마다 갱신
+    return () => clearInterval(interval);
+  }, []);
+
+  // -----------------------------
+  // [4️⃣ 추가된 부분]
+  // localStorage 이벤트 → Navbar 알림 즉시 새로고침
+  // -----------------------------
+useEffect(() => {
+  const handleStorageChange = (e) => {
+    const key = e?.key || "refreshNotifications";
+    const value = e?.newValue || localStorage.getItem("refreshNotifications");
+
+    if (key === "refreshNotifications" && value === "true") {
+      console.log("🔔 즉시 알림 새로고침 실행됨");
+      fetchNotifications(); // ✅ Navbar 갱신
+      localStorage.removeItem("refreshNotifications");
+    }
   };
 
-  // 알림 항목 클릭
-  const handleNotificationItemClick = (n) => {
-    if (n.type === "MESSAGE" && n.related_id) {
-      navigate(`/messages/${n.related_id}`);
+  // ✅ 같은 탭에서도 커스텀 이벤트 직접 감지
+  window.addEventListener("storage", handleStorageChange);
+  window.addEventListener("refreshNotifications", handleStorageChange);
+
+  // ✅ 혹시 이미 refreshNotifications=true인 경우 즉시 반영
+  if (localStorage.getItem("refreshNotifications") === "true") {
+    handleStorageChange();
+  }
+
+  return () => {
+    window.removeEventListener("storage", handleStorageChange);
+    window.removeEventListener("refreshNotifications", handleStorageChange);
+  };
+}, []);
+
+  const handleNotificationItemClick = async (n) => {
+    try {
+      const token = localStorage.getItem("access_token");
+
+      // ✅ 읽음 처리 API 요청
+      await axios.post(
+        "http://localhost:8000/notifications/mark_read",
+        [n.id],
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // ✅ UI에서도 제거
+      setNotifications((prev) => prev.filter((item) => item.id !== n.id));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+
+      // ✅ DB와 동기화 - 읽음 후 새로 목록 갱신
+      await fetchNotifications();
+
+      // ✅ 이동 처리 (redirect_path가 있으면 우선 이동)
+      if (n.redirect_path) {
+        navigate(n.redirect_path);
+      } else {
+        // 🔄 fallback: type별 기본 처리
+        if (n.type === "MESSAGE") navigate("/messages");
+        else if (n.type === "REPORT_RECEIVED") navigate("/admin/reports");
+        else if (n.type === "APPLICATION") navigate("/admin/pending");
+      }
+
+      setNotificationOpen(false);
+    } catch (e) {
+      console.error("❌ 알림 읽음 처리 실패:", e);
     }
-    setNotificationOpen(false);
   };
 
   const IconButton = ({ icon, count, onClick, label }) => (
@@ -149,12 +220,10 @@ export default function Navbar() {
 
   return (
     <nav className="navbar">
-      {/* 좌측 로고 */}
       <div className="navbar-logo" onClick={() => navigate("/")}>
         <img src={logoImg} alt="메인으로 이동" className="logo-img" />
       </div>
 
-      {/* 중앙 메뉴 */}
       <div className="navbar-links">
         <Link to="/posts" className="nav-link">
           프로젝트/스터디 게시판
@@ -165,7 +234,6 @@ export default function Navbar() {
         <Link to="/users/ranking" className="nav-link">
           랭킹게시판
         </Link>
-        {/* ✅ 관리자 전용 버튼 */}
         {currentUser?.role === "ADMIN" && (
           <button
             onClick={() => navigate("/admin")}
@@ -177,11 +245,10 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* 우측 */}
       <div className="navbar-right relative">
         {currentUser ? (
           <>
-            {/* 알림 버튼 + 팝업 */}
+            {/* 🔔 알림 버튼 */}
             <div className="relative">
               <IconButton
                 icon={<FaBell />}
@@ -189,50 +256,101 @@ export default function Navbar() {
                 onClick={handleNotificationClick}
                 label="알림"
               />
+
               {notificationOpen && (
-                <div className="notification-popup absolute right-0 mt-2 w-72 bg-white border shadow-lg rounded-lg z-50">
-                  <div className="flex justify-between items-center px-3 py-2 border-b">
-                    <span className="font-semibold text-sm">알림</span>
+                <div className="notification-popup">
+                  <div className="header">
+                    <span>알림</span>
                     <button
                       onClick={() => setNotificationOpen(false)}
-                      className="text-gray-500 text-sm"
+                      className="close-btn"
+                      aria-label="닫기"
                     >
                       ✕
                     </button>
                   </div>
-                  <ul className="divide-y text-sm max-h-96 overflow-y-auto">
+
+                  {/* ✅ 페이지네이션용 상태 */}
+                  <ul className="notification-list">
                     {notifications.length === 0 ? (
-                      <li className="px-3 py-4 text-center text-gray-400">
-                        알림이 없습니다.
-                      </li>
+                      <li className="notification-empty">새 알림이 없습니다.</li>
                     ) : (
-                      notifications.map((n) => (
-                        <li
-                          key={n.id}
-                          onClick={() => handleNotificationItemClick(n)}
-                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                        >
-                          <div>{n.message}</div>
-                          <div className="text-xs text-gray-400">
-                            {n.created_at}
-                          </div>
-                        </li>
-                      ))
+                      notifications
+                        .slice(page * 5, page * 5 + 5)
+                        .map((n) => {
+                          const icons = {
+                            MESSAGE: "💌",
+                            REPORT_RECEIVED: "🚨",
+                            APPLICATION_ACCEPTED: "✅",
+                            APPLICATION_REJECTED: "❌",
+                            FOLLOW: "👥",
+                            WARNING: "⚠️",
+                            BAN: "⛔",
+                            UNBAN: "🔓",
+                            DEFAULT: "🔔",
+                          };
+                          const icon = icons[n.type] || icons.DEFAULT;
+                          const formattedDate = new Date(n.created_at).toLocaleString(
+                            "ko-KR",
+                            {
+                              month: "2-digit",
+                              day: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          );
+                          return (
+                            <li
+                              key={n.id}
+                              onClick={() => handleNotificationItemClick(n)}
+                              className={`notification-item ${
+                                n.is_read ? "read" : "unread"
+                              }`}
+                            >
+                              <span className="notification-message">
+                                {icon} {n.message}
+                              </span>
+                              <span className="notification-time">{formattedDate}</span>
+                            </li>
+                          );
+                        })
                     )}
                   </ul>
+
+                  {/* ✅ 페이지 네비게이션 */}
+                  {notifications.length > 5 && (
+                    <div className="notification-pagination">
+                      <button
+                        disabled={page === 0}
+                        onClick={() => handlePageChange(page - 1)}
+                        className="nav-btn"
+                      >
+                        ← 이전
+                      </button>
+                      <span className="page-indicator">
+                        {page + 1} / {Math.ceil(notifications.length / 5)}
+                      </span>
+                      <button
+                        disabled={(page + 1) * 5 >= notifications.length}
+                        onClick={() => handlePageChange(page + 1)}
+                        className="nav-btn"
+                      >
+                        다음 →
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* 메시지 버튼 */}
+            {/* ✉️ 쪽지 버튼 */}
             <IconButton
               icon={<FaEnvelope />}
               count={unreadMessages}
               onClick={() => navigate("/messages")}
-              label="메시지"
+              label="쪽지함"
             />
 
-            {/* 프로필 */}
             <div className="profile-wrapper relative">
               <img
                 src={
