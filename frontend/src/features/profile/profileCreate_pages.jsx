@@ -357,12 +357,13 @@ export default function ProfileCreate() {
             onChange={handleChange}
             max={new Date().toISOString().split('T')[0]}
             style={{
-              width: "100%",
-              padding: "12px",
+              width: "106%",
+              padding: "16px",
               border: "1px solid #d1d5db",
               borderRadius: "8px",
               fontSize: "14px",
               background: "#fafafa",
+              boxSizing: "border-box",
             }}
           />
         </div>
@@ -376,12 +377,13 @@ export default function ProfileCreate() {
             value={form.gender || ""}
             onChange={handleChange}
             style={{
-              width: "100%",
-              padding: "12px",
+              width: "106%",
+              padding: "16px",
               border: "1px solid #d1d5db",
               borderRadius: "8px",
               fontSize: "14px",
               background: "#fafafa",
+              boxSizing: "border-box",
             }}
           >
             <option value="">성별 선택</option>
@@ -401,13 +403,14 @@ export default function ProfileCreate() {
             placeholder="자기소개를 입력하세요"
             rows={6}
             style={{
-              width: "100%",
+              width: "106%",
               padding: "16px",
               border: "1px solid #d1d5db",
               borderRadius: "8px",
               fontSize: "14px",
               resize: "none",
               background: "#fafafa",
+              boxSizing: "border-box",
             }}
           />
         </div>
@@ -423,13 +426,14 @@ export default function ProfileCreate() {
             placeholder="경력을 입력하세요"
             rows={6}
             style={{
-              width: "100%",
+              width: "106%",
               padding: "16px",
               border: "1px solid #d1d5db",
               borderRadius: "8px",
               fontSize: "14px",
               resize: "none",
               background: "#fafafa",
+              boxSizing: "border-box",
             }}
           />
         </div>
@@ -445,13 +449,14 @@ export default function ProfileCreate() {
             placeholder="자격증을 입력하세요"
             rows={6}
             style={{
-              width: "100%",
+              width: "106%",
               padding: "16px",
               border: "1px solid #d1d5db",
               borderRadius: "8px",
               fontSize: "14px",
               resize: "none",
               background: "#fafafa",
+              boxSizing: "border-box",
             }}
           />
         </div>
@@ -462,6 +467,7 @@ export default function ProfileCreate() {
           </label>
 
           <div style={{
+            width: "106%",
             display: "flex",
             flexWrap: "wrap",
             gap: "16px",
@@ -470,7 +476,8 @@ export default function ProfileCreate() {
             borderRadius: "8px",
             minHeight: "100px",
             background: "#fafafa",
-            marginBottom: "12px"
+            marginBottom: "12px",
+            boxSizing: "border-box",
           }}>
             {(profile.skills || []).length > 0 ? (
               (profile.skills || []).map((skill) => (
@@ -531,22 +538,25 @@ export default function ProfileCreate() {
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="스킬 검색 (예: React, Python, C++)"
               style={{
-                width: "100%",
-                padding: "12px",
+                width: "106%",
+                padding: "16px",
                 border: "1px solid #d1d5db",
                 borderRadius: "8px",
                 fontSize: "14px",
                 background: "#fff",
+                boxSizing: "border-box",
               }}
             />
 
             {searchResults.length > 0 && (
               <div style={{
+                width: "106%",
                 marginTop: "8px",
                 border: "1px solid #d1d5db",
                 borderRadius: "8px",
                 padding: "12px",
-                background: "#f9fafb"
+                background: "#f9fafb",
+                boxSizing: "border-box",
               }}>
                 {searchResults.map((skill) => (
                   <div
@@ -593,8 +603,8 @@ export default function ProfileCreate() {
         <button
           onClick={handleSave}
           style={{
-            width: "100%",
-            padding: "14px",
+            width: "106%",
+            padding: "16px",
             background: "#3b82f6",
             color: "#fff",
             border: "none",
@@ -602,6 +612,7 @@ export default function ProfileCreate() {
             fontSize: "15px",
             fontWeight: "500",
             cursor: "pointer",
+            boxSizing: "border-box",
           }}
         >
           저장

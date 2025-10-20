@@ -276,16 +276,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
-          {/* ✅ 유지: 특정 메시지 개별 접근용 (필요 시) */}
-          <Route
-            path="/messages/:id"
-            element={
-              <ProtectedRoute>
-                <MessageDetail />
-              </ProtectedRoute>
-            }
-          />
         </Route>
       </Routes>
 

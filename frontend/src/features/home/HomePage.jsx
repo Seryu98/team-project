@@ -221,11 +221,18 @@ export default function HomePage() {
                 // ✅ 인기 게시판 (토큰 제거)
                 try {
                     const boardRes = await axios.get(`${API_URL}/board/list?skip=0&limit=20`);
-                    const boards = boardRes.data.posts || [];
-                    const sortedBoards = Array.isArray(boards)
-                        ? boards.sort((a, b) => (b.like_count || 0) - (a.like_count || 0))
-                        : [];
-                    setTopBoards(sortedBoards.slice(0, 3));
+
+                    // 🔥 서버에서 내려주는 top_posts (badge 포함)
+                    if (boardRes.data.top_posts) {
+                        setTopBoards(boardRes.data.top_posts.slice(0, 3));
+                    } else {
+                        // fallback: like_count 정렬
+                        const boards = boardRes.data.posts || [];
+                        const sortedBoards = Array.isArray(boards)
+                            ? boards.sort((a, b) => (b.like_count || 0) - (a.like_count || 0))
+                            : [];
+                        setTopBoards(sortedBoards.slice(0, 3));
+                    }
                 } catch (err) {
                     console.error("❌ 게시판 로드 실패:", err.response?.status);
                 }
@@ -504,7 +511,7 @@ export default function HomePage() {
                                         }}>
                                             {/* 제목 */}
                                             <h3 style={{
-                                                fontSize: '2.5rem',
+                                                fontSize: '4rem',
                                                 fontWeight: 'bold',
                                                 marginBottom: '1rem'
                                             }}>
@@ -667,7 +674,7 @@ export default function HomePage() {
                                             color: 'white'
                                         }}
                                     >
-                                        {/* 순위 + 카테고리 */}
+                                        {/* 순위 + 카테고리 + 배지 */}
                                         <div style={{
                                             display: 'flex',
                                             justifyContent: 'space-between',
@@ -683,14 +690,31 @@ export default function HomePage() {
                                             }}>
                                                 {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'} {idx + 1}위
                                             </div>
-                                            <div style={{
-                                                backgroundColor: 'rgba(255,255,255,0.3)',
-                                                padding: '0.5rem 1.25rem',
-                                                borderRadius: '9999px',
-                                                fontSize: '0.875rem',
-                                                fontWeight: 'bold'
-                                            }}>
-                                                {post.category || "일반"}
+
+                                            <div>
+                                                {/* 🔥 인기급상승 표시 */}
+                                                {post.badge?.includes("인기급상승") && (
+                                                    <span style={{
+                                                        backgroundColor: 'red',
+                                                        color: 'white',
+                                                        padding: '0.4rem 0.8rem',
+                                                        borderRadius: '9999px',
+                                                        fontSize: '0.85rem',
+                                                        fontWeight: 'bold',
+                                                        marginRight: '0.5rem'
+                                                    }}>
+                                                        🔥 인기급상승
+                                                    </span>
+                                                )}
+                                                <span style={{
+                                                    backgroundColor: 'rgba(255,255,255,0.3)',
+                                                    padding: '0.5rem 1.25rem',
+                                                    borderRadius: '9999px',
+                                                    fontSize: '0.875rem',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    {post.category || "일반"}
+                                                </span>
                                             </div>
                                         </div>
 
@@ -703,7 +727,7 @@ export default function HomePage() {
                                             padding: '2rem 0'
                                         }}>
                                             <h3 style={{
-                                                fontSize: '2.5rem',
+                                                fontSize: '4rem',
                                                 fontWeight: 'bold',
                                                 lineHeight: '1.3',
                                                 textAlign: 'center'
