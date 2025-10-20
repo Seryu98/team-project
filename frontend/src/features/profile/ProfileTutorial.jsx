@@ -21,6 +21,8 @@ export default function ProfileTutorial() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [form, setForm] = useState({
+    birth_date: "",
+    gender: "",
     headline: "",
     bio: "",
     experience: "",
@@ -66,17 +68,19 @@ export default function ProfileTutorial() {
     return `/assets/skills/${rawName.replace(/\s+/g, "_")}.png`;
   };
 
-  const totalSteps = 7;
+  const totalSteps = 9; // 7 → 9로 변경
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
   const hasInput = () => {
     if (currentStep === 0) return false;
     if (currentStep === 1) return previewImage !== null;
-    if (currentStep === 2) return form.headline;
-    if (currentStep === 3) return form.bio;
-    if (currentStep === 4) return form.experience;
-    if (currentStep === 5) return form.certifications;
-    if (currentStep === 6) return selectedSkills.length > 0;
+    if (currentStep === 2) return form.birth_date !== "";
+    if (currentStep === 3) return form.gender !== "";
+    if (currentStep === 4) return form.headline;
+    if (currentStep === 5) return form.bio;
+    if (currentStep === 6) return form.experience;
+    if (currentStep === 7) return form.certifications;
+    if (currentStep === 8) return selectedSkills.length > 0;
     return false;
   };
 
@@ -159,10 +163,12 @@ export default function ProfileTutorial() {
         });
       }
 
-      // 2. 프로필 정보 저장
+      // 2. 프로필 정보 저장 (생년월일, 성별 포함)
       await api.put(
         "/profiles/me",
         {
+          birth_date: form.birth_date || null,
+          gender: form.gender || null,
           headline: form.headline,
           bio: form.bio,
           experience: form.experience,
@@ -255,7 +261,7 @@ export default function ProfileTutorial() {
               </p>
               <div style={{ fontSize: "80px", marginBottom: "40px" }}>💻</div>
               <p style={{ fontSize: "16px", color: "#9ca3af" }}>
-                7단계로 프로필을 완성해요
+                9단계로 프로필을 완성해요
               </p>
             </div>
           )}
@@ -299,8 +305,78 @@ export default function ProfileTutorial() {
             </div>
           )}
 
-          {/* Step 2: 헤드라인 */}
+          {/* Step 2: 생년월일 */}
           {currentStep === 2 && (
+            <div style={{ textAlign: "center" }}>
+              <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
+                생년월일을 입력해주세요
+              </h2>
+              <p style={{ fontSize: "18px", color: "#6b7280", marginBottom: "40px" }}>
+                팀원 매칭에 도움이 됩니다 🎂
+              </p>
+              <div style={{ fontSize: "60px", marginBottom: "32px" }}>📅</div>
+              <input
+                type="date"
+                value={form.birth_date}
+                onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
+                style={{
+                  width: "100%",
+                  maxWidth: "400px",
+                  padding: "16px 20px",
+                  border: "2px solid #e5e7eb",
+                  borderRadius: "12px",
+                  fontSize: "18px",
+                  outline: "none",
+                  textAlign: "center",
+                }}
+                onFocus={(e) => e.target.style.border = "2px solid #667eea"}
+                onBlur={(e) => e.target.style.border = "2px solid #e5e7eb"}
+              />
+            </div>
+          )}
+
+          {/* Step 3: 성별 */}
+          {currentStep === 3 && (
+            <div style={{ textAlign: "center" }}>
+              <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
+                성별을 선택해주세요
+              </h2>
+              <p style={{ fontSize: "18px", color: "#6b7280", marginBottom: "40px" }}>
+                팀 구성에 참고 정보로 활용됩니다 👥
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px", maxWidth: "400px", margin: "0 auto" }}>
+                {[
+                  { value: "MALE", label: "남성", emoji: "👨" },
+                  { value: "FEMALE", label: "여성", emoji: "👩" },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setForm({ ...form, gender: option.value })}
+                    style={{
+                      padding: "20px",
+                      border: form.gender === option.value ? "3px solid #667eea" : "2px solid #e5e7eb",
+                      borderRadius: "12px",
+                      background: form.gender === option.value ? "#f5f3ff" : "#fff",
+                      fontSize: "18px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <span style={{ fontSize: "32px" }}>{option.emoji}</span>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: 헤드라인 */}
+          {currentStep === 4 && (
             <div>
               <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
                 한 줄로 자신을 소개해주세요
@@ -327,8 +403,8 @@ export default function ProfileTutorial() {
             </div>
           )}
 
-          {/* Step 3: 자기소개 */}
-          {currentStep === 3 && (
+          {/* Step 5: 자기소개 */}
+          {currentStep === 5 && (
             <div>
               <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
                 자기소개를 작성해주세요
@@ -357,8 +433,8 @@ export default function ProfileTutorial() {
             </div>
           )}
 
-          {/* Step 4: 이력 */}
-          {currentStep === 4 && (
+          {/* Step 6: 이력 */}
+          {currentStep === 6 && (
             <div>
               <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
                 경력 및 이력을 작성해주세요
@@ -387,8 +463,8 @@ export default function ProfileTutorial() {
             </div>
           )}
 
-          {/* Step 5: 자격증 */}
-          {currentStep === 5 && (
+          {/* Step 7: 자격증 */}
+          {currentStep === 7 && (
             <div>
               <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
                 자격증을 작성해주세요
@@ -417,8 +493,8 @@ export default function ProfileTutorial() {
             </div>
           )}
 
-          {/* Step 6: 스킬 */}
-          {currentStep === 6 && (
+          {/* Step 8: 스킬 */}
+          {currentStep === 8 && (
             <div>
               <h2 style={{ fontSize: "36px", fontWeight: "bold", marginBottom: "16px", color: "#1f2937" }}>
                 보유 스킬을 선택해주세요

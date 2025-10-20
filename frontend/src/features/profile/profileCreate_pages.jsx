@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "./api";
 
-
 function buildIconMap(globs) {
   const map = {};
   for (const [path, url] of Object.entries(globs)) {
@@ -27,6 +26,12 @@ export default function ProfileCreate() {
   const [previewImage, setPreviewImage] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+
+  // ✅ 생년월일, 성별만 공개/비공개 상태 관리
+  const [visibility, setVisibility] = useState({
+    birth_date: true,
+    gender: true,
+  });
 
   const SKILL_ICONS = useMemo(
     () => ({ ...buildIconMap(skillGlob1), ...buildIconMap(skillGlob2) }),
@@ -74,6 +79,14 @@ export default function ProfileCreate() {
       setProfile(res.data);
       setForm(res.data);
       setPreviewImage(res.data.profile_image || null);
+
+      // ✅ visibility 설정 불러오기 (생년월일, 성별만)
+      if (res.data.visibility) {
+        setVisibility({
+          birth_date: res.data.visibility.birth_date ?? true,
+          gender: res.data.visibility.gender ?? true,
+        });
+      }
     } catch {
       alert("내 프로필 불러오기 실패");
     }
@@ -85,6 +98,11 @@ export default function ProfileCreate() {
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  // ✅ 공개/비공개 토글
+  const toggleVisibility = (field) => {
+    setVisibility((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
   const handleSave = async () => {
@@ -108,17 +126,24 @@ export default function ProfileCreate() {
         certifications: form.certifications || "",
         birth_date: form.birth_date || null,
         gender: form.gender || null,
+        visibility: visibility, // 생년월일, 성별만 포함
       };
 
-      await api.put("/profiles/me", updateData, {
+      console.log("=== 💾 저장 시작 ===");
+      console.log("📤 저장할 데이터:", JSON.stringify(updateData, null, 2));
+      console.log("👁️ visibility state:", visibility);
+
+      const response = await api.put("/profiles/me", updateData, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      console.log("✅ 서버 응답:", response.data);
+      console.log("👁️ 응답의 visibility:", response.data.visibility);
 
       const meRes = await api.get("/auth/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // ✅ Navbar 프로필 이미지 즉시 갱신
       localStorage.setItem("refreshProfile", "true");
       window.dispatchEvent(new Event("profileUpdated"));
       console.log("✅ 프로필 업데이트 완료 - Navbar 갱신 신호 발송");
@@ -152,7 +177,6 @@ export default function ProfileCreate() {
       setProfile(res.data);
       if (res.data?.profile_image) setPreviewImage(res.data.profile_image);
 
-      // ✅ 이미지 업로드 후 Navbar 프로필 이미지 즉시 갱신
       localStorage.setItem("refreshProfile", "true");
       window.dispatchEvent(new Event("profileUpdated"));
       console.log("✅ 프로필 이미지 업데이트 완료 - Navbar 갱신 신호 발송");
@@ -263,6 +287,26 @@ export default function ProfileCreate() {
     </div>
   );
 
+  // ✅ 공개/비공개 토글 버튼 컴포넌트 (생년월일, 성별만 사용)
+  const VisibilityToggle = ({ field }) => (
+    <button
+      onClick={() => toggleVisibility(field)}
+      style={{
+        padding: "6px 12px",
+        fontSize: "12px",
+        fontWeight: "600",
+        border: "1px solid #d1d5db",
+        borderRadius: "6px",
+        background: visibility[field] ? "#eff6ff" : "#fef2f2",
+        color: visibility[field] ? "#2563eb" : "#dc2626",
+        cursor: "pointer",
+        transition: "all 0.2s",
+      }}
+    >
+      {visibility[field] ? "👁️ 공개" : "🔒 비공개"}
+    </button>
+  );
+
   return (
     <div style={{ minHeight: "100vh", background: "#fff", padding: "40px 20px" }}>
       <div style={{ maxWidth: "600px", margin: "0 auto" }}>
@@ -287,7 +331,6 @@ export default function ProfileCreate() {
                       : `http://localhost:8000${profile.profile_image}`
                     : "/assets/profile/default_profile.png"
               }
-
               alt="프로필 이미지"
               style={{
                 width: "100px",
@@ -346,10 +389,12 @@ export default function ProfileCreate() {
           </div>
         </div>
 
+        {/* ✅ 생년월일 (공개/비공개 토글) */}
         <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            생년월일
-          </label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <label style={{ fontSize: "14px", fontWeight: "500" }}>생년월일</label>
+            <VisibilityToggle field="birth_date" />
+          </div>
           <input
             type="date"
             name="birth_date"
@@ -368,10 +413,12 @@ export default function ProfileCreate() {
           />
         </div>
 
+        {/* ✅ 성별 (공개/비공개 토글) */}
         <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            성별
-          </label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <label style={{ fontSize: "14px", fontWeight: "500" }}>성별</label>
+            <VisibilityToggle field="gender" />
+          </div>
           <select
             name="gender"
             value={form.gender || ""}
@@ -392,6 +439,7 @@ export default function ProfileCreate() {
           </select>
         </div>
 
+        {/* ✅ 자기소개 (무조건 공개) */}
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             자기소개
@@ -415,6 +463,7 @@ export default function ProfileCreate() {
           />
         </div>
 
+        {/* ✅ 이력 (무조건 공개) */}
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             이력
@@ -438,6 +487,7 @@ export default function ProfileCreate() {
           />
         </div>
 
+        {/* ✅ 자격증 (무조건 공개) */}
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             자격증

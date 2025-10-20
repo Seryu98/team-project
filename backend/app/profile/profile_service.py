@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.users.user_model import User
 from app.profile.profile_model import Profile
-from app.meta.skill_model import Skill  # ✅ meta에서 import
+from app.meta.skill_model import Skill
 from app.profile.user_skill_model import UserSkill
 from app.profile.profile_schemas import ProfileUpdate
 from app.profile.follow_model import Follow
@@ -17,7 +17,15 @@ def get_or_create_profile(db: Session, user_id: int) -> Profile:
             raise HTTPException(status_code=404, detail="User not found")
 
         profile = Profile(
-            id=user_id, profile_image="/assets/profile/default_profile.png"
+            id=user_id, 
+            profile_image="/assets/profile/default_profile.png",
+            visibility={
+                "birth_date": True,
+                "gender": True,
+                "bio": True,
+                "experience": True,
+                "certifications": True
+            }
         )
         db.add(profile)
         db.commit()
@@ -84,6 +92,7 @@ def get_profile_detail(db: Session, user_id: int, current_user_id: int = None):
         "certifications": profile.certifications,
         "birth_date": profile.birth_date,
         "gender": profile.gender,
+        "visibility": profile.visibility, 
         "follower_count": follower_count,
         "following_count": following_count,
         "skills": skills_out,
@@ -120,6 +129,8 @@ def update_profile(db: Session, user_id: int, update_data: ProfileUpdate):
         profile.birth_date = update_data.birth_date
     if update_data.gender is not None:
         profile.gender = update_data.gender
+    if update_data.visibility is not None:
+        profile.visibility = update_data.visibility
 
     db.commit()
     db.refresh(profile)

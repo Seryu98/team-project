@@ -1,12 +1,11 @@
 # app/profile/profile_model.py
-from sqlalchemy import Column, BigInteger, String, Text, Integer, DateTime, Enum, Date, ForeignKey
+from sqlalchemy import Column, BigInteger, String, Text, Integer, DateTime, Enum, Date, ForeignKey, JSON
 from app.core.base import Base
 from sqlalchemy.orm import relationship
 
 class Profile(Base):
     __tablename__ = "profiles"
 
-    # ✅ FK 연결 추가
     id = Column(
         BigInteger,
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -21,6 +20,9 @@ class Profile(Base):
     certifications = Column(Text, nullable=True, comment="자격증")
     birth_date = Column(Date, nullable=True, comment="생년월일")
     gender = Column(Enum("MALE", "FEMALE"), nullable=True, comment="성별")
+    
+    visibility = Column(JSON, nullable=True, comment="공개/비공개 설정 JSON")
+    
     following_count = Column(Integer, nullable=False, default=0, comment="팔로잉 수")
     follower_count = Column(Integer, nullable=False, default=0, comment="팔로워 수")
     deleted_at = Column(DateTime, nullable=True, comment="삭제 시각")
