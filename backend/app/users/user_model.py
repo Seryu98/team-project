@@ -60,6 +60,7 @@ class User(Base):
     board_posts = relationship("BoardPost", back_populates="author", cascade="all, delete-orphan")
     liked_posts = relationship("BoardPostLike", back_populates="user", cascade="all, delete-orphan")
     comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
+    profile = relationship("Profile", uselist=False, back_populates="user")
 
 
 # ✅ 추가 (순환 참조 방지용)

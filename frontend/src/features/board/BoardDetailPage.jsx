@@ -323,13 +323,6 @@ export default function BoardDetailPage() {
             </button>
           )}
         </div>
-        <h2 className="detail-title">{post.title}</h2>
-
-        <div className="detail-actions">
-          <span>👁 {post.view_count}</span>
-          {isLoggedIn && <button onClick={handleLike}>❤️ {post.like_count}</button>}
-          <span>💬 댓글({visibleCommentCount})</span>
-        </div>
 
         {/* ✅ 게시글 신고 버튼 (게시글 작성자 아닌 경우만) */}
         {isLoggedIn && !isOwner && (
@@ -352,7 +345,6 @@ export default function BoardDetailPage() {
           </button>
         )}
 
-        <div className="detail-content">{post.content}</div>
 
         {/* 수정 / 삭제 */}
         {isOwner && (
