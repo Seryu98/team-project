@@ -226,20 +226,28 @@ def api_get_pending_posts(
     db: Session = Depends(get_db),
 ):
     """
-    승인 대기 중인 게시글 목록
+    [10/19 수정]
+    ✅ 관리자 승인 대기 게시글 조회 API
+    - 승인되지 않은(PENDING 상태) 게시글만 가져옴
+    - 프로젝트 / 스터디 구분(type)
+    - 작성자 닉네임 + 내용 미리보기 포함
     """
     _ensure_admin(user)
     rows = db.execute(
         text("""
             SELECT 
-                p.id,
-                p.title,
-                p.created_at,
-                p.leader_id
+                p.id,                                    -- 게시글 고유 ID
+                p.title,                                 -- 게시글 제목
+                p.type,                                  -- ✅ 프로젝트 / 스터디 구분
+                COALESCE(u.nickname, CONCAT('작성자(', p.leader_id, ')')) AS leader_nickname,  -- ✅ 작성자 닉네임 (닉네임이 NULL이면 "작성자(leader_id)" 형태로 대체)
+                LEFT(p.description, 100) AS preview,  -- ✅ 여기 description으로 변경됨         -- ✅ 내용 미리보기
+                p.created_at,  -- 게시글 생성일
+                p.leader_id    -- 작성자(리더) 사용자 ID
             FROM posts p
-            WHERE p.status = 'PENDING'
-              AND p.deleted_at IS NULL
-            ORDER BY p.created_at DESC
+            LEFT JOIN users u ON u.id = p.leader_id  -- ✅ 작성자 정보 조인 (닉네임 표시용)
+            WHERE p.status = 'PENDING'      -- ✅ 승인 대기 상태만 조회
+              AND p.deleted_at IS NULL      -- ✅ 삭제되지 않은 게시글만
+            ORDER BY p.created_at DESC      -- ✅ 최신순 정렬
         """)
     ).mappings().all()
 

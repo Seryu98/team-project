@@ -116,14 +116,15 @@ def create_report(
         # 🩵 신고자 알림 & 관리자 쪽지 전송
         # ===============================
         try:
-            # 🚨 신고자 알림
+            # 🚨 신고자 알림 (즉시, redirect 없음)
+            # ✅ [10/20 변경됨] 클릭 시 이동 없이 단순 알림만 남김
             send_notification(
                 user_id=reporter_user_id,
                 type_=NotificationType.REPORT_RECEIVED.value,
-                message=f"신고가 접수되었습니다. (ID:{report_id})",
+                message="🚨 신고가 접수되었습니다.",
                 related_id=int(report_id),
-                redirect_path="/messages?tab=admin",
-                category=NotificationCategory.ADMIN.value,  # 🩵 [수정] 관리자 알림 분리
+                redirect_path=None,  # ✅ 클릭시 이동 없음
+                category=NotificationCategory.NORMAL.value,  # ✅ 일반 사용자 알림으로 변경
                 db=db,
             )
 
@@ -160,11 +161,8 @@ def create_report(
         except Exception as e:
             logger.error(f"🚨 신고자 또는 관리자 알림 전송 실패: {e}")
 
-        # ✅ 이벤트 트리거
-        try:
-            on_report_created(report_id=int(report_id), reporter_user_id=reporter_user_id, db=db)
-        except Exception as e:
-            logger.error(f"🚨 신고 이벤트 트리거 실패: report_id={report_id}, err={e}")
+        # 🩵 [수정] 이벤트 트리거 제거 (중복 및 딜레이 원인)
+        # ❌ on_report_created(report_id=int(report_id), reporter_user_id=reporter_user_id, db=db)
 
         db.commit()
         return {"success": True, "message": "신고가 정상적으로 접수되었습니다.", "report_id": int(report_id)}
@@ -173,90 +171,63 @@ def create_report(
         if close:
             db.close()
 
+# ----------------------------
+# ✅ 중복 신고 여부 확인
+# ----------------------------
+def has_already_reported(db: Session, reporter_user_id: int, target_type: str, target_id: int) -> bool:
+    """✅ 동일 대상에 대한 중복 신고 여부 검사"""
+    exists = db.execute(
+        text("""
+            SELECT COUNT(*) FROM reports
+             WHERE reporter_user_id=:r
+               AND target_type=:tt
+               AND target_id=:tid
+               AND status='PENDING'
+        """),
+        {"r": reporter_user_id, "tt": target_type, "tid": target_id},
+    ).scalar()
+    return bool(exists)
 
 # ----------------------------
-# 📋 내가 한 신고 목록
+# ✅ 내가 작성한 신고 목록 조회
 # ----------------------------
-def list_my_reports(
-    reporter_user_id: int,
-    status: Optional[str] = None,
-    limit: int = 50,
-    db: Optional[Session] = None,
-) -> List[Dict]:
-    db, close = _get_db(db)
-    try:
-        base_query = """
-            SELECT id, target_type, target_id, reason, status, created_at
-              FROM reports
-             WHERE reporter_user_id = :r
-        """
-        if status:
-            base_query += " AND status = :st"
-        base_query += " ORDER BY id DESC LIMIT :lim"
+def list_my_reports(db: Session, reporter_user_id: int, status: Optional[str] = None, limit: int = 50) -> List[Dict]:
+    """📋 내가 작성한 신고 목록 조회"""
+    sql = """
+        SELECT r.id, r.target_type, r.target_id, r.reason, r.status, r.created_at,
+               u.nickname AS reported_nickname
+          FROM reports r
+          JOIN users u ON u.id = r.reported_user_id
+         WHERE r.reporter_user_id = :rid
+    """
+    if status:
+        sql += " AND r.status = :st"
+    sql += " ORDER BY r.created_at DESC LIMIT :lim"
 
-        params = {"r": reporter_user_id, "st": status, "lim": limit}
-        rows = db.execute(text(base_query), params).mappings().all()
-        return [dict(r) for r in rows]
-    finally:
-        if close:
-            db.close()
+    params = {"rid": reporter_user_id, "lim": limit}
+    if status:
+        params["st"] = status
 
+    rows = db.execute(text(sql), params).mappings().all()
+    return [dict(row) for row in rows]
 
 # ----------------------------
-# 🔍 신고 상세 조회
+# ✅ 신고 상세 조회
 # ----------------------------
-def get_report_detail(
-    report_id: int,
-    requester_user_id: int,
-    db: Optional[Session] = None,
-) -> Optional[Dict]:
-    db, close = _get_db(db)
-    try:
-        row = db.execute(
-            text("""
-                SELECT r.id, r.reported_user_id, r.reporter_user_id,
-                       r.target_type, r.target_id, r.reason,
-                       r.status, r.created_at,
-                       ra.action AS resolved_action,
-                       ra.reason AS resolved_reason,
-                       ra.created_at AS resolved_at
-                  FROM reports r
-             LEFT JOIN report_actions ra ON ra.report_id = r.id
-                 WHERE r.id = :rid
-                   AND r.reporter_user_id = :uid
-            """),
-            {"rid": report_id, "uid": requester_user_id},
-        ).mappings().first()
-        return dict(row) if row else None
-    finally:
-        if close:
-            db.close()
+def get_report_detail(db: Session, report_id: int, requester_user_id: int) -> Optional[Dict]:
+    """🔍 특정 신고 상세 조회"""
+    row = db.execute(
+        text("""
+            SELECT r.id, r.target_type, r.target_id, r.reason, r.status, r.created_at,
+                   ru.nickname AS reporter_nickname,
+                   tu.nickname AS reported_nickname
+              FROM reports r
+              JOIN users ru ON ru.id = r.reporter_user_id
+              JOIN users tu ON tu.id = r.reported_user_id
+             WHERE r.id = :rid
+               AND r.reporter_user_id = :uid
+        """),
+        {"rid": report_id, "uid": requester_user_id},
+    ).mappings().first()
 
-
-# ----------------------------
-# ⚙️ 이미 신고했는지 여부
-# ----------------------------
-def has_already_reported(
-    reporter_user_id: int,
-    target_type: str,
-    target_id: int,
-    db: Optional[Session] = None,
-) -> bool:
-    db, close = _get_db(db)
-    try:
-        exists = db.execute(
-            text("""
-                SELECT 1
-                  FROM reports
-                 WHERE reporter_user_id = :r
-                   AND target_type = :tt
-                   AND target_id = :tid
-                   AND status = 'PENDING'
-                 LIMIT 1
-            """),
-            {"r": reporter_user_id, "tt": target_type, "tid": target_id},
-        ).scalar()
-        return bool(exists)
-    finally:
-        if close:
-            db.close()
+    return dict(row) if row else None

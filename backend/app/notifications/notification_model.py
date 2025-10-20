@@ -21,6 +21,7 @@ class NotificationType(str, enum.Enum):
     REPORT_RECEIVED = "REPORT_RECEIVED"
     REPORT_RESOLVED = "REPORT_RESOLVED"
     REPORT_REJECTED = "REPORT_REJECTED"
+    ADMIN_NOTICE = "ADMIN_NOTICE"  # [추가 10/18] 전체 공지사항 알림
 
 # =======================================
 # ✅ 알림 카테고리 ENUM (추가됨)

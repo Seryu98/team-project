@@ -92,6 +92,9 @@ export default function Navbar() {
     };
   }, []);
 
+  // -----------------------------
+  // ✅ 알림 불러오기
+  // -----------------------------
   async function fetchNotifications() {
     try {
       const token = localStorage.getItem("access_token");
@@ -129,8 +132,7 @@ export default function Navbar() {
   };
 
   // -----------------------------
-  // [3️⃣ 수정된 부분]
-  // 항상 fetchNotifications 실행되도록 currentUser 조건 제거
+  // ✅ 주기적 알림 갱신
   // -----------------------------
   useEffect(() => {
     async function autoFetch() {
@@ -138,14 +140,12 @@ export default function Navbar() {
       if (!token) return;
       await fetchNotifications();
     }
-
-    autoFetch(); // 초기 실행
-    const interval = setInterval(autoFetch, 30000); // 30초마다 갱신
+    autoFetch();
+    const interval = setInterval(autoFetch, 3000);
     return () => clearInterval(interval);
   }, []);
 
   // -----------------------------
-  // [4️⃣ 추가된 부분]
   // localStorage 이벤트 → Navbar 알림 즉시 새로고침
   // -----------------------------
 useEffect(() => {
@@ -175,6 +175,9 @@ useEffect(() => {
   };
 }, []);
 
+  // -----------------------------
+  // ✅ 알림 클릭 처리 (수정됨)
+  // -----------------------------
   const handleNotificationItemClick = async (n) => {
     try {
       const token = localStorage.getItem("access_token");
@@ -194,13 +197,10 @@ useEffect(() => {
       await fetchNotifications();
 
       // ✅ 이동 처리 (redirect_path가 있으면 우선 이동)
-      if (n.redirect_path) {
+      if (n.redirect_path && n.redirect_path !== "None") {
         navigate(n.redirect_path);
       } else {
-        // 🔄 fallback: type별 기본 처리
-        if (n.type === "MESSAGE") navigate("/messages");
-        else if (n.type === "REPORT_RECEIVED") navigate("/admin/reports");
-        else if (n.type === "APPLICATION") navigate("/admin/pending");
+        console.log("ℹ️ 이동 경로 없음:", n);
       }
 
       setNotificationOpen(false);
