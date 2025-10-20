@@ -451,7 +451,20 @@ SET SQL_SAFE_UPDATES = 1;
 CREATE INDEX idx_app_user_post_status_changed
   ON applications (user_id, post_id, status_changed_at);
 
--- 5) 공지사항 컬럼 추가
+-- 상세페이지 멤버 프로필사진때문에 fk연결이필요
+ALTER TABLE profiles
+ADD CONSTRAINT fk_profiles_user_id
+FOREIGN KEY (id) REFERENCES users(id)
+ON DELETE CASCADE;
+
+-- kicked상태 추가해서 리더가 유저 제외
+ALTER TABLE applications 
+MODIFY COLUMN status 
+ENUM('PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'KICKED') 
+NOT NULL DEFAULT 'PENDING';
+
+
+-- 공지사항 컬럼 추가
 ALTER TABLE notifications
 MODIFY COLUMN type ENUM(
   'FOLLOW',

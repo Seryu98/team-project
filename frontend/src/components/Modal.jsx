@@ -1,25 +1,22 @@
-// src/components/Modal.jsx
+// /src/components/Modal.jsx
 import React, { useEffect, useRef, useState } from "react";
 
-function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) {
+function Modal({ title, children, confirmText = "확인", onConfirm }) {
   const panelRef = useRef(null);
-  const [verifyCode, setVerifyCode] = useState(""); // ✅ 인증코드 입력 상태 추가
+  const [verifyCode, setVerifyCode] = useState("");
 
   useEffect(() => {
     const origOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     setTimeout(() => {
-      try {
-        panelRef.current?.focus();
-      } catch {}
+      panelRef.current?.focus();
     }, 0);
 
-    // ESC로 닫기
+    // ✅ ESC 차단 (닫히지 않게)
     const onKeyDown = (e) => {
-      if (e.key === "Escape" && onClose) {
+      if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
       }
     };
     document.addEventListener("keydown", onKeyDown);
@@ -28,32 +25,23 @@ function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) 
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = origOverflow;
     };
-  }, [onClose]);
+  }, []);
 
-  // 배경 클릭으로 닫기
+  // ✅ 배경 클릭 무시
   const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget && onClose) {
-      onClose();
-    }
+    e.stopPropagation();
   };
 
-  // ✅ 숫자만 입력되도록 처리 + 6자리 제한
+  // ✅ 숫자만 입력되도록 처리 (이메일 인증일 때만)
   const handleCodeChange = (e) => {
-    const val = e.target.value.replace(/[^0-9]/g, ""); // 숫자만 허용
-    if (val.length <= 6) {
-      setVerifyCode(val);
-    }
+    const val = e.target.value.replace(/[^0-9]/g, "");
+    if (val.length <= 6) setVerifyCode(val);
   };
 
-  // ✅ Enter로도 확인 버튼 실행
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && onConfirm) {
-      // ✅ 이메일 인증 모달일 때만 인증코드 전달
-      if (title === "이메일 인증") {
-        onConfirm(verifyCode);
-      } else {
-        onConfirm();
-      }
+      if (title === "이메일 인증") onConfirm(verifyCode);
+      else onConfirm();
     }
   };
 
@@ -67,9 +55,11 @@ function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) 
         inset: 0,
         background: "rgba(0,0,0,0.45)",
         display: "flex",
-        alignItems: "center",
         justifyContent: "center",
-        zIndex: 9999,
+        alignItems: "flex-start",
+        paddingTop: "10vh", // ✅ 상단 중앙 배치
+        zIndex: 999999, // ✅ (추가) 모든 컨텍스트 위로 올림
+        pointerEvents: "auto", // ✅ (추가) 부모 overflow/transform 무시
       }}
       onClick={handleBackdropClick}
     >
@@ -80,47 +70,42 @@ function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) 
           width: "min(420px, 92vw)",
           background: "#fff",
           borderRadius: "12px",
-          padding: "20px",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+          padding: "24px",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
           outline: "none",
           position: "relative",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 닫기 X 버튼 */}
-        {onClose && (
-          <button
-            onClick={onClose}
-            style={{
-              position: "absolute",
-              top: "10px",
-              right: "10px",
-              background: "transparent",
-              border: "none",
-              fontSize: "20px",
-              cursor: "pointer",
-              lineHeight: "1",
-            }}
-          >
-            ×
-          </button>
-        )}
-
-        <h3 id="modal-title" style={{ margin: "0 0 12px", fontSize: "18px" }}>
+        <h3
+          id="modal-title"
+          style={{
+            margin: "0 0 12px",
+            fontSize: "18px",
+            fontWeight: "600",
+            textAlign: "center",
+          }}
+        >
           {title}
         </h3>
 
-        <div style={{ marginBottom: "16px", lineHeight: 1.5 }}>
-          {/* ✅ children만 렌더링 (설명 텍스트나 안내만 받기) */}
+        <div
+          style={{
+            marginBottom: "16px",
+            lineHeight: 1.6,
+            textAlign: "center",
+            color: "#333",
+          }}
+        >
           {children}
         </div>
 
-        {/* ✅ 인증코드 입력창 (Modal 내부 1개만 유지, 이메일 인증 모달일 때만 표시) */}
+        {/* 이메일 인증 모드일 때만 입력창 표시 */}
         {title === "이메일 인증" && (
           <input
-            type="text" // ✅ number → text
-            inputMode="numeric" // ✅ 모바일 숫자 키패드
-            maxLength={6} // ✅ 6자리 제한
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
             value={verifyCode}
             onChange={handleCodeChange}
             onKeyDown={handleKeyDown}
@@ -133,31 +118,32 @@ function Modal({ title, children, confirmText = "확인", onConfirm, onClose }) 
               border: "1px solid #ccc",
               outline: "none",
               marginBottom: "16px",
+              textAlign: "center",
             }}
           />
         )}
 
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", justifyContent: "center" }}>
           <button
             onClick={() =>
-              onConfirm && (title === "이메일 인증" ? onConfirm(verifyCode) : onConfirm())
-            } // ✅ 이메일 인증일 때만 verifyCode 전달
-            disabled={title === "이메일 인증" && verifyCode.length !== 6} // ✅ 인증 모달일 때만 6자리 제한 적용
+              onConfirm &&
+              (title === "이메일 인증" ? onConfirm(verifyCode) : onConfirm())
+            }
+            disabled={title === "이메일 인증" && verifyCode.length !== 6}
             style={{
-              padding: "8px 12px",
+              padding: "8px 20px",
               borderRadius: "8px",
               border: "none",
               background:
                 title === "이메일 인증"
                   ? verifyCode.length === 6
                     ? "#2563eb"
-                    : "#94a3b8" // ✅ 비활성 시 회색
-                  : "#2563eb", // ✅ 일반 모달은 항상 파란색 버튼
+                    : "#94a3b8"
+                  : "#2563eb",
               color: "#fff",
-              cursor:
-                title === "이메일 인증" && verifyCode.length !== 6
-                  ? "not-allowed"
-                  : "pointer",
+              fontSize: "15px",
+              cursor: "pointer",
+              fontWeight: "500",
               transition: "background 0.2s",
             }}
           >

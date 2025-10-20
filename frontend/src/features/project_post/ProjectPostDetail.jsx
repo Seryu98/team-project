@@ -5,6 +5,9 @@ import { authFetch, getCurrentUser } from "../auth/api";
 import ApplicationModal from "./ApplicationModal";
 import { submitReport } from "../../shared/api/reportApi";
 
+// ✅ 환경변수 기반 API 기본 URL 추가
+const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 export default function ProjectPostDetail() {
   const { postId } = useParams();
   const navigate = useNavigate();
@@ -14,6 +17,23 @@ export default function ProjectPostDetail() {
   const [showModal, setShowModal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [leaderInfo, setLeaderInfo] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+
+  // ✅ 멤버 제외 함수
+  const handleKickMember = async (userId) => {
+    if (!window.confirm("정말 이 멤버를 제외하시겠습니까?")) return;
+    try {
+      await authFetch(`/recipe/${postId}/kick/${userId}`, { method: "POST" });
+      alert("✅ 멤버가 제외되었습니다.");
+
+      // 최신 데이터 다시 불러오기
+      const updated = await authFetch(`/recipe/${postId}`, { method: "GET" });
+      setPost(updated);
+    } catch (err) {
+      alert("❌ 제외 실패: " + err.message);
+    }
+  };
+
 
   // ✅ 게시글 상세 + 로그인 사용자 정보 + 리더 정보 불러오기
   useEffect(() => {
@@ -58,6 +78,20 @@ export default function ProjectPostDetail() {
     fetchUser();
   }, [postId]);
 
+  // ✅ 드롭다운 외부 클릭 시 자동 닫기
+  useEffect(() => {
+    const handleOutsideClick = () => setActiveDropdown(null);
+
+    // 클릭 이벤트 등록
+    window.addEventListener("click", handleOutsideClick);
+
+    // 언마운트 시 이벤트 해제 (중복 방지)
+    return () => {
+      window.removeEventListener("click", handleOutsideClick);
+    };
+  }, []);
+
+
   // ✅ 탈퇴하기
   const handleLeave = async () => {
     if (busy) return;
@@ -97,19 +131,20 @@ export default function ProjectPostDetail() {
     if (busy) return;
     setBusy(true);
     try {
-      await authFetch(`/recipe/${postId}/recruit-status`, {
+      const res = await authFetch(`/recipe/${postId}/recruit-status`, {
         method: "POST",
         body: JSON.stringify({ status }),
       });
       alert(`✅ 모집 상태가 ${status}로 변경되었습니다.`);
-      const refreshed = await authFetch(`/recipe/${postId}`, { method: "GET" });
-      setPost(refreshed);
+      // ✅ 응답으로 바로 갱신 (GET 생략 가능)
+      setPost(res);
     } catch (err) {
       alert("❌ 상태 변경 실패: " + err.message);
     } finally {
       setBusy(false);
     }
   };
+
 
   // ✅ 프로젝트 종료 → 게시판 이동
   const endProject = async () => {
@@ -162,7 +197,14 @@ export default function ProjectPostDetail() {
         <div style={{ display: "flex", alignItems: "flex-start" }}>
           {post.image_url && (
             <img
-              src={`http://localhost:8000${post.image_url}`}
+              src={
+                post.image_url.startsWith("http")
+                  ? post.image_url // ✅ 이미 절대경로면 그대로 사용
+                  : `${API_URL}${post.image_url.startsWith("/")
+                    ? post.image_url
+                    : "/" + post.image_url
+                  }`
+              }
               alt="대표 이미지"
               style={{
                 width: "200px",
@@ -219,7 +261,6 @@ export default function ProjectPostDetail() {
             )}
           </div>
         </div>
-
         {/* 오른쪽: 프로젝트 리더 */}
         <div style={{ textAlign: "right" }}>
           <h4>프로젝트 리더</h4>
@@ -235,8 +276,8 @@ export default function ProjectPostDetail() {
             <img
               src={
                 leaderInfo?.profile_image
-                  ? `http://localhost:8000${leaderInfo.profile_image}`
-                  : "http://localhost:8000/assets/profile/default_profile.png"
+                  ? `${API_URL}${leaderInfo.profile_image}` // ✅ 수정됨
+                  : `${API_URL}/assets/profile/default_profile.png`
               }
               alt="리더 프로필"
               style={{
@@ -291,8 +332,6 @@ export default function ProjectPostDetail() {
             </button>
           )}
 
-
-
           {/* ✅ 리더만 보이는 버튼 */}
           {isLeader && !ended && (
             <div style={{ marginTop: "1rem" }}>
@@ -344,6 +383,137 @@ export default function ProjectPostDetail() {
       </div>
 
       <hr style={{ margin: "2rem 0" }} />
+
+      {/* 참여 중인 유저 섹션 */}
+      {post.members && post.members.length > 0 && (
+        <section
+          style={{
+            marginTop: "40px",
+            paddingTop: "20px",
+            borderTop: "1px solid #ddd",
+          }}
+        >
+          <h3 style={{ fontSize: "18px", fontWeight: "700", marginBottom: "16px" }}>
+            참여 중인 유저
+          </h3>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "20px",
+            }}
+          >
+            {post.members.map((member) => (
+              <div
+                key={member.user_id}
+                style={{
+                  width: "140px",
+                  textAlign: "center",
+                  background: "#fff",
+                  borderRadius: "12px",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+                  padding: "14px",
+                  position: "relative",
+                }}
+              >
+                {/* 프로필 이미지 */}
+                <img
+                  src={
+                    member.profile_image
+                      ? member.profile_image.startsWith("http")
+                        ? member.profile_image // 절대경로면 그대로 사용
+                        : member.profile_image.startsWith("/")
+                          ? `${API_URL}${member.profile_image}` // ✅ 수정됨
+                          : `${API_URL}/${member.profile_image}`
+                      : `${API_URL}/assets/profile/default_profile.png` // ✅ 수정됨
+                  }
+                  alt={member.nickname}
+                  style={{
+                    width: "50px",
+                    height: "50px",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    cursor: "pointer",
+                    transition: "transform 0.15s ease",
+                    border: member.user_id === post.leader_id ? "2px solid #007bff" : "1px solid #ccc",
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveDropdown(activeDropdown === member.user_id ? null : member.user_id);
+                  }}
+                />
+
+                {/* 닉네임 + 리더 표시 */}
+                <p
+                  style={{
+                    marginTop: "8px",
+                    fontWeight: "600",
+                    color: member.user_id === post.leader_id ? "#007bff" : "#333",
+                    fontSize: "14px",
+                  }}
+                >
+                  {member.user_id === post.leader_id
+                    ? `${member.nickname} (리더)`
+                    : member.nickname}
+                </p>
+                {/* 드롭다운 */}
+                {activeDropdown === member.user_id && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "95px",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      background: "#fff",
+                      border: "1px solid #ddd",
+                      borderRadius: "8px",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                      zIndex: 10,
+                      width: "120px",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "8px 0",
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                      }}
+                      onClick={() => navigate(`/profile/${member.user_id}`)}
+                    >
+                      프로필 보기
+                    </button>
+
+                    {/* 리더일 경우에만 ‘제외하기’ 버튼 */}
+                    {isLeader && member.user_id !== post.leader_id && (
+                      <button
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "8px 0",
+                          border: "none",
+                          background: "transparent",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          color: "red",
+                        }}
+                        onClick={() => handleKickMember(member.user_id)}
+                      >
+                        제외하기
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 기술 스택 */}
       <div>
@@ -443,7 +613,6 @@ export default function ProjectPostDetail() {
         ) : (
           <p style={{ fontSize: "13px", color: "#aaa" }}>로그인 정보 불러오는 중...</p>
         )}
-
       </div>
 
       {/* ✅ 지원서 모달 */}
