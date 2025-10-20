@@ -304,9 +304,14 @@ def report(payload: ReportCreate, db: Session = Depends(get_db), me=Depends(get_
     return {"id": rid, "success": True}
 
 
+
 # ===============================
 # 📰 게시글 목록 간단 버전 (HomePage용, 공개)
+# - 기존: posts + total만 반환
+# - 수정: 🔥 get_weekly_hot3 결과 포함 → top_posts 반환
+#       각 게시글에 badge(인기급상승, 메달 등) 병합
 # ===============================
+
 @public_router.get("/list")
 def list_posts_simple(
     skip: int = Query(0, description="건너뛸 개수 (offset)"),
@@ -353,9 +358,18 @@ def list_posts_simple(
         "like_count": r["like_count"] or 0,
         "comment_count": r["comment_count"] or 0,
         "author_nickname": r["author_nickname"] or "익명",
+        "badge": None,   # 🔖 기본값
     } for r in rows]
 
-    return {"posts": items, "total": total}
+    # ✅ 인기글/배지 병합 (get_weekly_hot3 사용)
+    hot3 = svc.get_weekly_hot3(db)
+    hot_map = {h["id"]: h for h in hot3}
+    for item in items:
+        if item["id"] in hot_map:
+            item["badge"] = hot_map[item["id"]].get("badge")
+
+    # ✅ top_posts도 같이 내려줌
+    return {"posts": items, "top_posts": hot3, "total": total}
 
 
 # ===============================
