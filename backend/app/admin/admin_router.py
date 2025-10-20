@@ -6,6 +6,10 @@ from sqlalchemy import text
 from pydantic import BaseModel, Field
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.admin.admin_schema import (
+    ResolveUserCommentReportRequest,
+    ResolvePostReportRequest,
+)
 from app.admin.admin_service import (
     approve_post,
     reject_post,
@@ -13,7 +17,9 @@ from app.admin.admin_service import (
     get_admin_stats,
     list_banned_users,  
     ban_user,            
-    unban_user,          
+    unban_user,  
+    resolve_user_comment_report,
+    resolve_post_report,        
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -117,6 +123,45 @@ def api_resolve_report(
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"신고 처리 중 오류 발생: {e}")
+    
+# ----------------------------
+# ✅ 댓글/유저 제재 처리
+# ----------------------------
+@router.post("/reports/{report_id}/resolve/user-comment")
+def api_resolve_user_comment_report(
+    report_id: int,
+    body: ResolveUserCommentReportRequest,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    [10/20 추가]
+    댓글/유저 신고 처리용 API
+    - comment_action: NONE/HIDE/DELETE
+    - user_action: NONE/WARNING/BAN_3DAYS/BAN_7DAYS/BAN_PERMANENT
+    """
+    _ensure_admin(user)
+    ok = resolve_user_comment_report(report_id, body, admin_id=user.id, db=db)
+    return {"success": ok, "message": "댓글/유저 신고 처리 완료" if ok else "처리에 실패했습니다."}
+
+
+# ----------------------------
+# ✅ 게시글 제재 처리
+# ----------------------------
+@router.post("/reports/{report_id}/resolve/post")
+def api_resolve_post_report(
+    report_id: int,
+    body: ResolvePostReportRequest,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    [10/20]게시글 신고 처리 (삭제 + 작성자 제재 가능)
+    """
+    _ensure_admin(user)
+    ok = resolve_post_report(report_id, body, admin_id=user.id, db=db)
+    return {"success": ok, "message": "게시글 신고 처리 완료" if ok else "처리에 실패했습니다."}
+# ✅ [10/20 추가 끝]
 
 # ----------------------------
 # ✅ 게시글 승인/거절 (옵션)
