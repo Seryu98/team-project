@@ -124,8 +124,9 @@ export async function register(form) {
 // 로그인 (username=user_id)
 // ============================
 export async function login(loginId, password) {
+  // ✅ FastAPI OAuth2PasswordRequestForm 규격: form-urlencoded
   const params = new URLSearchParams();
-  params.append("username", loginId);
+  params.append("username", loginId); // 필드명은 username
   params.append("password", password);
   params.append("grant_type", "password");
   params.append("scope", "");
@@ -143,9 +144,20 @@ export async function login(loginId, password) {
   }
 
   const data = await res.json();
-  setTokens(data);
+  console.log("🟢 로그인 응답:", data);
+
+  if (data.access_token) {
+    setTokens(data);
+    // (선택) 바로 접근할 수 있도록 로컬스토리지에도 명시 저장
+    localStorage.setItem("access_token", data.access_token);
+    if (data.refresh_token) localStorage.setItem("refresh_token", data.refresh_token);
+  } else {
+    console.error("❌ 로그인 응답에 토큰이 없습니다:", data);
+  }
+
   return data;
 }
+
 
 // ============================
 // Refresh Access Token
@@ -171,19 +183,17 @@ export async function refreshAccessToken() {
 }
 
 // ============================
-// API 요청 wrapper
+// ✅ 공용 fetch 인터셉터 (모든 요청에 Authorization 자동 추가)
 // ============================
-export async function authFetch(url, options = {}, { skipRedirect = false } = {}) {
+async function authorizedFetch(input, options = {}) {
   let token = getAccessToken();
   const headers = { ...(options.headers || {}) };
-
   if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
   }
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  let res = await fetch(`${API_URL}${url}`, { ...options, headers });
-
+  let res = await fetch(input, { ...options, headers });
   if (res.status === 401) {
     try {
       token = await refreshAccessToken();
@@ -192,12 +202,28 @@ export async function authFetch(url, options = {}, { skipRedirect = false } = {}
         retryHeaders["Content-Type"] = "application/json";
       }
       retryHeaders["Authorization"] = `Bearer ${token}`;
-      res = await fetch(`${API_URL}${url}`, { ...options, headers: retryHeaders });
+      res = await fetch(input, { ...options, headers: retryHeaders });
     } catch {
-      if (!skipRedirect) clearTokens("always");
-      else clearTokens("never");
+      console.warn("🔒 세션 만료됨, 모달 호출");
+      localStorage.setItem("session_expired", "true");
+      window.dispatchEvent(new Event("sessionExpired"));
+      clearTokens("always");
       throw new Error("세션 만료");
     }
+  }
+  return res;
+}
+
+// ============================
+// API 요청 wrapper
+// ============================
+export async function authFetch(url, options = {}, { skipRedirect = false } = {}) {
+  const res = await authorizedFetch(`${API_URL}${url}`, options);
+
+  if (res.status === 401) {
+    if (!skipRedirect) clearTokens("always");
+    else clearTokens("never");
+    throw new Error("세션 만료");
   }
 
   if (!res.ok) throw new Error("API 요청 실패");

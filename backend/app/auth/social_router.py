@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.auth import auth_service
 import os
+import traceback  # 🔹 디버깅용 (에러 발생 시 터미널에 스택 표시)
 
 router = APIRouter(prefix="/auth/social", tags=["Social Login"])
 
@@ -29,6 +30,8 @@ def social_login(provider: str):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        print("❌ [SOCIAL LOGIN ERROR]", e)
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"로그인 URL 생성 실패: {str(e)}")
 
 
@@ -62,8 +65,12 @@ def social_callback(
         # 🔹 토큰 발급 및 사용자 정보 처리
         jwt_tokens = auth_service.handle_oauth_callback(db, provider, code)
 
+        # 🔹 None 또는 KeyError 방지
+        if not jwt_tokens or "access_token" not in jwt_tokens or "refresh_token" not in jwt_tokens:
+            raise HTTPException(status_code=500, detail="토큰 발급 실패 또는 누락된 값이 있습니다.")
+
         # 🔹 프론트엔드 URL (리다이렉트 또는 API 응답)
-        frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+        frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173").rstrip("/")
         redirect_url = (
             f"{frontend_origin}/social/callback?"
             f"access_token={jwt_tokens['access_token']}&"
@@ -72,23 +79,38 @@ def social_callback(
 
         # ✅ 리다이렉트 방식 (SPA 페이지 이동용)
         if os.getenv("SOCIAL_LOGIN_MODE", "redirect") == "redirect":
-            return RedirectResponse(redirect_url)
+            # 🔹 URL 검증 (http:// 또는 https:// 로 시작 안 하면 기본값 사용)
+            if not redirect_url.startswith(("http://", "https://")):
+                redirect_url = f"http://localhost:5173/social/callback"
+            print(f"🔁 Redirecting to frontend: {redirect_url}")
+            return RedirectResponse(url=redirect_url, status_code=302)
 
         # ✅ JSON 응답 방식 (프론트가 직접 토큰 처리할 때)
+        print("✅ Social login successful:", provider)
         return JSONResponse(
             content={
                 "msg": f"{provider.capitalize()} 로그인 성공",
                 "access_token": jwt_tokens["access_token"],
                 "refresh_token": jwt_tokens["refresh_token"],
                 "token_type": "bearer",
-            }
+            },
+            status_code=200,
         )
 
     except ValueError as e:
+        print("⚠️ [SOCIAL CALLBACK VALUE ERROR]", e)
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
+
     except HTTPException as e:
+        print("⚠️ [SOCIAL CALLBACK HTTP ERROR]", e)
+        traceback.print_exc()
         raise e
+
     except Exception as e:
+        # 🔹 터미널에 실제 예외 스택 출력 (디버깅용)
+        print("=== [소셜 로그인 콜백 에러 발생] ===")
+        traceback.print_exc()
         raise HTTPException(
-            status_code=500, detail=f"소셜 로그인 처리 중 오류: {str(e)}"
+            status_code=500, detail=f"소셜 로그인 처리 중 오류가 발생했습니다: {str(e)}"
         )

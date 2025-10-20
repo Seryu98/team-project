@@ -5,12 +5,40 @@ import axios from "axios";
 export default function NotificationList({ onClose }) {
   const [items, setItems] = useState([]);
 
+  // ✅ axios 기본 설정 (토큰 자동 추가)
+  const api = axios.create({
+    baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+    withCredentials: true,
+  });
+
+  // ✅ 요청 인터셉터: Authorization 헤더 추가
+  api.interceptors.request.use((config) => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+
+  // ✅ 응답 인터셉터: 세션 만료 시 이벤트 발생
+  api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response && error.response.status === 401) {
+        console.warn("🔒 세션 만료됨 (알림 API)");
+        localStorage.setItem("session_expired", "true");
+        window.dispatchEvent(new Event("sessionExpired"));
+      }
+      return Promise.reject(error);
+    }
+  );
+
   // ================================================
   // ✅ 알림 목록 불러오기
   // ================================================
   async function fetchList() {
     try {
-      const { data } = await axios.get("/notifications", {
+      const { data } = await api.get("/notifications", {
         params: { only_unread: false },
       });
       if (data?.data) setItems(data.data);
@@ -45,7 +73,7 @@ export default function NotificationList({ onClose }) {
   async function onClickItem(n) {
     try {
       // 🩵 [수정] 클릭 즉시 읽음 처리 (오류 방지용)
-      await axios.post(`/notifications/${n.id}/read`);
+      await api.post(`/notifications/${n.id}/read`);
       setItems((prev) => prev.filter((x) => x.id !== n.id));
 
       // 🩵 [수정] redirect_path 'None' 문자열 방지

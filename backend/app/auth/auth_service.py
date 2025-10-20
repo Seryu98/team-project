@@ -29,6 +29,8 @@ from app.core.security import (
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
 from app.core.database import get_db
+from app.users.user_session_model import UserSession  # ✅ 외부 UserSession 모델 불러오기
+
 
 # ===============================
 # ⚙️ 정책 상수
@@ -39,27 +41,6 @@ RESET_TOKEN_EXPIRE_MINUTES = 30
 HTTP_TIMEOUT = 8
 
 logger = logging.getLogger(__name__)
-
-# ===============================
-# [세션 관리 추가] user_sessions ORM 모델 정의
-# ===============================
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
-
-
-class UserSession(Base):
-    __tablename__ = "user_sessions"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    device_id = Column(String(100), nullable=False)
-    token = Column(String(512), nullable=False)
-    created_at = Column(DateTime, default=func.now())
-
 
 # ===============================
 # 🌐 공통 유틸
@@ -405,11 +386,11 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
     # [세션 관리 추가] user_sessions 기록
     # ===============================
     try:
-        # device_id 생성 (프론트에서 전달되면 form_data.scopes[0]로 받는 것도 가능)
-        raw_device = form_data.client_id if hasattr(form_data, "client_id") else None
+        # device 식별 문자열 생성 (프론트 전달값이 있으면 활용 가능)
+        raw_device = getattr(form_data, "client_id", None)
         if not raw_device:
             raw_device = f"{form_data.username}-{random.randint(1000,9999)}"
-        device_id = hashlib.sha256(raw_device.encode()).hexdigest()[:64]
+        device_fingerprint = hashlib.sha256(raw_device.encode()).hexdigest()[:64]
 
         # 관리자(ROLE_ADMIN)는 단일 세션만 유지
         if db_user.role == "ADMIN":
@@ -419,17 +400,17 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
         # 기존 동일 디바이스 세션이 있으면 삭제 후 새로 추가
         db.query(UserSession).filter(
             UserSession.user_id == db_user.id,
-            UserSession.device_id == device_id,
+            UserSession.device_id == device_fingerprint,  # ✅ 모델 컬럼명과 일치
         ).delete()
 
         new_session = UserSession(
             user_id=db_user.id,
-            device_id=device_id,
+            device_id=device_fingerprint,  # ✅ 모델 컬럼명과 일치
             token=access_token,
         )
         db.add(new_session)
         db.commit()
-        logger.info("세션 등록 완료: user_id=%s device_id=%s", db_user.id, device_id)
+        logger.info("세션 등록 완료: user_id=%s device=%s", db_user.id, device_fingerprint)
 
     except Exception as e:
         logger.warning("⚠️ 세션 기록 실패: %s", e)
@@ -553,7 +534,7 @@ def get_oauth_login_url(provider: str) -> str:
     return f"{base['auth_url']}?{urlencode(base['params']())}"
 
 
-def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResponse:
+def handle_oauth_callback(db: Session, provider: str, code: str) -> dict:
     base_redirect = _oauth_base_redirect()
 
     try:
@@ -587,7 +568,7 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
     # 사용자 등록/복귀 + 신규 가입자 여부 확인
     user, is_new_user = _upsert_social_user(db, provider, social_id, email, name)
 
-    # JWT 발급 및 프론트로 리다이렉트
+    # JWT 발급
     access_token, refresh_token = _issue_jwt_pair(user.id)
     logger.info(
         "%s 로그인 성공: user_id=%s email=%s is_new=%s",
@@ -601,7 +582,7 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
     # [세션 관리 추가] 소셜 로그인 세션 기록
     # ===============================
     try:
-        device_id = hashlib.sha256(f"{provider}_{user.id}".encode()).hexdigest()[:64]
+        device_fingerprint = hashlib.sha256(f"{provider}_{user.id}".encode()).hexdigest()[:64]
 
         # 관리자 단일 세션 정책
         if user.role == "ADMIN":
@@ -611,26 +592,29 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
         # 기존 동일 기기 세션 삭제
         db.query(UserSession).filter(
             UserSession.user_id == user.id,
-            UserSession.device_id == device_id,
+            UserSession.device_id == device_fingerprint,
         ).delete()
 
         new_session = UserSession(
             user_id=user.id,
-            device_id=device_id,
+            device_id=device_fingerprint,
             token=access_token,
         )
         db.add(new_session)
         db.commit()
-        logger.info(
-            "소셜 로그인 세션 등록 완료: user_id=%s provider=%s", user.id, provider
-        )
+        logger.info("소셜 로그인 세션 등록 완료: user_id=%s provider=%s", user.id, provider)
 
     except Exception as e:
         logger.warning("⚠️ 소셜 로그인 세션 기록 실패: %s", e)
         db.rollback()
 
-    redirect_url = build_frontend_redirect_url(access_token, refresh_token, is_new_user)
-    return RedirectResponse(url=redirect_url)
+    # ✅ RedirectResponse 대신 토큰 정보 딕셔너리 반환 (router에서 리다이렉트 처리)
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "new_user": is_new_user,
+    }
 
 
 # ===============================
@@ -758,3 +742,82 @@ def reset_password(db: Session, reset_token: str, new_password: str) -> bool:
     db.refresh(user)
     logger.info("비밀번호 재설정 성공: user_id=%s", user.user_id)
     return True
+
+
+# ===============================
+# 🧩 세션 유효성 검증
+# ===============================
+def validate_session(db: Session, token: str) -> bool:
+    """현재 Access Token이 user_sessions 테이블에 존재하는지 확인"""
+    try:
+        session = db.query(UserSession).filter(
+            UserSession.token == token,
+            UserSession.is_active == True  # 활성 세션만 유효
+        ).first()
+        if not session:
+            logger.debug("❌ 세션 없음 또는 비활성화된 세션입니다.")
+            return False
+        return True
+    except Exception as e:
+        logger.warning("⚠️ validate_session 오류: %s", e)
+        return False
+
+# ===============================
+# ♻️ Refresh Token으로 Access 갱신
+# ===============================
+def refresh_access_token(refresh_token: str) -> Optional[dict]:
+    """
+    Refresh 토큰 검증 → 새 Access 토큰 발급
+    - 관리자: 단일 세션 정책 (모든 세션 삭제 후 1개 생성)
+    - 일반 유저: 다중 세션 허용 (새 세션 1개 추가)
+    """
+    payload = verify_token(refresh_token, expected_type="refresh")
+    if not payload:
+        return None
+
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+
+    # 새 Access 발급
+    new_access = create_access_token(
+        data={"sub": str(user_id)},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+
+    # 세션 기록
+    from app.core.database import get_db  # 안전한 import
+    db: Session = next(get_db())
+    try:
+        user: User = db.query(User).filter(User.id == int(user_id)).first()
+        if not user:
+            return None
+
+        # 관리자: 단일 세션 유지
+        if getattr(user, "role", "USER") == "ADMIN":
+            db.query(UserSession).filter(UserSession.user_id == user.id).delete()
+            db.commit()
+
+        # 새 세션 추가 (리프레시 기원 식별자)
+        refresh_fingerprint = hashlib.sha256(
+            f"refresh-{user_id}-{datetime.utcnow().isoformat()}".encode()
+        ).hexdigest()[:64]
+
+        db.add(UserSession(
+            user_id=user.id,
+            device_id=refresh_fingerprint,
+            token=new_access,
+            is_active=True
+        ))
+        db.commit()
+        logger.info("♻️ Refresh 토큰으로 Access 재발급 완료: user_id=%s", user.id)
+
+    except Exception as e:
+        logger.warning("⚠️ refresh_access_token 세션 기록 실패: %s", e)
+        db.rollback()
+
+    return {
+        "access_token": new_access,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }

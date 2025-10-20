@@ -14,6 +14,7 @@ import {
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SessionExpiredModal from "./components/SessionExpiredModal";
+import NotifyProvider from "./components/NotifyProvider"; // ✅ 추가: 실시간 알림 Provider
 
 // ---------------------------------------
 // Auth
@@ -120,179 +121,181 @@ export default function App() {
   }, []);
 
   return (
-    <Router>
-      <Routes>
-        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기/소셜콜백/튜토리얼) */}
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/find-account" element={<FindAccount />} />
-          <Route path="/social/callback" element={<SocialCallback />} />
-          <Route path="/tutorial" element={<ProfileTutorial />} />
-        </Route>
-
-        {/* ✅ Navbar 포함된 그룹 */}
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<HomePage />} />
-
-          {/* ---------------------------------------
-              🔍 통합 검색
-          --------------------------------------- */}
-          <Route path="/search" element={<SearchPage />} />
-
-          {/* ---------------------------------------
-              🔹 프로젝트/스터디 게시판
-          --------------------------------------- */}
-          <Route path="/posts" element={<ProjectPostList />} />
-          <Route path="/recipe/:postId" element={<ProjectPostDetail />} />
-          <Route
-            path="/recipe/create"
-            element={
-              <ProtectedRoute>
-                <RecipeCreate />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/recipe/:postId/edit"
-            element={
-              <ProtectedRoute>
-                <RecipeEdit />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ---------------------------------------
-              ✅ 유저 게시판
-          --------------------------------------- */}
-          <Route path="/board" element={<BoardListPage />} />
-          <Route path="/board/:id" element={<BoardDetailPage />} />
-          <Route
-            path="/board/write"
-            element={
-              <ProtectedRoute>
-                <BoardCreatePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/board/:postId/edit"
-            element={
-              <ProtectedRoute>
-                <BoardEditPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ---------------------------------------
-              🧭 랭킹 + 유저 랭킹 페이지
-          --------------------------------------- */}
-          <Route path="/ranking" element={<Ranking />} />
-          <Route path="/users/ranking" element={<UserRanking />} />
-
-          {/* ---------------------------------------
-              🔒 프로필 관련
-          --------------------------------------- */}
-          <Route path="/profile/:userId" element={<ProfilePage />} />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile/create"
-            element={
-              <ProtectedRoute>
-                <ProfileCreate />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ---------------------------------------
-              ✅ 계정 관리 (중첩 라우트)
-          --------------------------------------- */}
-          <Route
-            path="/account"
-            element={
-              <ProtectedRoute>
-                <AccountLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="settings" replace />} />
-            <Route path="settings" element={<AccountSettings />} />
-            <Route path="change-password" element={<ChangePassword />} />
+    // ✅ NotifyProvider로 전체 앱 감싸기 (WebSocket 연결 유지)
+    <NotifyProvider>
+      <Router>
+        <Routes>
+          {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기/소셜콜백/튜토리얼) */}
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/find-account" element={<FindAccount />} />
+            <Route path="/social/callback" element={<SocialCallback />} />
+            <Route path="/tutorial" element={<ProfileTutorial />} />
           </Route>
 
-          {/* ---------------------------------------
-              ✅ 관리자 대시보드
-          --------------------------------------- */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute requiredRole="ADMIN">
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
+          {/* ✅ Navbar 포함된 그룹 */}
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<HomePage />} />
 
-          <Route
-            path="/admin/pending"
-            element={
-              <ProtectedRoute requiredRole="ADMIN">
-                <AdminPendingPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* ---------------------------------------
+                🔍 통합 검색
+            --------------------------------------- */}
+            <Route path="/search" element={<SearchPage />} />
 
+            {/* ---------------------------------------
+                🔹 프로젝트/스터디 게시판
+            --------------------------------------- */}
+            <Route path="/posts" element={<ProjectPostList />} />
+            <Route path="/recipe/:postId" element={<ProjectPostDetail />} />
+            <Route
+              path="/recipe/create"
+              element={
+                <ProtectedRoute>
+                  <RecipeCreate />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recipe/:postId/edit"
+              element={
+                <ProtectedRoute>
+                  <RecipeEdit />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/admin/reports"
-            element={
-              <ProtectedRoute requiredRole="ADMIN">
-                <AdminReportsPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* ---------------------------------------
+                ✅ 유저 게시판
+            --------------------------------------- */}
+            <Route path="/board" element={<BoardListPage />} />
+            <Route path="/board/:id" element={<BoardDetailPage />} />
+            <Route
+              path="/board/write"
+              element={
+                <ProtectedRoute>
+                  <BoardCreatePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/board/:postId/edit"
+              element={
+                <ProtectedRoute>
+                  <BoardEditPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/admin/users"
-            element={
-              <ProtectedRoute requiredRole="ADMIN">
-                <AdminUsersPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* ---------------------------------------
+                🧭 랭킹 + 유저 랭킹 페이지
+            --------------------------------------- */}
+            <Route path="/ranking" element={<Ranking />} />
+            <Route path="/users/ranking" element={<UserRanking />} />
 
-          {/* ✅ 수정: 기존 MessageInbox → MessagesPage로 교체 */}
-          <Route
-            path="/messages/*"
-            element={
-              <ProtectedRoute>
-                <MessagesPage /> {/* ← 삼분할 쪽지함 전체 페이지 */}
-              </ProtectedRoute>
-            }
-          />
+            {/* ---------------------------------------
+                🔒 프로필 관련
+            --------------------------------------- */}
+            <Route path="/profile/:userId" element={<ProfilePage />} />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/create"
+              element={
+                <ProtectedRoute>
+                  <ProfileCreate />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* ✅ 유지: 특정 메시지 개별 접근용 (필요 시) */}
-          <Route
-            path="/messages/:id"
-            element={
-              <ProtectedRoute>
-                <MessageDetail />
-              </ProtectedRoute>
-            }
-          />
-        </Route>
-      </Routes>
+            {/* ---------------------------------------
+                ✅ 계정 관리 (중첩 라우트)
+            --------------------------------------- */}
+            <Route
+              path="/account"
+              element={
+                <ProtectedRoute>
+                  <AccountLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="settings" replace />} />
+              <Route path="settings" element={<AccountSettings />} />
+              <Route path="change-password" element={<ChangePassword />} />
+            </Route>
 
-      {/* ⏰ 세션 만료 모달 */}
-      {showSessionModal && (
-        <SessionExpiredModal onClose={() => setShowSessionModal(false)} />
-      )}
-    </Router>
+            {/* ---------------------------------------
+                ✅ 관리자 대시보드
+            --------------------------------------- */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute requiredRole="ADMIN">
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/pending"
+              element={
+                <ProtectedRoute requiredRole="ADMIN">
+                  <AdminPendingPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/reports"
+              element={
+                <ProtectedRoute requiredRole="ADMIN">
+                  <AdminReportsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/users"
+              element={
+                <ProtectedRoute requiredRole="ADMIN">
+                  <AdminUsersPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ✅ 수정: 기존 MessageInbox → MessagesPage로 교체 */}
+            <Route
+              path="/messages/*"
+              element={
+                <ProtectedRoute>
+                  <MessagesPage /> {/* ← 삼분할 쪽지함 전체 페이지 */}
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ✅ 유지: 특정 메시지 개별 접근용 (필요 시) */}
+            <Route
+              path="/messages/:id"
+              element={
+                <ProtectedRoute>
+                  <MessageDetail />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
+        </Routes>
+
+        {/* ⏰ 세션 만료 모달 */}
+        {showSessionModal && (
+          <SessionExpiredModal onClose={() => setShowSessionModal(false)} />
+        )}
+      </Router>
+    </NotifyProvider>
   );
 }

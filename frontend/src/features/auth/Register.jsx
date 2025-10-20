@@ -33,9 +33,23 @@ function Register() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
 
+  // ✅ 전화번호 중복확인 상태
+  const [phoneCheckMsg, setPhoneCheckMsg] = useState("");
+  const [isPhoneChecked, setIsPhoneChecked] = useState(false);
+
   // ✅ 입력 변경 핸들러
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // ✅ 전화번호는 숫자만 입력되도록 필터링
+    if (name === "phone_number") {
+      const onlyNums = value.replace(/[^0-9]/g, "");
+      setForm({ ...form, [name]: onlyNums });
+      setIsPhoneChecked(false);
+      setPhoneCheckMsg("");
+      return;
+    }
+
     setForm({ ...form, [name]: value });
 
     // 실시간 비밀번호 일치 검사
@@ -140,6 +154,28 @@ function Register() {
     }
   };
 
+  // ✅ 전화번호 중복확인 (백엔드 메시지 그대로 반영)
+  const handlePhoneCheck = async () => {
+    if (!form.phone_number) {
+      setPhoneCheckMsg("⚠️ 전화번호를 입력해주세요.");
+      setIsPhoneChecked(false);
+      return;
+    }
+    try {
+      const res = await axios.get(
+        `http://localhost:8000/auth/check-phone?phone_number=${form.phone_number}`
+      );
+
+      // ✅ 백엔드에서 보낸 메시지를 그대로 사용
+      setPhoneCheckMsg(res.data.message);
+      setIsPhoneChecked(res.data.available === true);
+    } catch (error) {
+      console.error("전화번호 중복확인 오류:", error);
+      setPhoneCheckMsg("❌ 전화번호 확인 중 오류가 발생했습니다.");
+      setIsPhoneChecked(false);
+    }
+  };
+
   // ✅ 회원가입 제출
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -158,6 +194,18 @@ function Register() {
     // ✅ 중복확인 여부 확인
     if (!isIdChecked) {
       setMsg("❌ 아이디 중복확인을 해주세요.");
+      return;
+    }
+
+    // ✅ 전화번호 필수 입력 확인
+    if (!form.phone_number) {
+      setMsg("❌ 전화번호를 입력해주세요.");
+      return;
+    }
+
+    // ✅ 전화번호 중복확인 여부
+    if (!isPhoneChecked) {
+      setMsg("❌ 전화번호 중복확인을 해주세요.");
       return;
     }
 
@@ -396,9 +444,7 @@ function Register() {
               />
               <button
                 type="button"
-                onClick={() =>
-                  setShowPasswordConfirm(!showPasswordConfirm)
-                }
+                onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
                 style={{
                   border: "none",
                   background: "none",
@@ -444,14 +490,40 @@ function Register() {
 
           {/* 전화번호 */}
           <label style={{ fontSize: "13px" }}>
-            전화번호
-            <input
-              name="phone_number"
-              placeholder="01012345678"
-              value={form.phone_number}
-              onChange={handleChange}
-              style={{ ...inputStyle, marginTop: "6px" }}
-            />
+            전화번호<span style={{ color: "#ef4444" }}> *</span>
+            <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+              <input
+                name="phone_number"
+                placeholder="숫자만 입력 (예: 01012345678)"
+                value={form.phone_number}
+                onChange={handleChange}
+                style={{ ...inputStyle, flex: 1 }}
+                required
+              />
+              <button
+                type="button"
+                onClick={handlePhoneCheck}
+                style={{
+                  ...buttonPrimary,
+                  background: "#4b5563",
+                  whiteSpace: "nowrap",
+                  padding: "10px 14px",
+                }}
+              >
+                중복확인
+              </button>
+            </div>
+            {phoneCheckMsg && (
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: phoneCheckMsg.includes("가능") ? "green" : "red",
+                  marginTop: "4px",
+                }}
+              >
+                {phoneCheckMsg}
+              </p>
+            )}
           </label>
 
           {/* 가입 버튼 */}
@@ -470,8 +542,15 @@ function Register() {
           <Link to="/login">이미 계정이 있으신가요? 로그인</Link>
         </div>
 
+
         {msg && (
-          <p style={{ marginTop: "12px", textAlign: "center", color: "#ef4444" }}>
+          <p
+            style={{
+              marginTop: "12px",
+              textAlign: "center",
+              color: "#ef4444",
+            }}
+          >
             {msg}
           </p>
         )}
@@ -489,6 +568,7 @@ function Register() {
         </Modal>
       )}
 
+      {/* 가입 완료 모달 */}
       {showDone && (
         <Modal
           title="회원가입 완료"

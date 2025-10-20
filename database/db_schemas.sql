@@ -452,32 +452,29 @@ CREATE INDEX idx_app_user_post_status_changed
   ON applications (user_id, post_id, status_changed_at);
 
 -- ======================================================================
--- ✅✅ [추가] 세션 관리 테이블 (다중/단일 세션 정책 구현용) ← ★최하단 추가 (2025-10-19)
--- - 위치: 파일 최하단
--- - 용도: 로그인 성공 시 발급된 Access 토큰을 기기 단위로 저장
--- - 활용:
--- * 일반 사용자: 다중 세션 허용(현행 정책)
--- * 관리자: 단일 세션 강제 시, 같은 user_id의 다른 세션을 삭제
--- * “다른 기기에서 로그인되었습니다” 알림/강제 만료 구현 근거 데이터
+-- ✅✅ [수정] 세션 관리 테이블 (user_sessions) - FastAPI 모델 반영 (2025-10-20)
+-- - 변경사항: device_id → device_info, ip / is_active / expires_at 추가
 -- ======================================================================
 CREATE TABLE IF NOT EXISTS user_sessions (
-id BIGINT NOT NULL AUTO_INCREMENT,
-user_id BIGINT NOT NULL COMMENT '세션 소유자 users.id',
-device_id VARCHAR(100) NOT NULL COMMENT '기기/브라우저 식별자 (uuid 또는 UA 해시)',
-token VARCHAR(512) NOT NULL COMMENT '현재 활성 Access 토큰(JWT)',
-created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '세션 생성 시각',
-PRIMARY KEY (id),
-CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL COMMENT '세션 소유자 users.id',
+  token VARCHAR(512) NOT NULL COMMENT '현재 활성 Access 토큰(JWT)',
+  device_info VARCHAR(255) DEFAULT NULL COMMENT '기기/브라우저 정보 (예: Chrome on Windows)',
+  ip VARCHAR(100) DEFAULT NULL COMMENT '접속 IP 주소',
+  is_active BOOLEAN DEFAULT TRUE COMMENT '세션 활성 여부',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '세션 생성 시각',
+  expires_at DATETIME DEFAULT (CURRENT_TIMESTAMP + INTERVAL 1 DAY) COMMENT '만료 시각 (기본 1일)',
+  PRIMARY KEY (id),
+  CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- 🔎 조회 효율/정책 구현을 위한 보조 인덱스
 CREATE INDEX idx_user_sessions_user ON user_sessions (user_id, created_at);
-CREATE UNIQUE INDEX uq_user_sessions_user_device ON user_sessions (user_id, device_id);
+CREATE INDEX idx_user_sessions_active ON user_sessions (is_active);
 
 -- 📌 운영 메모
--- - 단일 세션 정책(관리자용)을 적용하려면 로그인 성공 직후:
--- 1) 동일 user_id의 기존 세션 조회 → 필요 시 삭제
--- 2) 새 (user_id, device_id, token) 레코드 삽입
--- - “모든 세션 만료” 기능은 user_id로 일괄 DELETE 수행
--- - 비밀번호 변경 시에도 해당 user_id 모든 세션 삭제 권장
+-- - 일반 사용자: 다중 로그인 허용
+-- - 관리자: 단일 세션 정책 시 동일 user_id의 기존 세션을 삭제 후 새 세션 삽입
+-- - 모든 세션 만료: user_id 기준 DELETE
+-- - 비밀번호 변경 시: 해당 user_id 세션 전체 삭제 권장
 -- ======================================================================

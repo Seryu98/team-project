@@ -1,6 +1,8 @@
 # app/main.py
+import os
 from dotenv import load_dotenv
 load_dotenv()
+print("✅ .env 테스트:", os.getenv("GOOGLE_CLIENT_ID"))
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -77,6 +79,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ===================================
+# ✅ 세션 검증 미들웨어 등록
+# ===================================
+from app.middleware.session_validator import SessionValidatorMiddleware
+app.add_middleware(SessionValidatorMiddleware)
+logging.info("✅ SessionValidatorMiddleware 활성화 완료")
 
 # ===================================
 # 🗂️ 정적 파일 마운트
@@ -105,6 +113,7 @@ from app.users import user_router
 from app.admin import admin_router
 from app.report import report_router
 from app.admin.admin_user_router import router as admin_user_router
+from app.notifications import notification_ws_router  # ✅ [추가] 실시간 알림 WebSocket 라우터 import
 
 # ✅ 모든 주요 라우터 등록
 app.include_router(auth_router.router)
@@ -125,6 +134,7 @@ app.include_router(board_router.router)
 app.include_router(user_router.router)
 app.include_router(admin_router.router)
 app.include_router(notification_router)
+app.include_router(notification_ws_router.router)  # ✅ [추가] 실시간 알림 WebSocket 라우터 등록
 app.include_router(message_router)
 app.include_router(report_router.router)
 app.include_router(admin_user_router)
@@ -156,7 +166,6 @@ async def log_requests(request: Request, call_next):
             status_code=500,
             content={"detail": f"Internal Server Error: {str(e)}"},
         )
-
 
 # ===================================
 # ✅ 이메일 인증 관련 라우트 (보강용)

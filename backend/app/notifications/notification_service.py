@@ -262,3 +262,30 @@ def notify_report_result(
     finally:
         if close:
             db.close()
+
+
+# ============================================================
+# ✅ [마지막 추가] 실시간 알림(WebSocket) 전송 기능
+# ============================================================
+# 🧩 주의: 기존 기능은 전혀 수정하지 않고, 아래 보조 유틸만 추가함.
+from fastapi import WebSocket
+import json
+
+# 현재 접속 중인 사용자별 WebSocket 연결 저장소
+active_connections = {}  # {user_id: WebSocket}
+
+async def send_realtime_notification(user_id: int, data: dict):
+    """
+    실시간 알림 전송 (프론트 WebSocket 연결 대상)
+    - data: {"title": "...", "content": "...", "type": "..."}
+    """
+    ws: Optional[WebSocket] = active_connections.get(user_id)
+    if not ws:
+        print(f"⚠️ WebSocket 연결 없음 → user_id={user_id}, data={data}")
+        return
+
+    try:
+        await ws.send_text(json.dumps(data))
+        print(f"🔔 실시간 알림 전송 완료 → user_id={user_id}, title={data.get('title')}")
+    except Exception as e:
+        print(f"⚠️ 실시간 알림 전송 실패 → {e}")

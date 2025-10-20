@@ -112,3 +112,30 @@ def verify_token(token: str, expected_type: Optional[str] = None):
         return None
 
     return payload
+
+
+# ============================================================
+# 🧩 추가 기능: 세션 유효성 검증 로직 (validate_user_session)
+# ============================================================
+from fastapi import HTTPException, Depends
+from sqlalchemy.orm import Session
+from app.users.user_session_model import UserSession
+from app.core.database import get_db
+
+def validate_user_session(db: Session, user_id: int, token: str):
+    """
+    ✅ 토큰-세션 매칭 검증
+    - Access Token이 유효하더라도 DB에 해당 세션이 없거나 비활성화된 경우 → 401 반환
+    """
+    session = db.query(UserSession).filter(
+        UserSession.user_id == user_id,
+        UserSession.token == token,
+        UserSession.is_active == True
+    ).first()
+
+    if not session:
+        print(f"[validate_user_session] ❌ 세션 무효 또는 만료 user_id={user_id}")
+        raise HTTPException(status_code=401, detail="Invalid session or logged out")
+
+    print(f"[validate_user_session] ✅ 세션 유효 user_id={user_id}, token={token[:15]}...")
+    return True
