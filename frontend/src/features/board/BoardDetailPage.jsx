@@ -180,13 +180,13 @@ export default function BoardDetailPage() {
   };
 
   // ===============================
-  // 🩵 [추가] 실시간 알림 갱신 (신고 시 반영)
+  // 🩵 실시간 알림 갱신 (신고 시 반영)
   // ===============================
   const bumpNotificationList = () => {
     try {
       localStorage.setItem("refreshNotifications", Date.now().toString());
       setTimeout(() => localStorage.removeItem("refreshNotifications"), 50);
-    } catch {}
+    } catch { }
   };
 
   // ===============================
@@ -207,7 +207,6 @@ export default function BoardDetailPage() {
 
   // ✅ 권한별 버튼 렌더
   const renderButtons = (item, isMine) => {
-    // 🩵 [수정] 신고 버튼 조건/로직 개선 — 모든 댓글에 신고 가능
     return (
       <>
         {isMine ? (
@@ -228,7 +227,7 @@ export default function BoardDetailPage() {
               try {
                 await submitReport("COMMENT", item.id, reason);
                 alert("🚨 댓글 신고가 접수되었습니다.");
-                bumpNotificationList(); // 🩵 [추가] 실시간 알림 반영
+                bumpNotificationList();
               } catch (err) {
                 console.error("❌ 댓글 신고 실패:", err);
                 alert("신고 중 오류가 발생했습니다.");
@@ -276,9 +275,7 @@ export default function BoardDetailPage() {
           <span className="detail-date">{new Date(post.created_at).toLocaleDateString()}</span>
         </div>
 
-
-
-        {/* 이미지 + 본문 (2열) */}
+        {/* 이미지 + 본문 */}
         <div className="detail-content-row">
           {post.attachment_url && (
             <img
@@ -290,7 +287,7 @@ export default function BoardDetailPage() {
           <div className="detail-text">{post.content}</div>
         </div>
 
-        {/* 홍보글 | 조회수 | 댓글 */}
+        {/* 메타 정보 */}
         <div className="detail-meta">
           <span className="detail-meta-item">홍보글</span> |
           <span className="detail-meta-item">👁 {post.view_count}</span> |
@@ -324,34 +321,26 @@ export default function BoardDetailPage() {
           )}
         </div>
 
-        {/* 🚨 게시글 신고 버튼 (작성자가 아닐 때만 표시) */}
-          {currentUser && currentUser.id !== post.leader_id && (
-            <button
-              onClick={async () => {
-                const reason = prompt("신고 사유를 입력해주세요:");
-                if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
-                try {
-                  await submitReport("POST", post.id, reason);
-                  alert("🚨 게시글 신고가 접수되었습니다.");
-                } catch (err) {
-                  console.error("❌ 게시글 신고 실패:", err);
-                  alert("신고 중 오류가 발생했습니다.");
-                }
-              }}
-              style={{
-                marginTop: "8px",
-                padding: "6px 10px",
-                background: "#dc3545",
-                color: "#fff",
-                border: "none",
-                borderRadius: "5px",
-                cursor: "pointer",
-              }}
-            >
-              🚨 게시글 신고
-            </button>
-          )}
-
+        {/* 🚨 게시글 신고 버튼 (작성자 본인 제외) */}
+        {isLoggedIn && !isOwner && (
+          <button
+            className="report-btn"
+            onClick={async () => {
+              const reason = prompt("이 게시글을 신고하는 이유를 입력해주세요:");
+              if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
+              try {
+                await submitReport("BOARD_POST", post.id, reason);
+                alert("🚨 게시글 신고가 접수되었습니다.");
+                bumpNotificationList();
+              } catch (err) {
+                console.error("❌ 게시글 신고 실패:", err);
+                alert("신고 중 오류가 발생했습니다.");
+              }
+            }}
+          >
+            🚨 게시글 신고
+          </button>
+        )}
 
         {/* 수정 / 삭제 */}
         {isOwner && (
@@ -383,7 +372,6 @@ export default function BoardDetailPage() {
           ) : (
             <p>💡 로그인 후 댓글을 작성할 수 있습니다.</p>
           )}
-
 
           {/* 댓글 + 대댓글 */}
           {comments.map((thread) => {
