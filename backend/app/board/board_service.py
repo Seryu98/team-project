@@ -24,6 +24,17 @@ CATEGORY_JOIN = "LEFT JOIN categories ct ON ct.id = bp.category_id"
 VISIBLE_WHERE = "bp.status = 'VISIBLE'"
 PREVIEW_LEN = 20
 
+# ─────────────────────────────────────────────────────────
+# 기본 이미지 경로
+# ─────────────────────────────────────────────────────────
+CATEGORY_DEFAULT_IMAGES = {
+    "홍보글": "/assets/profile/promotion.png",
+    "잡담글": "/assets/profile/small_talk.png",
+    "자랑글": "/assets/profile/show_off.png",
+    "질문&답변": "/assets/profile/question.png",
+    "정보공유": "/assets/profile/information.png",
+}
+
 
 def _preview(content: str) -> str:
     """글 본문 미리보기 (긴 내용은 … 처리)"""
@@ -533,6 +544,16 @@ def get_post_and_touch_view(
 # 📝 게시글 생성 / 수정 / 삭제 (UTC_TIMESTAMP)
 # ============================================================
 def create_post(db: Session, author_id: int, data: Dict[str, Any]) -> int:
+    # ✅ 카테고리 이름 가져오기
+    category_row = db.execute(
+        text("SELECT name FROM categories WHERE id = :id"),
+        {"id": data.get("category_id")},
+    ).mappings().first()
+
+    image_url = data.get("attachment_url")
+    if not image_url and category_row:
+        image_url = CATEGORY_DEFAULT_IMAGES.get(category_row["name"])
+
     res = db.execute(
         text("""
         INSERT INTO board_posts (category_id, author_id, title, content, attachment_url)
@@ -543,7 +564,7 @@ def create_post(db: Session, author_id: int, data: Dict[str, Any]) -> int:
             "author_id": author_id,
             "title": data["title"],
             "content": data["content"],
-            "attachment_url": data.get("attachment_url"),
+            "attachment_url": image_url,  # ✅ 기본 이미지든 직접 업로드든 최종값 저장
         },
     )
     db.commit()

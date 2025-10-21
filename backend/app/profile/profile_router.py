@@ -20,7 +20,12 @@ def get_my_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return get_profile_detail(db, current_user.id, current_user_id=current_user.id)
+    return get_profile_detail(
+        db,
+        current_user.id,
+        current_user_id=current_user.id,
+        current_user_role=current_user.role
+    )
 
 
 # ---------------------------------------------------------------------
@@ -32,7 +37,12 @@ def get_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return get_profile_detail(db, user_id, current_user_id=current_user.id)
+    return get_profile_detail(
+        db,
+        user_id,
+        current_user_id=current_user.id,
+        current_user_role=current_user.role
+    )
 
 
 # ---------------------------------------------------------------------
@@ -66,7 +76,12 @@ async def upload_profile_image(
     db.commit()
     db.refresh(profile)
 
-    return get_profile_detail(db, current_user.id, current_user_id=current_user.id)
+    return get_profile_detail(
+        db,
+        current_user.id,
+        current_user_id=current_user.id,
+        current_user_role=current_user.role
+    )
 
 # ---------------------------------------------------------------------
 # ✅ 특정 유저의 프로젝트 조회

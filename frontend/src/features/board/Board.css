@@ -91,8 +91,8 @@
 
 .filter-section h4 {
   font-size: 14px;
-  font-weight: 600;
-  color: #374151;
+  font-weight: 700;
+  color: #111827; 
   margin-bottom: 10px;
 }
 
@@ -101,7 +101,8 @@
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #4b5563;
+  font-weight: 500;
+  color: #111827;
   cursor: pointer;
   padding: 4px 0;
   transition: color 0.2s;
@@ -603,6 +604,7 @@
   max-width: 760px;
   margin: 0 auto;
   padding: 20px;
+  box-sizing: border-box;  /* ✅ padding 포함 계산 */
 }
 
 .back-btn {
@@ -620,6 +622,8 @@
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;  /* ✅ padding 포함 계산 */
+  overflow: hidden;        /* ✅ 내용물이 넘치지 않도록 */
 }
 
 /* =============================== */
@@ -669,7 +673,7 @@
   font-size: 20px;
   font-weight: 700;
   color: #111827;
-  margin: 6px 0 12px 0;
+  margin: 6px 0 8px 0;  
 }
 
 /* =============================== */
@@ -677,10 +681,11 @@
 /* =============================== */
 .post-cover {
   display: block;
-  margin: 0 auto 14px auto;
-  width: 65%;
-  max-width: 480px;
+  margin: 12px auto;  
+  width: 100%;
+  max-width: 280px; 
   height: auto;
+  max-height: 220px;  
   border-radius: 10px;
   border: 1px solid #eee;
   background: #fafafa;
@@ -690,10 +695,11 @@
 
 .board-detail-card .post-cover {
   display: block;
-  margin: 16px auto;
-  width: 65%;
-  max-width: 520px;
+  margin: 12px auto;  
+  width: 100%;
+  max-width: 280px;  
   height: auto;
+  max-height: 220px;  
   border-radius: 10px;
   border: 1px solid #eee;
   background: #fafafa;
@@ -706,16 +712,17 @@
 /* =============================== */
 .detail-content-row {
   display: flex;
-  align-items: flex-start;
-  gap: 20px;
-  margin-bottom: 16px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;  
+  margin-bottom: 16px;  
 }
 
 .post-cover-side {
-  flex: 0 0 40%;
-  max-width: 380px;
+  width: 100%;
+  max-width: 320px;    /* ✅ 360px → 320px */
+  max-height: 240px;   /* ✅ 최대 높이 제한 추가 */
   height: auto;
-  max-height: 240px;
   border-radius: 10px;
   border: 1px solid #eee;
   object-fit: contain;
@@ -727,11 +734,18 @@
 }
 
 .detail-text {
-  flex: 1;
+  width: 100%;
   font-size: 15px;
   line-height: 1.7;
   color: #333;
-  white-space: pre-line;
+  margin-top: 4px;  
+  
+  /* 줄바꿈 속성 */
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 /* =============================== */

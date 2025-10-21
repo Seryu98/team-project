@@ -50,18 +50,24 @@ export default function BoardListPage() {
   const writePost = () => navigate("/board/write");
   const goProfile = (id) => navigate(`/profile/${id}`);
 
-  const previewText = (text) => {
-    if (!text) return "";
-    return text.length > 20 ? text.slice(0, 20) + "..." : text;
+  const previewText = (html) => {
+    if (!html) return "";
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html; // HTML 파싱
+    const text = tmp.textContent || tmp.innerText || "";
+    return text.length > 50 ? text.slice(0, 50) + "..." : text;
   };
+
 
   return (
     <div className="board-wrapper">
       {/* ✅ 좌측 필터 */}
       <aside className="board-filter-panel">
-        {/* ✅ 검색 섹션 수정 */}
+        <h3 className="sidebar-title">필터</h3>
+
+        {/* ✅ 검색 섹션 */}
         <div className="search-section">
-          <h3 className="search-section-title">필터 검색</h3>
+          <h4 className="search-section-title">검색</h4>
           <input
             type="text"
             placeholder="제목, 설명 검색..."
@@ -218,16 +224,12 @@ export default function BoardListPage() {
                   className="board-card-horizontal"
                   onClick={() => openPost(post.id)}
                 >
-                  {/* ✅ 왼쪽 썸네일 */}
-                  {post.attachment_url ? (
-                    <img
-                      src={`${import.meta.env.VITE_API_BASE_URL}${post.attachment_url}`}
-                      alt="썸네일"
-                      className="board-thumbnail"
-                    />
-                  ) : (
-                    <div className="board-thumbnail-placeholder">No Image</div>
-                  )}
+                  {/* ✅ 왼쪽 썸네일 (항상 DB에서 온 이미지 표시) */}
+                  <img
+                    src={`${import.meta.env.VITE_API_BASE_URL}${post.attachment_url}`}
+                    alt={`${post.category_name} 썸네일`}
+                    className="board-thumbnail"
+                  />
 
                   {/* ✅ 오른쪽 콘텐츠 */}
                   <div className="board-card-content">

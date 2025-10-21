@@ -156,11 +156,11 @@ export default function ProjectPostList() {
     <div className="project-wrapper">
       {/* 왼쪽 필터 영역 */}
       <aside className="project-filter-panel">
-        <h3>필터</h3>
+        <h3 className="sidebar-title">필터</h3>
 
         {/* ✅ 검색 */}
         <div className="filter-group">
-          <label className="filter-group-title">검색</label>
+          <h4 className="filter-group-title">검색</h4>
           <input
             type="text"
             className="search-input"
@@ -305,11 +305,15 @@ export default function ProjectPostList() {
                   <div className="project-card-body">
                     <h3 className="project-title">{post.title}</h3>
 
-                    <p className="project-description">
-                      {post.description?.length > 100
-                        ? `${post.description.substring(0, 100)}...`
-                        : post.description}
-                    </p>
+                    <div
+                      className="project-description"
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          post.description?.length > 100
+                            ? `${post.description.substring(0, 100)}...`
+                            : post.description || "",
+                      }}
+                    ></div>
 
                     <div className="project-meta">
                       <span className="meta-item">

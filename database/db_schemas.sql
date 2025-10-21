@@ -53,6 +53,7 @@ CREATE TABLE profiles (
   bio TEXT NULL COMMENT '자기소개',
   experience TEXT NULL COMMENT '경력',
   certifications TEXT NULL COMMENT '자격증',
+  visibility JSON NULL COMMENT '필드별 공개 여부 설정 (birth_date, gender)',  -- ✅ 새 컬럼 포함
   birth_date DATE NULL COMMENT '생년월일',
   gender ENUM('MALE', 'FEMALE') NULL COMMENT '성별',
   following_count INT NOT NULL DEFAULT 0 COMMENT '팔로잉 수',

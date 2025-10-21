@@ -666,8 +666,8 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* ✅ 생년월일 (값이 있을 때만 표시) */}
-        {profile.birth_date && (
+        {/* ✅ 생년월일 - 본인이거나 공개 설정일 때만 표시 */}
+        {profile.birth_date && (isMyProfile || profile.visibility?.birth_date !== false) && (
           <div style={{ marginBottom: "24px" }}>
             <label
               style={{
@@ -681,7 +681,7 @@ export default function ProfilePage() {
             </label>
             <div
               style={{
-                width: "106%",          // ProfileCreate와 동일
+                width: "106%",
                 padding: "16px",
                 border: "1px solid #d1d5db",
                 borderRadius: "8px",
@@ -692,11 +692,22 @@ export default function ProfilePage() {
             >
               {new Date(profile.birth_date).toLocaleDateString("ko-KR")}
             </div>
+
+            {/* ✅ 본인 프로필일 때만 공개 상태 표시 */}
+            {isMyProfile && (
+              <div style={{ marginTop: "8px", fontSize: "12px" }}>
+                {profile.visibility?.birth_date !== false ? (
+                  <span style={{ color: "#3b82f6", fontWeight: "500" }}>👁️ 공개</span>
+                ) : (
+                  <span style={{ color: "#ef4444", fontWeight: "500" }}>🔒 비공개</span>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* ✅ 성별 (값이 있을 때만 표시) */}
-        {profile.gender && (
+        {/* ✅ 성별 - 본인이거나 공개 설정일 때만 표시 */}
+        {profile.gender && (isMyProfile || profile.visibility?.gender !== false) && (
           <div style={{ marginBottom: "24px" }}>
             <label
               style={{
@@ -710,7 +721,7 @@ export default function ProfilePage() {
             </label>
             <div
               style={{
-                width: "106%",          // ProfileCreate와 동일
+                width: "106%",
                 padding: "16px",
                 border: "1px solid #d1d5db",
                 borderRadius: "8px",
@@ -725,6 +736,17 @@ export default function ProfilePage() {
                   ? "여성"
                   : profile.gender}
             </div>
+
+            {/* ✅ 본인 프로필일 때만 공개 상태 표시 */}
+            {isMyProfile && (
+              <div style={{ marginTop: "8px", fontSize: "12px" }}>
+                {profile.visibility?.gender !== false ? (
+                  <span style={{ color: "#3b82f6", fontWeight: "500" }}>👁️ 공개</span>
+                ) : (
+                  <span style={{ color: "#ef4444", fontWeight: "500" }}>🔒 비공개</span>
+                )}
+              </div>
+            )}
           </div>
         )}
 

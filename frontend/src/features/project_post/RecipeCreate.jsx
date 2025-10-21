@@ -101,11 +101,11 @@ export default function RecipeCreate() {
     setForm((prev) => ({
       ...prev,
       type: selectedType,
-      // ✅ 프로젝트는 PROJECT_EXAMPLE, 스터디는 STUDY_EXAMPLE 자동 입력
-      description: selectedType === "PROJECT" ? convertNewlinesToHTML(PROJECT_EXAMPLE)
-        : convertNewlinesToHTML(STUDY_EXAMPLE),
+      // ✅ HTML 태그 그대로 저장 → 나중에 dangerouslySetInnerHTML 로 렌더링
+      description: selectedType === "PROJECT" ? PROJECT_EXAMPLE : STUDY_EXAMPLE,
     }));
   };
+
 
   // =======================================
   // 🧩 지원자 필수 입력값 토글
@@ -430,17 +430,23 @@ export default function RecipeCreate() {
                 onChange={handleChange}
               />
             </label>
-          </div>
 
-          {form.image_url && (
+            {/* ✅ 업로드 여부와 무관하게 항상 미리보기 */}
             <div className="image-preview-container">
               <img
-                src={`http://localhost:8000${form.image_url}`}
-                alt="대표 이미지"
+                src={
+                  form.image_url
+                    ? `${API_URL}${form.image_url}`           // 서버 업로드된 이미지
+                    : type === "PROJECT"
+                      ? `${API_URL}/assets/profile/project.png`  // 기본 프로젝트 이미지
+                      : `${API_URL}/assets/profile/study.png`    // 기본 스터디 이미지
+                }
+                alt="대표 이미지 미리보기"
                 className="image-preview"
               />
             </div>
-          )}
+          </div>
+
 
           {/* 제출 버튼 */}
           <button type="submit" className="submit-button">

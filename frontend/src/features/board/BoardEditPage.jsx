@@ -32,11 +32,13 @@ export default function BoardEditPage() {
             title: res.post.title,
             category_id: res.post.category_id,
             content: res.post.content,
-            attachment_url: res.post.attachment_url || "",
+            attachment_url: res.post.attachment_url,  // ✅ 항상 기본 이미지든 업로드 이미지든 값 있음
           });
-          if (res.post.attachment_url)
-            setPreview(`http://localhost:8000${res.post.attachment_url}`);
+
+          // ✅ preview는 무조건 보여줌
+          setPreview(`http://localhost:8000${res.post.attachment_url}`);
         }
+
       } catch {
         alert("게시글 정보를 불러오지 못했습니다.");
       } finally {
