@@ -1,7 +1,13 @@
 // /src/components/Modal.jsx
 import React, { useEffect, useRef, useState } from "react";
 
-function Modal({ title, children, confirmText = "확인", onConfirm }) {
+function Modal({
+  title,
+  children,
+  confirmText = "확인",
+  onConfirm,
+  onClose, // ✅ [추가] 닫기 핸들러
+}) {
   const panelRef = useRef(null);
   const [verifyCode, setVerifyCode] = useState("");
 
@@ -42,7 +48,16 @@ function Modal({ title, children, confirmText = "확인", onConfirm }) {
     if (e.key === "Enter" && onConfirm) {
       if (title === "이메일 인증") onConfirm(verifyCode);
       else onConfirm();
+      if (onClose) onClose(); // ✅ [추가] Enter로도 닫히게
     }
+  };
+
+  const handleConfirmClick = () => {
+    if (onConfirm) {
+      if (title === "이메일 인증") onConfirm(verifyCode);
+      else onConfirm();
+    }
+    if (onClose) onClose(); // ✅ [추가] 버튼 클릭 시 닫히게
   };
 
   return (
@@ -125,10 +140,7 @@ function Modal({ title, children, confirmText = "확인", onConfirm }) {
 
         <div style={{ display: "flex", justifyContent: "center" }}>
           <button
-            onClick={() =>
-              onConfirm &&
-              (title === "이메일 인증" ? onConfirm(verifyCode) : onConfirm())
-            }
+            onClick={handleConfirmClick} // ✅ 수정된 부분
             disabled={title === "이메일 인증" && verifyCode.length !== 6}
             style={{
               padding: "8px 20px",

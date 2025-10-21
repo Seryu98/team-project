@@ -87,6 +87,10 @@ def create_reset_token(data: dict, expires_delta: timedelta | None = None):
 def verify_token(token: str, expected_type: Optional[str] = None):
     """JWT 토큰 검증 (Access / Refresh / Reset 구분 가능)"""
     try:
+        # ✅ "Bearer " 접두사 제거 허용
+        if token.startswith("Bearer "):
+            token = token.split("Bearer ")[1].strip()
+
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         print("[verify_token] ✅ payload:", payload)
     except ExpiredSignatureError:

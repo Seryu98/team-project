@@ -316,3 +316,22 @@ def send_notification_to_all(
     finally:
         if close:
             db.close()
+
+
+# ============================================================
+# ✅ [feat/session-login-fix 전용 추가] 실시간 WebSocket 알림 기능
+# ============================================================
+from app.notifications.notification_ws_manager import ws_manager
+
+async def send_realtime_notification(user_id: int, title: str, content: str):
+    """
+    실시간 WebSocket 알림 전송 (feat/session-login-fix 버전)
+    - 로그인 중인 사용자가 다른 기기에서 로그인될 때 알림 표시
+    """
+    message = {
+        "type": "SESSION_ALERT",
+        "title": title,
+        "content": content,
+    }
+    await ws_manager.send_to_user(user_id, message)
+    print(f"🔔 실시간 알림 전송 완료 → user_id={user_id}, title={title}")

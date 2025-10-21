@@ -33,9 +33,23 @@ function Register() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
 
+  // ✅ 추가: 전화번호 중복확인 상태
+  const [phoneCheckMsg, setPhoneCheckMsg] = useState("");
+  const [isPhoneChecked, setIsPhoneChecked] = useState(false);
+
   // ✅ 입력 변경 핸들러
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // ✅ 전화번호 입력 시 숫자만 허용
+    if (name === "phone_number") {
+      const onlyNumbers = value.replace(/[^0-9]/g, "");
+      setForm({ ...form, [name]: onlyNumbers });
+      setIsPhoneChecked(false);
+      setPhoneCheckMsg("");
+      return;
+    }
+
     setForm({ ...form, [name]: value });
 
     // 실시간 비밀번호 일치 검사
@@ -140,6 +154,35 @@ function Register() {
     }
   };
 
+  // ✅ 전화번호 중복확인
+  const handlePhoneCheck = async () => {
+    if (!form.phone_number) {
+      setPhoneCheckMsg("⚠️ 전화번호를 입력해주세요.");
+      setIsPhoneChecked(false);
+      return;
+    }
+
+    // 전화번호 길이 유효성 체크
+    if (form.phone_number.length < 10 || form.phone_number.length > 11) {
+      setPhoneCheckMsg("❌ 전화번호 형식을 확인해주세요.");
+      setIsPhoneChecked(false);
+      return;
+    }
+
+    try {
+      const res = await axios.get(
+        `http://localhost:8000/auth/check-phone?phone_number=${form.phone_number}`
+      );
+      setPhoneCheckMsg(res.data.message);
+      setIsPhoneChecked(true);
+    } catch (error) {
+      setPhoneCheckMsg(
+        error.response?.data?.detail || "❌ 전화번호 중복 확인 중 오류 발생"
+      );
+      setIsPhoneChecked(false);
+    }
+  };
+
   // ✅ 회원가입 제출
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -158,6 +201,12 @@ function Register() {
     // ✅ 중복확인 여부 확인
     if (!isIdChecked) {
       setMsg("❌ 아이디 중복확인을 해주세요.");
+      return;
+    }
+
+    // ✅ 전화번호 입력 시 중복확인 필수
+    if (form.phone_number && !isPhoneChecked) {
+      setMsg("❌ 전화번호 중복확인을 해주세요.");
       return;
     }
 
@@ -396,9 +445,7 @@ function Register() {
               />
               <button
                 type="button"
-                onClick={() =>
-                  setShowPasswordConfirm(!showPasswordConfirm)
-                }
+                onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
                 style={{
                   border: "none",
                   background: "none",
@@ -442,17 +489,43 @@ function Register() {
             />
           </label>
 
-          {/* 전화번호 */}
+          {/* 전화번호 + 중복확인 */}
           <label style={{ fontSize: "13px" }}>
-            전화번호
-            <input
-              name="phone_number"
-              placeholder="01012345678"
-              value={form.phone_number}
-              onChange={handleChange}
-              style={{ ...inputStyle, marginTop: "6px" }}
-            />
+            전화번호<span style={{ color: "#ef4444" }}> *</span>
+            <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+              <input
+                name="phone_number"
+                placeholder="01012345678"
+                value={form.phone_number}
+                onChange={handleChange}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <button
+                type="button"
+                onClick={handlePhoneCheck}
+                style={{
+                  ...buttonPrimary,
+                  background: "#4b5563",
+                  whiteSpace: "nowrap",
+                  padding: "10px 14px",
+                }}
+              >
+                중복확인
+              </button>
+            </div>
+            {phoneCheckMsg && (
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: phoneCheckMsg.includes("가능") ? "green" : "red",
+                  marginTop: "4px",
+                }}
+              >
+                {phoneCheckMsg}
+              </p>
+            )}
           </label>
+
 
           {/* 가입 버튼 */}
           <button type="submit" style={buttonPrimary} disabled={submitting}>

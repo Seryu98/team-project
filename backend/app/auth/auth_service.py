@@ -5,6 +5,7 @@ import os
 import re
 import secrets
 import random
+import asyncio  # ✅ [추가됨]
 from urllib.parse import urlencode, quote_plus
 from typing import Optional, Tuple, Dict, Any, Callable
 from uuid import uuid4
@@ -33,6 +34,10 @@ from app.core.database import get_db
 # ✅ 세션 테이블
 from app.models.user_session import UserSession
 
+# ✅ 실시간 알림 서비스
+from app.notifications.notification_service import send_realtime_notification  # ✅ [추가됨]
+from app.notifications.notification_ws_manager import ws_manager  # ✅ [추가됨]
+
 # ===============================
 # ⚙️ 정책 상수
 # ===============================
@@ -49,6 +54,11 @@ logger = logging.getLogger(__name__)
 def validate_password(password: str) -> bool:
     pattern = r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$'
     return bool(re.match(pattern, password))
+
+# ✅ 전화번호 유효성 검사 추가
+def validate_phone_number(phone: str) -> bool:
+    pattern = r'^010\d{7,8}$'
+    return bool(re.match(pattern, phone))
 
 # ===============================
 # 🔑 OAuth2 스키마 정의
@@ -107,9 +117,8 @@ def _get_json(url: str, headers: dict) -> dict:
         logger.exception("OAuth userinfo request failed: %s", e)
         raise ValueError("사용자 정보 조회 실패")
 
-
 # ===============================
-# 💾 세션 관련 유틸 (수정 완료)
+# 💾 세션 관련 유틸
 # ===============================
 def _create_session(
     db: Session,
@@ -118,7 +127,7 @@ def _create_session(
     device_id: Optional[str] = None,
     ip: Optional[str] = None,
 ) -> None:
-    """✅ 로그인 시 세션 레코드 생성 (DB 스키마와 일치)"""
+    """✅ 로그인 시 세션 레코드 생성"""
     sess = UserSession(
         user_id=user_id,
         device_id=device_id or str(uuid4()),
@@ -135,9 +144,7 @@ def _create_session(
 
 def _invalidate_all_sessions(db: Session, user_id: int) -> None:
     """✅ 해당 사용자 모든 세션 비활성화"""
-    db.query(UserSession).filter(UserSession.user_id == user_id).update(
-        {"is_active": False}
-    )
+    db.query(UserSession).filter(UserSession.user_id == user_id).update({"is_active": False})
     db.commit()
     logger.info("🗑️ 모든 세션 만료 user_id=%s", user_id)
 
@@ -146,11 +153,7 @@ def _validate_refresh_session(db: Session, user_id: int, token: str) -> bool:
     """✅ DB 세션 유효성 확인"""
     sess = (
         db.query(UserSession)
-        .filter(
-            UserSession.user_id == user_id,
-            UserSession.token == token,
-            UserSession.is_active == True,
-        )
+        .filter(UserSession.user_id == user_id, UserSession.token == token, UserSession.is_active == True)
         .first()
     )
     if not sess:
@@ -162,12 +165,96 @@ def _validate_refresh_session(db: Session, user_id: int, token: str) -> bool:
     return True
 
 
-def _notify_other_devices_safely(user_id: int) -> None:
-    """🔔 다른 기기 로그인 알림 (선택적)"""
-    try:
-        logger.info("🔔 다른 기기 로그인 알림 전송 시도 user_id=%s", user_id)
-    except Exception as e:
-        logger.warning("알림 전송 실패(무시): %s", e)
+# ===============================================================
+# 🔐 단일 로그인 정책 적용 (여기가 핵심 수정된 login_user 함수)
+# ===============================================================
+def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
+    login_id = form_data.username
+    user = db.query(User).filter(User.user_id == login_id).first()
+
+    # 🚫 탈퇴 계정 로그인 차단
+    if user and user.status == UserStatus.DELETED:
+        logger.warning("🚫 탈퇴 계정 로그인 시도 차단: user_id=%s", login_id)
+        raise HTTPException(status_code=403, detail="탈퇴한 계정은 로그인할 수 없습니다.")
+
+    if user and _is_locked(user):
+        db.commit()
+        logger.warning("잠금 상태 로그인 시도: user_id=%s", login_id)
+        return None
+
+    db_user = authenticate_user(db, login_id, form_data.password)
+    if not db_user:
+        if user:
+            _on_login_fail(user)
+            db.commit()
+        logger.info("로그인 실패: user_id=%s", login_id)
+        return None
+
+    _on_login_success(db_user)
+    db.commit()
+    db.refresh(db_user)
+
+    # ✅ 기존 세션 존재 시 단일 로그인 정책 적용
+    existing_session = (
+        db.query(UserSession)
+        .filter(UserSession.user_id == db_user.id, UserSession.is_active == True)
+        .first()
+    )
+
+    if existing_session:
+        logger.info("⚠️ 기존 세션 감지 → 다른 기기 로그인 처리 user_id=%s", db_user.id)
+
+        # ✅ 기존 세션 비활성화
+        existing_session.is_active = False
+        db.commit()
+
+        # ✅ 기존 로그인 중인 사용자에게 WebSocket 강제 로그아웃 알림
+        try:
+            asyncio.create_task(
+                ws_manager.send_to_user(
+                    db_user.id,
+                    {
+                        "type": "FORCED_LOGOUT",
+                        "message": "다른 기기에서 로그인되어 로그아웃되었습니다.",
+                    },
+                )
+            )
+        except Exception as e:
+            logger.warning("⚠️ 기존 사용자 WebSocket 알림 실패: %s", e)
+
+        # ✅ DB 알림 저장 (선택)
+        try:
+            asyncio.create_task(
+                send_realtime_notification(
+                    db_user.id,
+                    title="다른 기기에서 로그인되었습니다.",
+                    content="본인이 아닐 경우 즉시 비밀번호를 변경하세요.",
+                )
+            )
+        except Exception as e:
+            logger.warning("⚠️ 알림 저장 실패: %s", e)
+
+    # ✅ 새 JWT 발급
+    access_token = create_access_token(
+        data={"sub": db_user.id, "user_id": db_user.user_id},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    refresh_token = create_refresh_token(
+        data={"sub": db_user.id, "user_id": db_user.user_id},
+        expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+    )
+
+    # ✅ 새 세션 등록
+    _create_session(db, db_user.id, refresh_token)
+
+    logger.info("✅ 새 세션 등록 완료 user_id=%s", db_user.id)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }
 
 # ===============================
 # 🔹 랜덤 닉네임 생성
@@ -285,6 +372,14 @@ def register_user(db: Session, user: UserRegister) -> User:
     raise ValueError("이미 존재하는 아이디입니다.")
   if db.query(User).filter(User.nickname == user.nickname, User.status == UserStatus.ACTIVE).first():
     raise ValueError("이미 존재하는 닉네임입니다.")
+
+  # ✅ 전화번호 중복 확인
+  if db.query(User).filter(User.phone_number == user.phone_number, User.status == UserStatus.ACTIVE).first():
+    raise ValueError("이미 등록된 전화번호입니다.")
+
+  # ✅ 전화번호 형식 검증
+  if not validate_phone_number(user.phone_number):
+    raise ValueError("전화번호 형식이 올바르지 않습니다. (예: 01012345678)")
 
   if not validate_password(user.password):
     raise ValueError("비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.")
@@ -422,15 +517,32 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
   access_token, refresh_token = _issue_jwt_pair(db_user.id)
   logger.info("로그인 성공: user_id=%s id=%s", db_user.user_id, db_user.id)
 
-  # ✅ 세션 정책 적용
-  if db_user.role == "ADMIN":
-    # 관리자: 단일 세션만 유지
-    _invalidate_all_sessions(db, db_user.id)
-    _create_session(db, db_user.id, refresh_token)
-  else:
-    # 일반 유저: 기존 세션 유지 + 알림
-    _create_session(db, db_user.id, refresh_token)
-    _notify_other_devices_safely(db_user.id)
+  # ✅ 기존 세션이 이미 존재하는지 확인 (중복 로그인 방지)
+  existing_session = (
+      db.query(UserSession)
+      .filter(UserSession.user_id == db_user.id, UserSession.is_active == True)
+      .first()
+  )
+
+  if existing_session:
+      existing_session.is_active = False
+      db.commit()
+      logger.info("⚠️ 기존 세션 비활성화됨 → user_id=%s", db_user.id)
+
+      try:
+          # ✅ [수정됨] 비동기 함수 안전 호출 (await 대신 create_task)
+          asyncio.create_task(
+              send_realtime_notification(
+                  db_user.id,
+                  title="다른 기기에서 로그인되었습니다.",
+                  content="본인이 아닐 경우 즉시 비밀번호를 변경하세요.",
+              )
+          )
+      except Exception as e:
+          logger.warning("⚠️ 알림 전송 실패: %s", e)
+
+  # ✅ 새 세션 생성
+  _create_session(db, db_user.id, refresh_token)
 
   return {
       "access_token": access_token,
@@ -586,56 +698,106 @@ def get_oauth_login_url(provider: str) -> str:
 
 
 def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResponse:
-  base_redirect = _oauth_base_redirect()
+    base_redirect = _oauth_base_redirect()
 
-  try:
-    cfg = _PROVIDER_CONFIG.get(provider)
-    if not cfg:
-      raise ValueError("지원하지 않는 provider입니다.")
+    try:
+        cfg = _PROVIDER_CONFIG.get(provider)
+        if not cfg:
+            raise ValueError("지원하지 않는 provider입니다.")
 
-    # 토큰 교환
-    token_json = _token_exchange(cfg["token_url"], cfg["token_payload"](code))
-    access_token = token_json.get("access_token")
-    if not access_token:
-      raise ValueError(cfg["missing_token_msg"])
+        # 🔹 토큰 교환
+        token_json = _token_exchange(cfg["token_url"], cfg["token_payload"](code))
+        access_token = token_json.get("access_token")
+        if not access_token:
+            raise ValueError(cfg["missing_token_msg"])
 
-    # 유저 정보 조회
-    user_info_raw = _get_json(
-        cfg["userinfo_url"],
-        headers={"Authorization": f"Bearer {access_token}"},
+        # 🔹 유저 정보 조회
+        user_info_raw = _get_json(
+            cfg["userinfo_url"],
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        parsed = cfg["extract"](user_info_raw)
+        email = parsed.get("email")
+        name = parsed.get("name")
+        social_id = parsed.get("social_id")
+
+    except Exception as e:
+        logger.exception("소셜 로그인 오류(%s): %s", provider, e)
+        raise ValueError("소셜 로그인 처리 실패")
+
+    if not social_id:
+        raise ValueError("소셜 사용자 ID를 확인할 수 없습니다.")
+
+    # ✅ 사용자 등록/복귀 + 신규 가입자 여부 확인
+    user, is_new_user = _upsert_social_user(db, provider, social_id, email, name)
+
+    # ✅ JWT 발급
+    access_token, refresh_token = _issue_jwt_pair(user.id)
+    logger.info(
+        "%s 로그인 성공: user_id=%s email=%s is_new=%s",
+        provider.capitalize(), user.id, user.email, is_new_user
     )
-    parsed = cfg["extract"](user_info_raw)
-    email = parsed.get("email")
-    name = parsed.get("name")
-    social_id = parsed.get("social_id")
 
-  except Exception as e:
-    logger.exception("소셜 로그인 오류(%s): %s", provider, e)
-    raise ValueError("소셜 로그인 처리 실패")
+    # ======================================================
+    # ✅ 단일 로그인 정책 적용 (소셜 로그인도 동일하게)
+    # ======================================================
+    existing_session = (
+        db.query(UserSession)
+        .filter(UserSession.user_id == user.id, UserSession.is_active == True)
+        .first()
+    )
 
-  if not social_id:
-    raise ValueError("소셜 사용자 ID를 확인할 수 없습니다.")
+    if existing_session:
+        logger.info("⚠️ 기존 소셜 세션 감지 → 다른 기기 로그인 처리 user_id=%s", user.id)
+        existing_session.is_active = False
+        db.commit()
 
-  # 사용자 등록/복귀 + 신규 가입자 여부 확인
-  user, is_new_user = _upsert_social_user(db, provider, social_id, email, name)
+        # ✅ 기존 로그인 사용자에게 WebSocket 강제 로그아웃 알림
+        try:
+            asyncio.create_task(
+                ws_manager.send_to_user(
+                    user.id,
+                    {
+                        "type": "FORCED_LOGOUT",
+                        "message": "다른 기기에서 로그인되어 로그아웃되었습니다.",
+                    },
+                )
+            )
+        except Exception as e:
+            logger.warning("⚠️ 기존 소셜 사용자 WebSocket 알림 실패: %s", e)
 
-  # JWT 발급 및 프론트로 리다이렉트
-  access_token, refresh_token = _issue_jwt_pair(user.id)
-  logger.info(
-      "%s 로그인 성공: user_id=%s email=%s is_new=%s",
-      provider.capitalize(), user.id, user.email, is_new_user
-  )
+        # ✅ 알림 기록 저장
+        try:
+            asyncio.create_task(
+                send_realtime_notification(
+                    user.id,
+                    title="다른 기기에서 로그인되었습니다.",
+                    content="본인이 아닐 경우 즉시 비밀번호를 변경하세요.",
+                )
+            )
+        except Exception as e:
+            logger.warning("⚠️ 소셜 로그인 알림 저장 실패: %s", e)
 
-  # ✅ 소셜로그인도 세션 저장
-  if user.role == "ADMIN":
-    _invalidate_all_sessions(db, user.id)
+    # ✅ 새로운 세션 생성
     _create_session(db, user.id, refresh_token)
-  else:
-    _create_session(db, user.id, refresh_token)
-    _notify_other_devices_safely(user.id)
 
-  redirect_url = build_frontend_redirect_url(access_token, refresh_token, is_new_user)
-  return RedirectResponse(url=redirect_url)
+    # ✅ 현재 로그인 사용자에게 새 로그인 알림
+    try:
+        asyncio.create_task(
+            ws_manager.send_to_user(
+                user.id,
+                {
+                    "type": "LOGIN_ALERT",
+                    "message": f"{provider.capitalize()} 계정으로 새 기기에서 로그인되었습니다.",
+                },
+            )
+        )
+    except Exception as e:
+        logger.warning("⚠️ 새 소셜 로그인 WebSocket 알림 실패: %s", e)
+
+    # ✅ 리다이렉트 URL
+    redirect_url = build_frontend_redirect_url(access_token, refresh_token, is_new_user)
+    return RedirectResponse(url=redirect_url)
 
 
 # ===============================

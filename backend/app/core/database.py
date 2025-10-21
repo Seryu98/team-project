@@ -22,9 +22,19 @@ DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB
 engine = create_engine(DATABASE_URL, echo=True, future=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# ✅ 세션 핸들러 (요청 단위 DB 연결)
 def get_db():
+    """
+    FastAPI 의존성 주입용 DB 세션 생성기
+    - 요청이 정상적으로 끝나면 자동으로 commit()
+    - 예외 발생 시 rollback() 후 세션 종료
+    """
     db = SessionLocal()
     try:
         yield db
+        db.commit()   # ✅ 정상 요청 시 커밋
+    except Exception:
+        db.rollback()  # ✅ 예외 발생 시 롤백
+        raise
     finally:
-        db.close()
+        db.close()     # ✅ 세션 종료

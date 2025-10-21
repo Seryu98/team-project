@@ -96,6 +96,21 @@ def check_user_id(user_id: str, db: Session = Depends(get_db)):
 
 
 # ===============================
+# ✅ 전화번호 중복 확인
+# ===============================
+@router.get("/check-phone")
+def check_phone(phone_number: str, db: Session = Depends(get_db)):
+    """📱 전화번호 중복 확인 API"""
+    existing_user = db.query(User).filter(
+        User.phone_number == phone_number,
+        User.status == UserStatus.ACTIVE
+    ).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="이미 등록된 전화번호입니다.")
+    return {"message": "사용 가능한 전화번호입니다."}
+
+
+# ===============================
 # ✅ 회원가입
 # ===============================
 @router.post("/register")

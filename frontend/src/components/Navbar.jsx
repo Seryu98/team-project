@@ -51,6 +51,20 @@ export default function Navbar() {
           headers: { Authorization: `Bearer ${token}` },
         });
         setProfileImage(profileRes.data.profile_image);
+
+        // ✅ JWT decode된 user_id 저장 (WebSocket용)
+        if (token) {
+          try {
+            const base64Url = token.split(".")[1];
+            const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+            const decodedData = JSON.parse(atob(base64));
+            if (decodedData?.sub) {
+              localStorage.setItem("user_id", decodedData.sub);
+            }
+          } catch (err) {
+            console.warn("⚠️ JWT decode 실패:", err);
+          }
+        }
       } catch {
         clearTokens();
         setCurrentUser(null);
@@ -91,6 +105,66 @@ export default function Navbar() {
       clearInterval(intervalId);
     };
   }, []);
+
+  // ✅ WebSocket 연결 (단일 로그인 감시)
+  useEffect(() => {
+    const rawToken = localStorage.getItem("access_token");
+    if (!rawToken) return;
+
+    // ✅ 수정됨: Bearer 접두사 제거
+    const token = rawToken.startsWith("Bearer ")
+      ? rawToken.replace("Bearer ", "")
+      : rawToken;
+
+    // ✅ 환경에 따라 ws 주소 동적 구성 (Vite에서는 localhost 기반)
+    const wsUrl = `ws://localhost:8000/ws/notify?token=${token}`;
+
+    // ✅ 연결 시도
+    console.log("🌐 WebSocket 연결 시도:", wsUrl);
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log("✅ Navbar WebSocket 연결됨");
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("📩 Navbar WebSocket 수신:", data);
+
+        if (data.type === "FORCED_LOGOUT") {
+          alert(data.message);
+          localStorage.clear();
+          navigate("/login", { replace: true });
+        }
+
+        if (data.type === "LOGIN_ALERT") {
+          alert(data.message);
+        }
+      } catch (err) {
+        console.warn("⚠️ WebSocket 메시지 파싱 오류:", err);
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error("⚠️ WebSocket 오류:", err);
+    };
+
+    ws.onclose = (event) => {
+      console.log(
+        "❌ Navbar WebSocket 연결 종료됨:",
+        event.code,
+        event.reason || "(이유 없음)"
+      );
+    };
+
+    // ✅ 정리
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close(1000, "Component unmount");
+      }
+    };
+  }, [navigate]);
 
   // -----------------------------
   // ✅ 알림 불러오기
@@ -291,7 +365,9 @@ export default function Navbar() {
                     {/* ✅ 페이지네이션용 상태 */}
                     <ul className="notification-list">
                       {notifications.length === 0 ? (
-                        <li className="notification-empty">새 알림이 없습니다.</li>
+                        <li className="notification-empty">
+                          새 알림이 없습니다.
+                        </li>
                       ) : (
                         notifications
                           .slice(page * 5, page * 5 + 5)
@@ -308,19 +384,20 @@ export default function Navbar() {
                               DEFAULT: "🔔",
                             };
                             const icon = icons[n.type] || icons.DEFAULT;
-                            const formattedDate = new Date(n.created_at).toLocaleString(
-                              "ko-KR",
-                              {
-                                month: "2-digit",
-                                day: "2-digit",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            );
+                            const formattedDate = new Date(
+                              n.created_at
+                            ).toLocaleString("ko-KR", {
+                              month: "2-digit",
+                              day: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            });
                             return (
                               <li
                                 key={n.id}
-                                onClick={() => handleNotificationItemClick(n)}
+                                onClick={() =>
+                                  handleNotificationItemClick(n)
+                                }
                                 className={`notification-item ${
                                   n.is_read ? "read" : "unread"
                                 }`}
@@ -348,7 +425,8 @@ export default function Navbar() {
                           ← 이전
                         </button>
                         <span className="page-indicator">
-                          {page + 1} / {Math.ceil(notifications.length / 5)}
+                          {page + 1} /{" "}
+                          {Math.ceil(notifications.length / 5)}
                         </span>
                         <button
                           disabled={(page + 1) * 5 >= notifications.length}

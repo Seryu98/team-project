@@ -2,7 +2,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -64,19 +64,19 @@ def on_startup():
 # ===================================
 # 🌐 CORS 설정 (필수)
 # ===================================
+# ✅ WebSocket은 Origin 검사에서 차단될 수 있으므로 * 허용 유지
 origins = [
-    "http://localhost:5173", 
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # ✅ 테스트 중에는 전체 허용
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # ===================================
 # 🗂️ 정적 파일 마운트
@@ -105,6 +105,7 @@ from app.users import user_router
 from app.admin import admin_router
 from app.report import report_router
 from app.admin.admin_user_router import router as admin_user_router
+from app.notifications.notification_ws_router import router as notification_ws_router
 
 # ✅ 모든 주요 라우터 등록
 app.include_router(auth_router.router)
@@ -131,6 +132,8 @@ app.include_router(admin_user_router)
 app.include_router(stats_router.router)       # ✅ soldesk 기능
 app.include_router(search_router.router)      # ✅ soldesk 기능
 
+# ✅ WebSocket 알림 라우터 등록 (🔥 기존 notification_ws_router 유지)
+app.include_router(notification_ws_router)
 
 # ===================================
 # 🏠 기본 라우트
@@ -165,3 +168,19 @@ async def log_requests(request: Request, call_next):
 def health_check():
     """✅ 서버 상태 확인용 (프론트엔드와 연동 테스트 시 사용)"""
     return {"status": "ok", "message": "FastAPI backend running normally"}
+
+
+# ===================================
+# ✅ WebSocket 연결 테스트용 라우트 (디버깅용)
+# ===================================
+@app.websocket("/ws/test")
+async def websocket_test(websocket: WebSocket):
+    """
+    ✅ WebSocket 기본 연결 테스트용 (인증 불필요)
+    → ws://localhost:8000/ws/test 로 접속 시 성공하면 WebSocket 정상 동작
+    """
+    await websocket.accept()
+    await websocket.send_text("✅ WebSocket 연결 성공 (테스트용)")
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"서버 수신: {data}")

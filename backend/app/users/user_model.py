@@ -62,6 +62,13 @@ class User(Base):
     comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
     profile = relationship("Profile", uselist=False, back_populates="user")
 
+    # ✅ 추가: 세션 관계 (UserSession과 연결)
+    sessions = relationship(
+        "UserSession",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
 
 # ✅ 추가 (순환 참조 방지용)
 # 이 import는 반드시 클래스 정의 "아래"에 넣어야 합니다.
