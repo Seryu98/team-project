@@ -552,17 +552,14 @@ export default function ProjectPostDetail() {
             fontSize: "15px",
             color: "#333",
             lineHeight: "1.6",
-            whiteSpace: "pre-line", // ✅ 줄바꿈(\n) 자동 반영
             background: "#fafafa",
             borderRadius: "8px",
             padding: "14px 18px",
             marginTop: "8px",
           }}
-        >
-          {post.description}
-        </div>
+          dangerouslySetInnerHTML={{ __html: post.description }}
+        ></div>
       </div>
-
 
       {/* 필수 입력값 + 신청 버튼 */}
       <div

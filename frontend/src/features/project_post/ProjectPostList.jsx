@@ -305,11 +305,15 @@ export default function ProjectPostList() {
                   <div className="project-card-body">
                     <h3 className="project-title">{post.title}</h3>
 
-                    <p className="project-description">
-                      {post.description?.length > 100
-                        ? `${post.description.substring(0, 100)}...`
-                        : post.description}
-                    </p>
+                    <div
+                      className="project-description"
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          post.description?.length > 100
+                            ? `${post.description.substring(0, 100)}...`
+                            : post.description || "",
+                      }}
+                    ></div>
 
                     <div className="project-meta">
                       <span className="meta-item">
