@@ -293,6 +293,24 @@ def delete_account(token: str = Depends(oauth2_scheme), db: Session = Depends(ge
 
 
 # ===============================
+# ✅ 로그아웃 (서버 세션 무효화)
+# ===============================
+@router.post("/logout")
+def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """🚪 로그아웃 (DB 세션 무효화 + 프론트 토큰 초기화용)"""
+    payload = verify_token(token, expected_type="access")
+    if not payload:
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="토큰에 사용자 정보가 없습니다.")
+
+    auth_service.logout_user(db, int(user_id))
+    return {"msg": "로그아웃 완료"}
+
+
+# ===============================
 # ✅ 아이디 / 비밀번호 찾기
 # ===============================
 @router.post("/find-id")

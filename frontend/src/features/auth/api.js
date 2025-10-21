@@ -226,7 +226,6 @@ export async function authFetch(url, options = {}, { skipRedirect = false } = {}
   return data;
 }
 
-
 // ============================
 // 현재 로그인된 사용자
 // ============================
@@ -334,4 +333,23 @@ export async function deleteAccount() {
   return authFetch("/auth/delete-account", {
     method: "DELETE",
   });
+}
+
+// ============================
+// ✅ 로그아웃 (서버 + 로컬 세션 종료)
+// ============================
+export async function logoutUser() {
+  try {
+    const token = getAccessToken();
+    if (token) {
+      await fetch(`${API_URL}/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+  } catch (e) {
+    console.warn("⚠️ 서버 로그아웃 요청 실패 (무시 가능):", e);
+  } finally {
+    clearTokens("always");
+  }
 }

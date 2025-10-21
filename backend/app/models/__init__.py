@@ -16,3 +16,6 @@ from app.project_post.recipe_model import (
     ApplicationAnswer,
 )
 from app.project_post.post_member_model import PostMember
+
+# ✅ 세션 관리 모델 (유저 로그인 세션 테이블)
+from app.models.user_session import UserSession
