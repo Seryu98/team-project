@@ -156,11 +156,11 @@ export default function ProjectPostList() {
     <div className="project-wrapper">
       {/* 왼쪽 필터 영역 */}
       <aside className="project-filter-panel">
-        <h3>필터</h3>
+        <h3 className="sidebar-title">필터</h3>
 
         {/* ✅ 검색 */}
         <div className="filter-group">
-          <label className="filter-group-title">검색</label>
+          <h4 className="filter-group-title">검색</h4>
           <input
             type="text"
             className="search-input"

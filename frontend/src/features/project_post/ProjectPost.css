@@ -13,6 +13,22 @@
 /* =============================== */
 /* 🎯 필터 패널 */
 /* =============================== */
+.project-filter-panel .sidebar-title {
+  font-size: 24px;      
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 20px;
+}
+
+
+.project-filter-panel .section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;       
+  margin-bottom: 10px;
+  display: block;
+}
+
 .project-filter-panel {
   width: 260px;
   flex-shrink: 0;
@@ -49,7 +65,7 @@
 .project-filter-panel h3 {
   margin: 0 0 16px 0;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 800;
   color: #111827;
 }
 
@@ -59,8 +75,8 @@
 
 .filter-group-title {
   font-size: 14px;
-  font-weight: 600;
-  color: #374151;
+  font-weight: 700;
+  color: #111827;
   margin-bottom: 10px;
   display: block;
 }
@@ -95,7 +111,8 @@
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #4b5563;
+  font-weight: 500;
+  color: #111827;
   cursor: pointer;
   padding: 4px 0;
   transition: color 0.2s;
@@ -110,6 +127,7 @@
   cursor: pointer;
   width: 16px;
   height: 16px;
+  accent-color: #2563eb;
 }
 
 /* 날짜 입력 */

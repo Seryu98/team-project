@@ -133,14 +133,14 @@ export default function UserRanking() {
     <div className="user-ranking-layout">
       {/* 사이드바 */}
       <div className="user-ranking-sidebar">
-        <h2 className="sidebar-title">필터 검색</h2>
+        <h2 className="sidebar-title">필터</h2>
 
         {/* 검색 기능 */}
         <div className="search-section">
           <h3 className="search-section-title">검색</h3>
           <input
             type="text"
-            placeholder="제목, 설명 검색..."
+            placeholder="유저 검색..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -173,7 +173,7 @@ export default function UserRanking() {
                 팔로워 1점 · 게시물 2점 · 좋아요 3점
               </div>
             )}
-            
+
             <label className="sort-label">
               <input
                 type="radio"
@@ -188,7 +188,7 @@ export default function UserRanking() {
               />
               <span className="sort-text">팔로워 순</span>
             </label>
-            
+
             <label className="sort-label">
               <input
                 type="radio"
@@ -246,11 +246,10 @@ export default function UserRanking() {
                       onClick={() => navigate(`/profile/${user.id}`)}
                       className="user-card"
                     >
-                      {/* 1~3위까지만 배지 표시 */}
-                      {globalRank <= 3 && (
-                        <div className={`rank-badge ${
-                          globalRank === 1 ? 'gold' : globalRank === 2 ? 'silver' : 'bronze'
-                        }`}>
+                      {/* 1~3위까지만 배지 표시 (score 정렬일 때만) */}
+                      {sortBy === "score" && globalRank <= 3 && (
+                        <div className={`rank-badge ${globalRank === 1 ? 'gold' : globalRank === 2 ? 'silver' : 'bronze'
+                          }`}>
                           {globalRank === 1 ? "🥇 " : globalRank === 2 ? "🥈 " : "🥉 "}
                           {globalRank}위
                         </div>

@@ -59,9 +59,11 @@ export default function BoardListPage() {
     <div className="board-wrapper">
       {/* ✅ 좌측 필터 */}
       <aside className="board-filter-panel">
-        {/* ✅ 검색 섹션 수정 */}
+        <h3 className="sidebar-title">필터</h3>
+
+        {/* ✅ 검색 섹션 */}
         <div className="search-section">
-          <h3 className="search-section-title">필터 검색</h3>
+          <h4 className="search-section-title">검색</h4>
           <input
             type="text"
             placeholder="제목, 설명 검색..."
