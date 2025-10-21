@@ -1,0 +1,131 @@
+/* =============================== */
+/* 💬 AIModal 전체 스타일 */
+/* =============================== */
+.ai-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center; /* ✅ 완전 중앙 정렬 */
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 999999;
+  padding: 16px;
+}
+
+/* 중앙 패널 */
+.ai-modal-panel {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  padding: 24px;
+  position: relative;
+  box-sizing: border-box;
+  animation: fadeIn 0.2s ease;
+}
+
+/* 헤더 */
+.ai-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ai-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.ai-modal-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.ai-modal-close:hover {
+  color: #111827;
+}
+
+.ai-modal-sub {
+  font-size: 14px;
+  color: #4b5563;
+  margin-bottom: 10px;
+}
+
+/* ✅ textarea 버전 */
+.ai-modal-textarea {
+  width: 100%;
+  min-height: 80px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  box-sizing: border-box;
+  outline: none;
+}
+.ai-modal-textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.ai-modal-buttons {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ai-modal-button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.ai-modal-button:hover {
+  background: #1e40af;
+}
+
+.ai-modal-cancel {
+  background: #9ca3af;
+}
+.ai-modal-cancel:hover {
+  background: #6b7280;
+}
+
+.ai-modal-result {
+  margin-top: 16px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: #111827;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,67 @@
+/* ✅ Quill 전체 컨테이너 */
+.ql-container {
+  width: 100%;
+  min-height: 480px !important;       /* ✅ 기본 높이 충분히 확보 */
+  max-height: 650px;                  /* ✅ 너무 커지지 않게 제한 */
+  border: 1px solid #d1d5db;
+  border-radius: 0 0 8px 8px;
+  background-color: #fff;
+  box-sizing: border-box;
+  overflow-y: auto;
+  margin-bottom: 24px;                /* 다음 섹션 간격 확보 */
+}
+
+/* ✅ 툴바 */
+.ql-toolbar {
+  border: 1px solid #d1d5db;
+  border-radius: 8px 8px 0 0;
+  background-color: #f9fafb;
+  padding: 6px;
+}
+
+/* ✅ 내부 에디터 본문 */
+.ql-editor {
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.55;                 /* 🔽 기존 1.8 → 살짝 줄임 */
+  color: #111827;
+  padding: 14px 16px;                /* 🔽 패딩 살짝 줄임 */
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* ✅ 문단 간격 */
+.ql-editor p {
+  margin: 0 0 5px 0;                /* 🔽 기존 7px → 5px로 줄임 */
+}
+
+/* ✅ placeholder 스타일 */
+.ql-editor.ql-blank::before {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 15px;
+  padding-left: 2px;
+}
+
+/* ✅ 리스트, 인용문, 코드 등 보조요소 */
+.ql-editor ul,
+.ql-editor ol {
+  padding-left: 28px;
+  margin-bottom: 10px;
+}
+
+.ql-editor blockquote {
+  border-left: 3px solid #d1d5db;
+  padding-left: 12px;
+  color: #555;
+  margin-bottom: 12px;
+}
+
+/* ✅ 이미지 중앙 정렬 */
+.ql-editor img {
+  display: block;
+  margin: 12px auto;
+  max-width: 100%;
+  border-radius: 8px;
+}

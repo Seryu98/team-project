@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getBoardPostDetail, updateBoardPost } from "./BoardAPI";
+import RichTextEditor from "../../components/RichTextEditor";
 import "./Board.css";
 
 export default function BoardEditPage() {
@@ -161,15 +162,12 @@ export default function BoardEditPage() {
         {/* 내용 */}
         <div className="form-group">
           <label>내용 *</label>
-          <textarea
-            className="form-textarea"
-            name="content"
+          <RichTextEditor
             value={form.content}
-            onChange={handleChange}
-            placeholder="내용을 입력하세요"
-            required
+            onChange={(value) => setForm((prev) => ({ ...prev, content: value }))}
           />
         </div>
+
 
         {/* 버튼 */}
         <div className="form-buttons">
