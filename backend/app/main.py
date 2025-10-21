@@ -2,6 +2,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+from app.project_post import ai_router
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -116,6 +117,7 @@ app.include_router(skill_router.router)
 app.include_router(recipe_router.router)
 app.include_router(meta_router.router)
 app.include_router(upload_router.router)
+app.include_router(ai_router.router)
 
 # ✅ board router (public + 일반 둘 다)
 if hasattr(board_router, "public_router"):
