@@ -30,6 +30,8 @@ export default function MessageDetail({ message }) {
   // ✅ 메시지 상세 재조회 (application_status 포함)
   useEffect(() => {
     async function fetchDetail() {
+      // ✅ [10/20] 공지사항은 별도 API 호출 불필요 → 상세 재조회 생략
+      if (message?.category === "NOTICE") return;
       if (!message?.id) return;
       const token = localStorage.getItem("access_token");
       try {
@@ -100,6 +102,22 @@ export default function MessageDetail({ message }) {
   if (!msg) return <p className="p-4 text-gray-500">쪽지를 선택하세요.</p>;
   if (error) return <p className="p-4 text-red-600">{error}</p>;
 
+  // ✅ [추가됨 10/21] 공지사항(category === "NOTICE")일 때 별도 렌더링
+  if (msg?.category === "NOTICE") {
+    return (
+      <div className="p-4">
+        <h1 className="text-xl font-bold mb-4">📢 공지사항</h1>
+        <div className="border rounded p-3 bg-white shadow-sm">
+          <p className="whitespace-pre-line text-sm leading-relaxed">{msg.content}</p>
+          <p className="text-xs text-right opacity-60 mt-3">
+            {new Date(msg.created_at).toLocaleString()}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ 일반 쪽지 렌더링
   return (
     <div className="p-4">
       <h1 className="text-lg font-bold mb-4">쪽지 상세</h1>

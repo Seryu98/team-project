@@ -58,8 +58,8 @@ export default function NotificationList({ onClose }) {
     };
     window.addEventListener("storage", handleRefresh);
 
-    // 🩵 [추가] 폴링 추가: 새로고침 없이도 10초마다 최신화
-    const timer = setInterval(fetchList, 10000);
+    // 🩵 [추가] 폴링 추가: 새로고침 없이도 2초마다 최신화
+    const timer = setInterval(fetchList, 2000);
 
     return () => {
       window.removeEventListener("storage", handleRefresh);
@@ -80,35 +80,54 @@ export default function NotificationList({ onClose }) {
       const redirectPath =
         !n.redirect_path || n.redirect_path === "None" ? null : n.redirect_path;
 
+      // 🩵 [10/20 수정됨] 신고자/관리자 REPORT_RECEIVED 분리 처리
+      if (n.type === "REPORT_RECEIVED") {
+        if (n.category === "NORMAL") {
+          console.log("✅ 신고자용 신고 접수 알림 클릭: 이동 없이 읽음 처리만 수행");
+          return;
+        } else if (n.category === "ADMIN") {
+          window.location.href = "/messages?tab=admin";
+          return;
+        }
+      }
+
       // 🩵 [수정] 유형별 이동 로직 (서버 Enum과 일치)
       switch (n.type) {
+         case "ADMIN_NOTICE":
+        // ✅ [추가됨 10/18] 공지사항 알림 클릭 시 → 공지사항 쪽지함으로 이동
+          window.location.href = "/messages?tab=notice";
+          break;
+
         case "MESSAGE":
-          window.location.href = `/messages/${n.related_id}`;
+          // [수정됨 10/18: 공지사항 쪽지 상세 이동 추가]
+          if (n.category === "ADMIN" && n.related_id) {
+            // ✅ 공지사항 쪽지 → 상세 페이지로 직접 이동
+            window.location.href = `/messages?tab=notice&id=${n.related_id}`;
+          } else {
+            // ✅ 일반 쪽지
+            window.location.href = `/messages/${n.related_id}`;
+          }
           break;
 
+        
+        // ✅ 관리자 관련 → 관리자 쪽지함으로 이동 [수정 10/19]
         case "REPORT_RECEIVED":
-          // ✅ 관리자 신고 접수 알림 → 관리자 쪽지함 이동
-          window.location.href = "/messages?tab=admin";
-          break;
-
         case "REPORT_RESOLVED":
         case "REPORT_REJECTED":
-          // ✅ 신고 승인·반려 결과 → 관리자 쪽지함 이동
-          window.location.href = "/messages?tab=admin";
-          break;
-
         case "BAN":
         case "WARNING":
         case "UNBAN":
           // ✅ 제재·경고·해제 알림 → 관리자 쪽지함 이동
-          window.location.href = "/messages?tab=admin";
+          // 🩵 [보완] ADMIN 카테고리만 이동 (일반 신고자는 위에서 return)
+          if (n.category === "ADMIN") {
+            window.location.href = "/messages?tab=admin";
+          }
           break;
-
+          
         case "APPLICATION_ACCEPTED":
         case "APPLICATION_REJECTED":
-          // ✅ 게시글 승인/거절 → 마이페이지 or 해당 게시글
-          if (redirectPath) window.location.href = redirectPath;
-          else window.location.href = "/myposts";
+          // ✅ 게시글 승인/거절 알림은 이동 없이 읽음 처리만 [10/19 수정]
+          console.log("✅ 승인/거절 알림 클릭: 이동 없이 읽음 처리 완료");
           break;
 
         case "REPORT_ADMIN_NOTICE":
@@ -120,7 +139,6 @@ export default function NotificationList({ onClose }) {
           if (redirectPath) {
             window.location.href = redirectPath;
           } else {
-            // 🩵 [추가] 이동 경로가 없으면 콘솔만 출력 (디버깅용)
             console.log("ℹ️ 이동 경로 없음:", n);
           }
           break;

@@ -59,15 +59,17 @@ export default function BoardListPage() {
     <div className="board-wrapper">
       {/* ✅ 좌측 필터 */}
       <aside className="board-filter-panel">
-        <form onSubmit={(e) => e.preventDefault()} className="filter-search">
+        {/* ✅ 검색 섹션 수정 */}
+        <div className="search-section">
+          <h3 className="search-section-title">필터 검색</h3>
           <input
             type="text"
-            placeholder="검색"
+            placeholder="제목, 설명 검색..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            className="search-input"
           />
-          <button>검색</button>
-        </form>
+        </div>
 
         <div className="filter-section">
           <h4>카테고리</h4>

@@ -289,21 +289,28 @@ export default function ProjectPostList() {
                 >
                   {post.image_url && (
                     <img
-                      src={`http://localhost:8000${post.image_url}`}
+                      src={
+                        post.image_url
+                          ? post.image_url.startsWith("http")
+                            ? post.image_url
+                            : `http://localhost:8000${post.image_url}`
+                          : "/assets/default_thumbnail.png"
+                      }
                       alt="대표 이미지"
                       className="project-thumbnail"
+                      onError={(e) => (e.target.src = "/assets/default_thumbnail.png")}
                     />
                   )}
-                  
+
                   <div className="project-card-body">
                     <h3 className="project-title">{post.title}</h3>
-                    
+
                     <p className="project-description">
                       {post.description?.length > 100
                         ? `${post.description.substring(0, 100)}...`
                         : post.description}
                     </p>
-                    
+
                     <div className="project-meta">
                       <span className="meta-item">
                         <span className="meta-highlight">
@@ -317,7 +324,7 @@ export default function ProjectPostList() {
                         {post.start_date} ~ {post.end_date}
                       </span>
                     </div>
-                    
+
                     <div className="project-skills">
                       {post.skills?.map((skill) => (
                         <span key={skill.id} className="skill-tag">

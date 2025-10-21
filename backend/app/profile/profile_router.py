@@ -1,6 +1,7 @@
 # app/profile/profile_router.py
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.core.database import get_db
 from app.profile.profile_schemas import ProfileOut, ProfileUpdate
 from app.profile.profile_service import get_profile_detail, update_profile, get_or_create_profile
@@ -66,3 +67,38 @@ async def upload_profile_image(
     db.refresh(profile)
 
     return get_profile_detail(db, current_user.id, current_user_id=current_user.id)
+
+# ---------------------------------------------------------------------
+# ✅ 특정 유저의 프로젝트 조회
+# ---------------------------------------------------------------------
+@router.get("/{user_id}/projects")
+def get_user_projects(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    특정 유저가 만든 프로젝트 조회
+    - 승인된/대기중/종료된 프로젝트 구분 가능
+    """
+    rows = db.execute(
+        text("""
+            SELECT 
+                p.id,
+                p.title,
+                p.type,
+                p.field,
+                p.status,
+                p.project_status,
+                p.leader_id,
+                p.image_url,
+                p.created_at
+            FROM posts p
+            WHERE p.leader_id = :uid
+              AND p.deleted_at IS NULL
+            ORDER BY p.created_at DESC
+        """),
+        {"uid": user_id}
+    ).mappings().all()
+
+    return [dict(r) for r in rows]

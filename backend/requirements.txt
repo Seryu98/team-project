@@ -5,7 +5,9 @@
 #본인 컴 사용자이름으로 교체해서 venv 설치 "C:\Users\<사용자이름>\AppData\Local\Programs\Python\Python311\python.exe" -m venv venv
 #가상화 활성화 venv\Scripts\activate 
 #버전확인 python --version 해서 3.11.x인지 확인하고 pip install -r requirements.txt 다시 설치
- 
+
+#cp949문제생기면 가상화상태에서 set PYTHONUTF8=1 치고 설치
+
 fastapi==0.111.0
 uvicorn[standard]==0.30.0
 sqlalchemy==2.0.31

@@ -16,6 +16,7 @@ from app.messages.message_schema import MessageCreate
 from app.messages.message_model import MessageCategory
 from fastapi.responses import JSONResponse
 from datetime import datetime
+from app.messages.message_service import send_admin_announcement # [추가 10/18] 관리자 공지사항 발송 함수 import
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
@@ -144,3 +145,24 @@ def api_mark_read(
     if not ok:
         raise HTTPException(status_code=404, detail="해당 메시지를 찾을 수 없습니다.")
     return {"success": True, "message": "읽음 처리 완료"}
+
+# ---------------------------------------------------------------------
+# ✅ [추가됨 10/18] 관리자 공지사항 발송 API
+# ---------------------------------------------------------------------
+@router.post("/admin/announcement")
+def api_admin_announcement(
+    title: str = Query(..., description="공지 제목"),
+    content: str = Query(..., description="공지 내용"),
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    관리자 공지사항 발송
+    - 관리자만 호출 가능
+    - 전체 유저에게 ADMIN 카테고리 쪽지 및 알림 전송
+    """
+    if getattr(user, "role", None) != "ADMIN":
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다.")
+
+    result = send_admin_announcement(admin_id=user.id, title=title, content=content, db=db)
+    return {"success": True, "data": result, "message": "공지사항 전송 완료"}

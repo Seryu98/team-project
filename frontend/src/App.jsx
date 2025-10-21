@@ -61,7 +61,7 @@ import BoardEditPage from "./features/board/BoardEditPage";
 // ---------------------------------------
 import AdminDashboard from "./features/admin/AdminDashboard";
 import MessageDetail from "./features/message/MessageDetail";
-import MessagesPage from "./features/message/MessagePage"; 
+import MessagesPage from "./features/message/MessagePage";
 import AdminPendingPage from "./features/admin/AdminPendingPage";
 import AdminReportsPage from "./features/admin/AdminReportsPage";
 import AdminUsersPage from "./features/admin/AdminUsersPage.jsx";
@@ -230,6 +230,26 @@ export default function App() {
               <Route path="change-password" element={<ChangePassword />} />
             </Route>
 
+            {/* ✅ 수정: 기존 MessageInbox → MessagesPage로 교체 */}
+            <Route
+              path="/messages/*"
+              element={
+                <ProtectedRoute>
+                  <MessagesPage /> {/* ← 삼분할 쪽지함 전체 페이지 */}
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ✅ 유지: 특정 메시지 개별 접근용 (필요 시) */}
+            <Route
+              path="/messages/:id"
+              element={
+                <ProtectedRoute>
+                  <MessageDetail />
+                </ProtectedRoute>
+              }
+            />
+
             {/* ---------------------------------------
                 ✅ 관리자 대시보드
             --------------------------------------- */}
@@ -265,26 +285,6 @@ export default function App() {
               element={
                 <ProtectedRoute requiredRole="ADMIN">
                   <AdminUsersPage />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* ✅ 수정: 기존 MessageInbox → MessagesPage로 교체 */}
-            <Route
-              path="/messages/*"
-              element={
-                <ProtectedRoute>
-                  <MessagesPage /> {/* ← 삼분할 쪽지함 전체 페이지 */}
-                </ProtectedRoute>
-              }
-            />
-
-            {/* ✅ 유지: 특정 메시지 개별 접근용 (필요 시) */}
-            <Route
-              path="/messages/:id"
-              element={
-                <ProtectedRoute>
-                  <MessageDetail />
                 </ProtectedRoute>
               }
             />

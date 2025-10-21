@@ -451,6 +451,7 @@ SET SQL_SAFE_UPDATES = 1;
 CREATE INDEX idx_app_user_post_status_changed
   ON applications (user_id, post_id, status_changed_at);
 
+
 -- ======================================================================
 -- ✅✅ [수정] 세션 관리 테이블 (user_sessions) - FastAPI 모델 반영 (2025-10-20)
 -- - 변경사항: device_id → device_info, ip / is_active / expires_at 추가
@@ -478,3 +479,32 @@ CREATE INDEX idx_user_sessions_active ON user_sessions (is_active);
 -- - 모든 세션 만료: user_id 기준 DELETE
 -- - 비밀번호 변경 시: 해당 user_id 세션 전체 삭제 권장
 -- ======================================================================
+-- 상세페이지 멤버 프로필사진때문에 fk연결이필요
+ALTER TABLE profiles
+ADD CONSTRAINT fk_profiles_user_id
+FOREIGN KEY (id) REFERENCES users(id)
+ON DELETE CASCADE;
+
+-- kicked상태 추가해서 리더가 유저 제외
+ALTER TABLE applications 
+MODIFY COLUMN status 
+ENUM('PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'KICKED') 
+NOT NULL DEFAULT 'PENDING';
+
+
+-- 공지사항 컬럼 추가
+ALTER TABLE notifications
+MODIFY COLUMN type ENUM(
+  'FOLLOW',
+  'APPLICATION',
+  'APPLICATION_ACCEPTED',
+  'APPLICATION_REJECTED',
+  'WARNING',
+  'BAN',
+  'UNBAN',
+  'MESSAGE',
+  'REPORT_RECEIVED',
+  'REPORT_RESOLVED',
+  'REPORT_REJECTED',
+  'ADMIN_NOTICE'  -- ✅ 오늘 추가된 타입
+) NOT NULL;

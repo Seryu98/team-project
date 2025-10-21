@@ -54,6 +54,8 @@ class PostMemberResponse(BaseModel):
     """게시글 내 참여 멤버 정보"""
     user_id: int
     role: str
+    nickname: Optional[str] = None
+    profile_image: Optional[str] = None
 
 
 # ✅ 추가: 페이지네이션 응답 스키마

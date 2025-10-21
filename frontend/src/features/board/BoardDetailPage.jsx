@@ -180,13 +180,13 @@ export default function BoardDetailPage() {
   };
 
   // ===============================
-  // 🩵 [추가] 실시간 알림 갱신 (신고 시 반영)
+  // 🩵 실시간 알림 갱신 (신고 시 반영)
   // ===============================
   const bumpNotificationList = () => {
     try {
       localStorage.setItem("refreshNotifications", Date.now().toString());
       setTimeout(() => localStorage.removeItem("refreshNotifications"), 50);
-    } catch {}
+    } catch { }
   };
 
   // ===============================
@@ -207,7 +207,6 @@ export default function BoardDetailPage() {
 
   // ✅ 권한별 버튼 렌더
   const renderButtons = (item, isMine) => {
-    // 🩵 [수정] 신고 버튼 조건/로직 개선 — 모든 댓글에 신고 가능
     return (
       <>
         {isMine ? (
@@ -228,7 +227,7 @@ export default function BoardDetailPage() {
               try {
                 await submitReport("COMMENT", item.id, reason);
                 alert("🚨 댓글 신고가 접수되었습니다.");
-                bumpNotificationList(); // 🩵 [추가] 실시간 알림 반영
+                bumpNotificationList();
               } catch (err) {
                 console.error("❌ 댓글 신고 실패:", err);
                 alert("신고 중 오류가 발생했습니다.");
@@ -276,9 +275,7 @@ export default function BoardDetailPage() {
           <span className="detail-date">{new Date(post.created_at).toLocaleDateString()}</span>
         </div>
 
-
-
-        {/* 이미지 + 본문 (2열) */}
+        {/* 이미지 + 본문 */}
         <div className="detail-content-row">
           {post.attachment_url && (
             <img
@@ -290,7 +287,7 @@ export default function BoardDetailPage() {
           <div className="detail-text">{post.content}</div>
         </div>
 
-        {/* 홍보글 | 조회수 | 댓글 */}
+        {/* 메타 정보 */}
         <div className="detail-meta">
           <span className="detail-meta-item">홍보글</span> |
           <span className="detail-meta-item">👁 {post.view_count}</span> |
@@ -323,15 +320,8 @@ export default function BoardDetailPage() {
             </button>
           )}
         </div>
-        <h2 className="detail-title">{post.title}</h2>
 
-        <div className="detail-actions">
-          <span>👁 {post.view_count}</span>
-          {isLoggedIn && <button onClick={handleLike}>❤️ {post.like_count}</button>}
-          <span>💬 댓글({visibleCommentCount})</span>
-        </div>
-
-        {/* ✅ 게시글 신고 버튼 (게시글 작성자 아닌 경우만) */}
+        {/* 🚨 게시글 신고 버튼 (작성자 본인 제외) */}
         {isLoggedIn && !isOwner && (
           <button
             className="report-btn"
@@ -341,7 +331,7 @@ export default function BoardDetailPage() {
               try {
                 await submitReport("BOARD_POST", post.id, reason);
                 alert("🚨 게시글 신고가 접수되었습니다.");
-                bumpNotificationList(); // 🩵 [추가] 실시간 알림 반영
+                bumpNotificationList();
               } catch (err) {
                 console.error("❌ 게시글 신고 실패:", err);
                 alert("신고 중 오류가 발생했습니다.");
@@ -352,11 +342,9 @@ export default function BoardDetailPage() {
           </button>
         )}
 
-        <div className="detail-content">{post.content}</div>
-
         {/* 수정 / 삭제 */}
         {isOwner && (
-          <div className="post-owner-actions">
+          <div className="detail-actions">
             <button className="edit-btn" onClick={() => navigate(`/board/${post.id}/edit`)}>
               수정
             </button>
@@ -379,12 +367,11 @@ export default function BoardDetailPage() {
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
               />
-              <button onClick={handleCommentSubmit}>등록</button>
+              <button className="submit-btn" onClick={handleCommentSubmit}>등록</button>
             </div>
           ) : (
             <p>💡 로그인 후 댓글을 작성할 수 있습니다.</p>
           )}
-
 
           {/* 댓글 + 대댓글 */}
           {comments.map((thread) => {
@@ -423,8 +410,8 @@ export default function BoardDetailPage() {
                           onChange={(e) => setEditContent(e.target.value)}
                         />
                         <div className="reply-buttons">
-                          <button onClick={() => handleEditSubmit(c.id)}>수정완료</button>
-                          <button onClick={() => setEditingId(null)}>취소</button>
+                          <button className="submit-btn" onClick={() => handleEditSubmit(c.id)}>수정완료</button>
+                          <button className="cancel-btn" onClick={() => setEditingId(null)}>취소</button>
                         </div>
                       </div>
                     ) : (
@@ -485,8 +472,8 @@ export default function BoardDetailPage() {
                                     onChange={(e) => setEditContent(e.target.value)}
                                   />
                                   <div className="reply-buttons">
-                                    <button onClick={() => handleEditSubmit(r.id)}>수정완료</button>
-                                    <button onClick={() => setEditingId(null)}>취소</button>
+                                    <button className="submit-btn" onClick={() => handleEditSubmit(r.id)}>수정완료</button>
+                                    <button className="cancel-btn" onClick={() => setEditingId(null)}>취소</button>
                                   </div>
                                 </div>
                               ) : (
@@ -513,9 +500,9 @@ export default function BoardDetailPage() {
                       placeholder="답글을 입력하세요"
                     />
                     <div className="reply-buttons">
-                      <button onClick={() => handleAddReply(c.id)}>등록</button>
+                      <button className="submit-btn" onClick={() => handleAddReply(c.id)}>등록</button>
                       <button
-                        className="cancel-reply"
+                        className="cancel-btn"
                         onClick={() =>
                           setReplyMap((prev) => {
                             const updated = { ...prev };

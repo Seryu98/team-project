@@ -194,6 +194,8 @@ async function authorizedFetch(input, options = {}) {
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   let res = await fetch(input, { ...options, headers });
+
+  // ✅ 401 → 토큰 재발급 시도
   if (res.status === 401) {
     try {
       token = await refreshAccessToken();
@@ -226,9 +228,31 @@ export async function authFetch(url, options = {}, { skipRedirect = false } = {}
     throw new Error("세션 만료");
   }
 
-  if (!res.ok) throw new Error("API 요청 실패");
-  return res.json();
+  // ✅ 응답 본문(JSON or text) 파싱 시도
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+
+  // ✅ 실패 시 detail 메시지 포함
+  if (!res.ok) {
+    const message =
+      data?.detail ||
+      data?.message ||
+      data?.msg ||
+      `API 요청 실패 (${res.status} ${res.statusText})`;
+
+    const error = new Error(message);
+    error.status = res.status;
+    error.data = data;
+    throw error;
+  }
+
+  return data;
 }
+
 
 // ============================
 // 현재 로그인된 사용자
