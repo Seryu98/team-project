@@ -1,3 +1,4 @@
+// /src/features/project_post/components/AIModal.jsx
 import { useState } from "react";
 import { generateAIDescription } from "./api";
 import "./aiForm.css";
