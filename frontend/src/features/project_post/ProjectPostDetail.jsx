@@ -515,6 +515,14 @@ export default function ProjectPostDetail() {
         </section>
       )}
 
+      {/* 분야 */}
+      {post.field && (
+        <div style={{ marginTop: "1.5rem" }}>
+          <h4>분야</h4>
+          <p style={{ fontSize: "15px", color: "#444" }}>{post.field}</p>
+        </div>
+      )}
+
       {/* 기술 스택 */}
       <div>
         <h4>언어 / 기술</h4>

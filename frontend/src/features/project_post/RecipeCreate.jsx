@@ -323,39 +323,58 @@ export default function RecipeCreate() {
             </div>
           </div>
 
-          {/* 사용 언어 */}
-          <div className="form-group">
-            <label className="form-label">사용 언어</label>
-            <div className="skill-autocomplete">
+
+          {/* 분야 — 프로젝트일 때만 표시 */}
+          {type === "PROJECT" && (
+            <div className="form-group">
+              <label className="form-label">분야</label>
               <input
                 type="text"
-                className="skill-search-input"
-                placeholder="언어 검색..."
-                value={skillSearch}
-                onChange={(e) => setSkillSearch(e.target.value)}
+                name="field"
+                className="form-input"
+                value={form.field}
+                onChange={handleChange}
+                placeholder="예: 웹 개발, 앱 개발, 데이터 분석 등"
               />
-              {filteredSkills.length > 0 && (
-                <ul className="skill-dropdown">
-                  {filteredSkills.map((s) => (
-                    <li key={s.id} className="skill-dropdown-item" onClick={() => addSkill(s)}>
-                      {s.name}
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
-            <div className="selected-skills">
-              {form.skills.map((id) => {
-                const item = skills.find((s) => s.id === id);
-                const name = item ? item.name : id;
-                return (
-                  <span key={id} className="skill-tag" onClick={() => removeSkill(id)}>
-                    {name} <span className="skill-tag-remove">×</span>
-                  </span>
-                );
-              })}
+          )}
+
+          {/* 사용 언어 — 프로젝트일 때만 표시 */}
+          {type === "PROJECT" && (
+            <div className="form-group">
+              <label className="form-label">사용 언어</label>
+              <div className="skill-autocomplete">
+                <input
+                  type="text"
+                  className="skill-search-input"
+                  placeholder="언어 검색..."
+                  value={skillSearch}
+                  onChange={(e) => setSkillSearch(e.target.value)}
+                />
+                {filteredSkills.length > 0 && (
+                  <ul className="skill-dropdown">
+                    {filteredSkills.map((s) => (
+                      <li key={s.id} className="skill-dropdown-item" onClick={() => addSkill(s)}>
+                        {s.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="selected-skills">
+                {form.skills.map((id) => {
+                  const item = skills.find((s) => s.id === id);
+                  const name = item ? item.name : id;
+                  return (
+                    <span key={id} className="skill-tag" onClick={() => removeSkill(id)}>
+                      {name} <span className="skill-tag-remove">×</span>
+                    </span>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
+
 
           {/* 지원자 필수 입력값 */}
           <div className="form-group">
@@ -365,9 +384,8 @@ export default function RecipeCreate() {
                 <button
                   key={field.id}
                   type="button"
-                  className={`field-button ${
-                    form.application_fields.includes(field.id) ? "active" : ""
-                  }`}
+                  className={`field-button ${form.application_fields.includes(field.id) ? "active" : ""
+                    }`}
                   onClick={() => toggleSelection(field.id, "application_fields")}
                 >
                   {field.name}

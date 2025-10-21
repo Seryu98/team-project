@@ -392,15 +392,31 @@ export default function ProfilePage() {
           >
             {project.image_url && (
               <img
-                src={`http://localhost:8000${project.image_url}`}
-                alt={project.title}
-                style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "6px" }}
+                src={
+                  project.image_url
+                    ? project.image_url.startsWith("http")
+                      ? project.image_url
+                      : `http://localhost:8000${project.image_url}`
+                    : "/assets/default_thumbnail.png"
+                }
+                alt={project.title || "대표 이미지"}
+                style={{
+                  width: "60px",
+                  height: "60px",
+                  objectFit: "cover",
+                  borderRadius: "6px",
+                  backgroundColor: "#f3f4f6",
+                }}
+                onError={(e) => (e.target.src = "/assets/default_thumbnail.png")}
               />
+
             )}
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: "14px", fontWeight: "500", marginBottom: "4px" }}>{project.title}</p>
               <p style={{ fontSize: "12px", color: "#6b7280" }}>
-                {project.type === "PROJECT" ? "프로젝트" : "스터디"} · {project.field || "분야 미정"}
+                {project.type === "PROJECT"
+                  ? `프로젝트 · ${project.field || "분야 미정"}`
+                  : "스터디"}
               </p>
             </div>
           </div>
@@ -482,564 +498,564 @@ export default function ProfilePage() {
     );
   };
 
- 
 
-// ✅ 댓글 리스트 렌더링 (본인만,관리자)
-const renderCommentList = () => {
-  if (myComments.length === 0) {
+
+  // ✅ 댓글 리스트 렌더링 (본인만,관리자)
+  const renderCommentList = () => {
+    if (myComments.length === 0) {
+      return (
+        <div style={{ width: "100%", textAlign: "center", padding: "24px", background: "#f9fafb", borderRadius: "8px", color: "#9ca3af" }}>
+          작성한 댓글이 없습니다
+        </div>
+      );
+    }
+
+    // ✅ 페이지네이션 로직 추가
+    const currentPage = postPages.comments;
+    const paginatedComments = paginate(myComments, currentPage);
+
     return (
-      <div style={{ width: "100%", textAlign: "center", padding: "24px", background: "#f9fafb", borderRadius: "8px", color: "#9ca3af" }}>
-        작성한 댓글이 없습니다
-      </div>
-    );
-  }
+      <>
+        {paginatedComments.map((comment) => (
+          <div
+            key={comment.id}
+            onClick={() => navigate(`/board/${comment.board_post_id}`)}
+            style={{
+              padding: "12px",
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              cursor: "pointer",
+              background: "#fff",
+              marginBottom: "8px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+              <span style={{ fontSize: "12px", fontWeight: "500", color: "#3b82f6" }}>
+                {comment.post_title || "게시글"}
+              </span>
+              <span style={{ fontSize: "11px", color: "#9ca3af" }}>
+                {new Date(comment.created_at).toLocaleDateString()}
+              </span>
+            </div>
+            <p style={{ fontSize: "13px", color: "#374151" }}>
+              {comment.content.length > 100
+                ? `${comment.content.substring(0, 100)}...`
+                : comment.content}
+            </p>
+          </div>
+        ))}
 
-  // ✅ 페이지네이션 로직 추가
-  const currentPage = postPages.comments;
-  const paginatedComments = paginate(myComments, currentPage);
+        {/* ✅ 페이지네이션 UI 추가 */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={myComments.length}
+          onPageChange={(newPage) => {
+            setPostPages(prev => ({ ...prev, comments: newPage }));
+          }}
+        />
+      </>
+    );
+  };
+
+  if (!profile) return <div style={{ textAlign: "center", marginTop: "40px" }}>로딩 중...</div>;
+
+  const isMyProfile = currentUser && currentUser.id === profile.id;
 
   return (
-    <>
-      {paginatedComments.map((comment) => (
-        <div
-          key={comment.id}
-          onClick={() => navigate(`/board/${comment.board_post_id}`)}
-          style={{
-            padding: "12px",
-            border: "1px solid #e5e7eb",
-            borderRadius: "8px",
-            cursor: "pointer",
-            background: "#fff",
-            marginBottom: "8px",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-            <span style={{ fontSize: "12px", fontWeight: "500", color: "#3b82f6" }}>
-              {comment.post_title || "게시글"}
-            </span>
-            <span style={{ fontSize: "11px", color: "#9ca3af" }}>
-              {new Date(comment.created_at).toLocaleDateString()}
-            </span>
-          </div>
-          <p style={{ fontSize: "13px", color: "#374151" }}>
-            {comment.content.length > 100
-              ? `${comment.content.substring(0, 100)}...`
-              : comment.content}
-          </p>
-        </div>
-      ))}
+    <div style={{ minHeight: "100vh", background: "#fff", padding: "40px 20px" }}>
+      <div style={{ maxWidth: "600px", margin: "0 auto" }}>
 
-      {/* ✅ 페이지네이션 UI 추가 */}
-      <Pagination
-        currentPage={currentPage}
-        totalItems={myComments.length}
-        onPageChange={(newPage) => {
-          setPostPages(prev => ({ ...prev, comments: newPage }));
-        }}
-      />
-    </>
-  );
-};
+        <h1 style={{ fontSize: "24px", fontWeight: "bold", textAlign: "center", marginBottom: "40px" }}>
+          {isMyProfile ? "내 프로필" : `${profile.nickname}님의 프로필`}
+        </h1>
 
-if (!profile) return <div style={{ textAlign: "center", marginTop: "40px" }}>로딩 중...</div>;
-
-const isMyProfile = currentUser && currentUser.id === profile.id;
-
-return (
-  <div style={{ minHeight: "100vh", background: "#fff", padding: "40px 20px" }}>
-    <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-
-      <h1 style={{ fontSize: "24px", fontWeight: "bold", textAlign: "center", marginBottom: "40px" }}>
-        {isMyProfile ? "내 프로필" : `${profile.nickname}님의 프로필`}
-      </h1>
-
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "20px", marginBottom: "30px" }}>
-        <div style={{ position: "relative" }}>
-          <img
-            src={
-              profile.profile_image
-                ? `http://localhost:8000${profile.profile_image}`
-                : "http://localhost:8000/assets/profile/default_profile.png"
-            }
-            alt="프로필"
-            style={{
-              width: "100px",
-              height: "100px",
-              borderRadius: "50%",
-              objectFit: "cover",
-              background: "#e5e7eb",
-            }}
-          />
-        </div>
-
-        <div style={{ flex: 1 }}>
-          <h2 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "4px" }}>
-            {profile.nickname}
-          </h2>
-
-          <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "8px" }}>
-            {profile.headline || "자기소개가 없습니다."}
-          </p>
-
-          <div style={{ display: "flex", gap: "12px", marginBottom: "12px", fontSize: "13px" }}>
-            <span
-              onClick={() => fetchFollowList("followers")}
-              style={{ cursor: "pointer", color: "#6b7280" }}
-            >
-              팔로워 <strong>{profile.follower_count}</strong>
-            </span>
-            <span
-              onClick={() => fetchFollowList("followings")}
-              style={{ cursor: "pointer", color: "#6b7280" }}
-            >
-              팔로잉 <strong>{profile.following_count}</strong>
-            </span>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "20px", marginBottom: "30px" }}>
+          <div style={{ position: "relative" }}>
+            <img
+              src={
+                profile.profile_image
+                  ? `http://localhost:8000${profile.profile_image}`
+                  : "http://localhost:8000/assets/profile/default_profile.png"
+              }
+              alt="프로필"
+              style={{
+                width: "100px",
+                height: "100px",
+                borderRadius: "50%",
+                objectFit: "cover",
+                background: "#e5e7eb",
+              }}
+            />
           </div>
 
-          <div style={{ display: "flex", gap: "8px" }}>
-            {isMyProfile ? (
-              <button
-                onClick={() => navigate("/profile/create")}
-                style={{
-                  padding: "6px 16px",
-                  fontSize: "13px",
-                  border: "1px solid #d1d5db",
-                  background: "#fff",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                }}
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "4px" }}>
+              {profile.nickname}
+            </h2>
+
+            <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "8px" }}>
+              {profile.headline || "자기소개가 없습니다."}
+            </p>
+
+            <div style={{ display: "flex", gap: "12px", marginBottom: "12px", fontSize: "13px" }}>
+              <span
+                onClick={() => fetchFollowList("followers")}
+                style={{ cursor: "pointer", color: "#6b7280" }}
               >
-                프로필 수정
-              </button>
-            ) : (
-              <>
-                {currentUser && (
-                  <>
-                    <button
-                      onClick={handleFollowToggle}
-                      style={{
-                        padding: "6px 16px",
-                        fontSize: "13px",
-                        border: "none",
-                        background: profile.is_following ? "#ef4444" : "#3b82f6",
-                        color: "#fff",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {profile.is_following ? "언팔로우" : "팔로우"}
-                    </button>
-                    <button
-                      onClick={handleSendMessage}
-                      style={{
-                        padding: "6px 16px",
-                        fontSize: "13px",
-                        border: "1px solid #d1d5db",
-                        background: "#fff",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      메시지
-                    </button>
-                  </>
-                )}
-              </>
+                팔로워 <strong>{profile.follower_count}</strong>
+              </span>
+              <span
+                onClick={() => fetchFollowList("followings")}
+                style={{ cursor: "pointer", color: "#6b7280" }}
+              >
+                팔로잉 <strong>{profile.following_count}</strong>
+              </span>
+            </div>
+
+            <div style={{ display: "flex", gap: "8px" }}>
+              {isMyProfile ? (
+                <button
+                  onClick={() => navigate("/profile/create")}
+                  style={{
+                    padding: "6px 16px",
+                    fontSize: "13px",
+                    border: "1px solid #d1d5db",
+                    background: "#fff",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  프로필 수정
+                </button>
+              ) : (
+                <>
+                  {currentUser && (
+                    <>
+                      <button
+                        onClick={handleFollowToggle}
+                        style={{
+                          padding: "6px 16px",
+                          fontSize: "13px",
+                          border: "none",
+                          background: profile.is_following ? "#ef4444" : "#3b82f6",
+                          color: "#fff",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {profile.is_following ? "언팔로우" : "팔로우"}
+                      </button>
+                      <button
+                        onClick={handleSendMessage}
+                        style={{
+                          padding: "6px 16px",
+                          fontSize: "13px",
+                          border: "1px solid #d1d5db",
+                          background: "#fff",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        메시지
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ✅ 생년월일 (값이 있을 때만 표시) */}
+        {profile.birth_date && (
+          <div style={{ marginBottom: "24px" }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: "14px",
+                fontWeight: "500",
+                marginBottom: "8px",
+              }}
+            >
+              생년월일
+            </label>
+            <div
+              style={{
+                width: "106%",          // ProfileCreate와 동일
+                padding: "16px",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                fontSize: "14px",
+                background: "#fafafa",
+                boxSizing: "border-box",
+              }}
+            >
+              {new Date(profile.birth_date).toLocaleDateString("ko-KR")}
+            </div>
+          </div>
+        )}
+
+        {/* ✅ 성별 (값이 있을 때만 표시) */}
+        {profile.gender && (
+          <div style={{ marginBottom: "24px" }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: "14px",
+                fontWeight: "500",
+                marginBottom: "8px",
+              }}
+            >
+              성별
+            </label>
+            <div
+              style={{
+                width: "106%",          // ProfileCreate와 동일
+                padding: "16px",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                fontSize: "14px",
+                background: "#fafafa",
+                boxSizing: "border-box",
+              }}
+            >
+              {profile.gender === "MALE"
+                ? "남성"
+                : profile.gender === "FEMALE"
+                  ? "여성"
+                  : profile.gender}
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginBottom: "24px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+            자기소개
+          </label>
+          <div style={{
+            width: "100%",
+            padding: "16px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            minHeight: "100px",
+            background: "#fafafa",
+            fontSize: "14px",
+            whiteSpace: "pre-wrap"
+          }}>
+            {profile.bio ? profile.bio : (
+              <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 자기소개가 없습니다</p>
             )}
           </div>
         </div>
-      </div>
-
-      {/* ✅ 생년월일 (값이 있을 때만 표시) */}
-{profile.birth_date && (
-  <div style={{ marginBottom: "24px" }}>
-    <label
-      style={{
-        display: "block",
-        fontSize: "14px",
-        fontWeight: "500",
-        marginBottom: "8px",
-      }}
-    >
-      생년월일
-    </label>
-    <div
-      style={{
-        width: "106%",          // ProfileCreate와 동일
-        padding: "16px",
-        border: "1px solid #d1d5db",
-        borderRadius: "8px",
-        fontSize: "14px",
-        background: "#fafafa",
-        boxSizing: "border-box",
-      }}
-    >
-      {new Date(profile.birth_date).toLocaleDateString("ko-KR")}
-    </div>
-  </div>
-)}
-
-{/* ✅ 성별 (값이 있을 때만 표시) */}
-{profile.gender && (
-  <div style={{ marginBottom: "24px" }}>
-    <label
-      style={{
-        display: "block",
-        fontSize: "14px",
-        fontWeight: "500",
-        marginBottom: "8px",
-      }}
-    >
-      성별
-    </label>
-    <div
-      style={{
-        width: "106%",          // ProfileCreate와 동일
-        padding: "16px",
-        border: "1px solid #d1d5db",
-        borderRadius: "8px",
-        fontSize: "14px",
-        background: "#fafafa",
-        boxSizing: "border-box",
-      }}
-    >
-      {profile.gender === "MALE"
-        ? "남성"
-        : profile.gender === "FEMALE"
-        ? "여성"
-        : profile.gender}
-    </div>
-  </div>
-)}
-
-      <div style={{ marginBottom: "24px" }}>
-        <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-          자기소개
-        </label>
-        <div style={{
-          width: "100%",
-          padding: "16px",
-          border: "1px solid #d1d5db",
-          borderRadius: "8px",
-          minHeight: "100px",
-          background: "#fafafa",
-          fontSize: "14px",
-          whiteSpace: "pre-wrap"
-        }}>
-          {profile.bio ? profile.bio : (
-            <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 자기소개가 없습니다</p>
-          )}
-        </div>
-      </div>
 
 
 
-      <div style={{ marginBottom: "24px" }}>
-        <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-          이력
-        </label>
-        <div style={{
-          width: "100%",
-          padding: "16px",
-          border: "1px solid #d1d5db",
-          borderRadius: "8px",
-          minHeight: "100px",
-          background: "#fafafa",
-          fontSize: "14px",
-          whiteSpace: "pre-wrap"
-        }}>
-          {profile.experience ? profile.experience : (
-            <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 이력이 없습니다</p>
-          )}
-        </div>
-      </div>
-
-      <div style={{ marginBottom: "24px" }}>
-        <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-          자격증
-        </label>
-        <div style={{
-          width: "100%",
-          padding: "16px",
-          border: "1px solid #d1d5db",
-          borderRadius: "8px",
-          minHeight: "100px",
-          background: "#fafafa",
-          fontSize: "14px",
-          whiteSpace: "pre-wrap"
-        }}>
-          {profile.certifications ? profile.certifications : (
-            <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 자격증이 없습니다</p>
-          )}
-        </div>
-      </div>
-
-      <div style={{ marginBottom: "24px" }}>
-        <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-          사용 가능한 언어
-        </label>
-
-        <div style={{
-          width: "100%",
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "16px",
-          padding: "16px",
-          border: "1px solid #d1d5db",
-          borderRadius: "8px",
-          minHeight: "100px",
-          background: "#fafafa"
-        }}>
-          {(profile.skills || []).length > 0 ? (
-            (profile.skills || []).map((skill) => (
-              <div
-                key={skill.id}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  width: "60px",
-                }}
-              >
-                <img
-                  src={resolveSkillIconUrl(skill.name)}
-                  alt={skill.name}
-                  style={{ width: "40px", height: "40px", objectFit: "contain" }}
-                />
-                <span style={{ fontSize: "11px", marginTop: "4px", textAlign: "center" }}>
-                  {skill.name}
-                </span>
-                <div style={{ display: "flex", gap: "2px", marginTop: "2px" }}>
-                  {[1, 2, 3].map((i) => (
-                    <img
-                      key={i}
-                      src={i <= skill.level ? oneStarUrl : zeroStarUrl}
-                      alt="star"
-                      style={{ width: "10px", height: "10px" }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))
-          ) : (
-            <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 스킬이 없습니다</p>
-          )}
-        </div>
-      </div>
-
-      {/* ✅ 프로젝트 섹션 (모든 프로필에서 표시) */}
-      <div style={{  width: "100%", marginBottom: "40px" }}>
-        <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "12px" }}>
-          프로젝트
-        </label>
-
-        <div style={{ width: "100%", display: "flex", gap: "8px", marginBottom: "16px", borderBottom: "1px solid #e5e7eb" }}>
-          <button
-            onClick={() => handleProjectTabChange("ongoing")}
-            style={{
-              padding: "8px 16px",
-              fontSize: "13px",
-              background: activeTab === "ongoing" ? "#3b82f6" : "transparent",
-              color: activeTab === "ongoing" ? "#fff" : "#6b7280",
-              border: "none",
-              borderBottom: activeTab === "ongoing" ? "2px solid #3b82f6" : "none",
-              cursor: "pointer",
-              fontWeight: activeTab === "ongoing" ? "500" : "normal",
-            }}
-          >
-
-            진행중 ({ongoingProjects.length})
-          </button>
-          <button
-            onClick={() => handleProjectTabChange("pending")}
-            style={{
-              padding: "8px 16px",
-              fontSize: "13px",
-              background: activeTab === "pending" ? "#3b82f6" : "transparent",
-              color: activeTab === "pending" ? "#fff" : "#6b7280",
-              border: "none",
-              borderBottom: activeTab === "pending" ? "2px solid #3b82f6" : "none",
-              cursor: "pointer",
-              fontWeight: activeTab === "pending" ? "500" : "normal",
-            }}
-          >
-            대기중 ({pendingProjects.length})
-          </button>
-          <button
-            onClick={() => handleProjectTabChange("ended")}
-            style={{
-              padding: "8px 16px",
-              fontSize: "13px",
-              background: activeTab === "ended" ? "#3b82f6" : "transparent",
-              color: activeTab === "ended" ? "#fff" : "#6b7280",
-              border: "none",
-              borderBottom: activeTab === "ended" ? "2px solid #3b82f6" : "none",
-              cursor: "pointer",
-              fontWeight: activeTab === "ended" ? "500" : "normal",
-            }}
-          >
-            종료 ({endedProjects.length})
-          </button>
+        <div style={{ marginBottom: "24px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+            이력
+          </label>
+          <div style={{
+            width: "100%",
+            padding: "16px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            minHeight: "100px",
+            background: "#fafafa",
+            fontSize: "14px",
+            whiteSpace: "pre-wrap"
+          }}>
+            {profile.experience ? profile.experience : (
+              <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 이력이 없습니다</p>
+            )}
+          </div>
         </div>
 
-        <div>
-          {activeTab === "ongoing" && renderProjectList(ongoingProjects, "ongoing")}
-          {activeTab === "pending" && renderProjectList(pendingProjects, "pending")}
-          {activeTab === "ended" && renderProjectList(endedProjects, "ended")}
-        </div>
-      </div>
-
-      {/* ✅ 활동 내역 섹션 */}
-      <div style={{ marginBottom: "40px" }}>
-        <label style={{ width: "100%", display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "12px" }}>
-          활동 내역
-        </label>
-
-        <div style={{ width: "100%", display: "flex", gap: "8px", marginBottom: "16px", borderBottom: "1px solid #e5e7eb" }}>
-          <button
-            onClick={() => handlePostTabChange("posts")}
-            style={{
-              padding: "8px 16px",
-              fontSize: "13px",
-              background: postTab === "posts" ? "#3b82f6" : "transparent",
-              color: postTab === "posts" ? "#fff" : "#6b7280",
-              border: "none",
-              borderBottom: postTab === "posts" ? "2px solid #3b82f6" : "none",
-              cursor: "pointer",
-              fontWeight: postTab === "posts" ? "500" : "normal",
-            }}
-          >
-            게시글 ({myPosts.length})
-          </button>
-
-          {/* ✅ 댓글 탭은 본인 또는 관리자일 때만 보임 */}
-          {(isMyProfile || currentUser?.role === "ADMIN") && (
-            <button
-              onClick={() => handlePostTabChange("comments")}
-              style={{
-                padding: "8px 16px",
-                fontSize: "13px",
-                background: postTab === "comments" ? "#3b82f6" : "transparent",
-                color: postTab === "comments" ? "#fff" : "#6b7280",
-                border: "none",
-                borderBottom: postTab === "comments" ? "2px solid #3b82f6" : "none",
-                cursor: "pointer",
-                fontWeight: postTab === "comments" ? "500" : "normal",
-              }}
-            >
-              댓글 ({myComments.length})
-            </button>
-          )}
+        <div style={{ marginBottom: "24px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+            자격증
+          </label>
+          <div style={{
+            width: "100%",
+            padding: "16px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            minHeight: "100px",
+            background: "#fafafa",
+            fontSize: "14px",
+            whiteSpace: "pre-wrap"
+          }}>
+            {profile.certifications ? profile.certifications : (
+              <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 자격증이 없습니다</p>
+            )}
+          </div>
         </div>
 
-        <div>
-          {postTab === "posts" && renderPostList()}
-          {postTab === "comments" && (isMyProfile || currentUser?.role === "ADMIN") && renderCommentList()}
-        </div>
-      </div>
-    </div>
+        <div style={{ marginBottom: "24px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
+            사용 가능한 언어
+          </label>
 
-    {showModal && (
-      <div style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 9999,
-        padding: "20px"
-      }}>
-        <div style={{
-          background: "#fff",
-          padding: "24px",
-          borderRadius: "12px",
-          width: "100%",
-          maxWidth: "400px",
-          maxHeight: "80vh",
-          overflowY: "auto"
-        }}>
-          <h2 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "16px" }}>
-            {modalType === "followers" ? "팔로워 목록" : "팔로잉 목록"}
-          </h2>
-          <div>
-            {list.length > 0 ? (
-              list.map((user) => (
+          <div style={{
+            width: "100%",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "16px",
+            padding: "16px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            minHeight: "100px",
+            background: "#fafafa"
+          }}>
+            {(profile.skills || []).length > 0 ? (
+              (profile.skills || []).map((skill) => (
                 <div
-                  key={user.id}
+                  key={skill.id}
                   style={{
                     display: "flex",
-                    justifyContent: "space-between",
+                    flexDirection: "column",
                     alignItems: "center",
-                    padding: "8px",
-                    borderRadius: "8px",
-                    marginBottom: "4px",
+                    width: "60px",
                   }}
                 >
-                  <div
-                    onClick={() => {
-                      setShowModal(false);
-                      navigate(`/profile/${user.id}`);
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      flex: 1,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <img
-                      src={
-                        user.profile_image
-                          ? `http://localhost:8000${user.profile_image}`
-                          : "http://localhost:8000/assets/profile/default_profile.png"
-                      }
-                      alt={user.nickname}
-                      style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }}
-                    />
-                    <div>
-                      <p style={{ fontSize: "14px", fontWeight: "500" }}>{user.nickname}</p>
-                      <p style={{ fontSize: "12px", color: "#6b7280" }}>{user.headline || "자기소개 없음"}</p>
-                    </div>
+                  <img
+                    src={resolveSkillIconUrl(skill.name)}
+                    alt={skill.name}
+                    style={{ width: "40px", height: "40px", objectFit: "contain" }}
+                  />
+                  <span style={{ fontSize: "11px", marginTop: "4px", textAlign: "center" }}>
+                    {skill.name}
+                  </span>
+                  <div style={{ display: "flex", gap: "2px", marginTop: "2px" }}>
+                    {[1, 2, 3].map((i) => (
+                      <img
+                        key={i}
+                        src={i <= skill.level ? oneStarUrl : zeroStarUrl}
+                        alt="star"
+                        style={{ width: "10px", height: "10px" }}
+                      />
+                    ))}
                   </div>
-                  {user.is_following && (
-                    <button
-                      onClick={() => handleUnfollowInModal(user.id)}
-                      style={{
-                        fontSize: "12px",
-                        color: "#ef4444",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                      }}
-                    >
-                      취소
-                    </button>
-                  )}
                 </div>
               ))
             ) : (
-              <p style={{ textAlign: "center", color: "#9ca3af", padding: "16px" }}>아직 아무도 없습니다.</p>
+              <p style={{ color: "#9ca3af", fontSize: "13px" }}>등록된 스킬이 없습니다</p>
             )}
           </div>
-          <button
-            onClick={() => setShowModal(false)}
-            style={{
-              width: "100%",
-              marginTop: "16px",
-              padding: "10px",
-              background: "#e5e7eb",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-            }}
-          >
-            닫기
-          </button>
+        </div>
+
+        {/* ✅ 프로젝트 섹션 (모든 프로필에서 표시) */}
+        <div style={{ width: "100%", marginBottom: "40px" }}>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "12px" }}>
+            프로젝트 / 스터디
+          </label>
+
+          <div style={{ width: "100%", display: "flex", gap: "8px", marginBottom: "16px", borderBottom: "1px solid #e5e7eb" }}>
+            <button
+              onClick={() => handleProjectTabChange("ongoing")}
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                background: activeTab === "ongoing" ? "#3b82f6" : "transparent",
+                color: activeTab === "ongoing" ? "#fff" : "#6b7280",
+                border: "none",
+                borderBottom: activeTab === "ongoing" ? "2px solid #3b82f6" : "none",
+                cursor: "pointer",
+                fontWeight: activeTab === "ongoing" ? "500" : "normal",
+              }}
+            >
+
+              진행중 ({ongoingProjects.length})
+            </button>
+            <button
+              onClick={() => handleProjectTabChange("pending")}
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                background: activeTab === "pending" ? "#3b82f6" : "transparent",
+                color: activeTab === "pending" ? "#fff" : "#6b7280",
+                border: "none",
+                borderBottom: activeTab === "pending" ? "2px solid #3b82f6" : "none",
+                cursor: "pointer",
+                fontWeight: activeTab === "pending" ? "500" : "normal",
+              }}
+            >
+              대기중 ({pendingProjects.length})
+            </button>
+            <button
+              onClick={() => handleProjectTabChange("ended")}
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                background: activeTab === "ended" ? "#3b82f6" : "transparent",
+                color: activeTab === "ended" ? "#fff" : "#6b7280",
+                border: "none",
+                borderBottom: activeTab === "ended" ? "2px solid #3b82f6" : "none",
+                cursor: "pointer",
+                fontWeight: activeTab === "ended" ? "500" : "normal",
+              }}
+            >
+              종료 ({endedProjects.length})
+            </button>
+          </div>
+
+          <div>
+            {activeTab === "ongoing" && renderProjectList(ongoingProjects, "ongoing")}
+            {activeTab === "pending" && renderProjectList(pendingProjects, "pending")}
+            {activeTab === "ended" && renderProjectList(endedProjects, "ended")}
+          </div>
+        </div>
+
+        {/* ✅ 활동 내역 섹션 */}
+        <div style={{ marginBottom: "40px" }}>
+          <label style={{ width: "100%", display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "12px" }}>
+            활동 내역
+          </label>
+
+          <div style={{ width: "100%", display: "flex", gap: "8px", marginBottom: "16px", borderBottom: "1px solid #e5e7eb" }}>
+            <button
+              onClick={() => handlePostTabChange("posts")}
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                background: postTab === "posts" ? "#3b82f6" : "transparent",
+                color: postTab === "posts" ? "#fff" : "#6b7280",
+                border: "none",
+                borderBottom: postTab === "posts" ? "2px solid #3b82f6" : "none",
+                cursor: "pointer",
+                fontWeight: postTab === "posts" ? "500" : "normal",
+              }}
+            >
+              게시글 ({myPosts.length})
+            </button>
+
+            {/* ✅ 댓글 탭은 본인 또는 관리자일 때만 보임 */}
+            {(isMyProfile || currentUser?.role === "ADMIN") && (
+              <button
+                onClick={() => handlePostTabChange("comments")}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: "13px",
+                  background: postTab === "comments" ? "#3b82f6" : "transparent",
+                  color: postTab === "comments" ? "#fff" : "#6b7280",
+                  border: "none",
+                  borderBottom: postTab === "comments" ? "2px solid #3b82f6" : "none",
+                  cursor: "pointer",
+                  fontWeight: postTab === "comments" ? "500" : "normal",
+                }}
+              >
+                댓글 ({myComments.length})
+              </button>
+            )}
+          </div>
+
+          <div>
+            {postTab === "posts" && renderPostList()}
+            {postTab === "comments" && (isMyProfile || currentUser?.role === "ADMIN") && renderCommentList()}
+          </div>
         </div>
       </div>
-    )}
-  </div>
-);
+
+      {showModal && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 9999,
+          padding: "20px"
+        }}>
+          <div style={{
+            background: "#fff",
+            padding: "24px",
+            borderRadius: "12px",
+            width: "100%",
+            maxWidth: "400px",
+            maxHeight: "80vh",
+            overflowY: "auto"
+          }}>
+            <h2 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "16px" }}>
+              {modalType === "followers" ? "팔로워 목록" : "팔로잉 목록"}
+            </h2>
+            <div>
+              {list.length > 0 ? (
+                list.map((user) => (
+                  <div
+                    key={user.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px",
+                      borderRadius: "8px",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    <div
+                      onClick={() => {
+                        setShowModal(false);
+                        navigate(`/profile/${user.id}`);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        flex: 1,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <img
+                        src={
+                          user.profile_image
+                            ? `http://localhost:8000${user.profile_image}`
+                            : "http://localhost:8000/assets/profile/default_profile.png"
+                        }
+                        alt={user.nickname}
+                        style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }}
+                      />
+                      <div>
+                        <p style={{ fontSize: "14px", fontWeight: "500" }}>{user.nickname}</p>
+                        <p style={{ fontSize: "12px", color: "#6b7280" }}>{user.headline || "자기소개 없음"}</p>
+                      </div>
+                    </div>
+                    {user.is_following && (
+                      <button
+                        onClick={() => handleUnfollowInModal(user.id)}
+                        style={{
+                          fontSize: "12px",
+                          color: "#ef4444",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        취소
+                      </button>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p style={{ textAlign: "center", color: "#9ca3af", padding: "16px" }}>아직 아무도 없습니다.</p>
+              )}
+            </div>
+            <button
+              onClick={() => setShowModal(false)}
+              style={{
+                width: "100%",
+                marginTop: "16px",
+                padding: "10px",
+                background: "#e5e7eb",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+              }}
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
