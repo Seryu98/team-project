@@ -1,4 +1,3 @@
-// src/features/notification/NotificationList.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -40,6 +39,29 @@ export default function NotificationList({ onClose }) {
   }, []);
 
   // ================================================
+  // ✅ 전체 삭제 / 쪽지함 이동 기능 추가
+  // ================================================
+  async function handleClearAll() {
+    if (items.length === 0) {
+      alert("삭제할 알림이 없습니다.");
+      return;
+    }
+    if (!window.confirm("모든 알림을 읽음 처리하고 비우시겠습니까?")) return;
+    try {
+      await axios.post("/notifications/read-all"); // ✅ 전체 읽음 처리 API
+      setItems([]);
+      alert("모든 알림이 삭제되었습니다.");
+    } catch (err) {
+      console.error("❌ 전체 삭제 실패:", err);
+      alert("전체 삭제 중 오류가 발생했습니다.");
+    }
+  }
+
+  function handleGoMessages() {
+    window.location.href = "/messages";
+  }
+
+  // ================================================
   // ✅ 알림 클릭 시 동작
   // ================================================
   async function onClickItem(n) {
@@ -67,31 +89,23 @@ export default function NotificationList({ onClose }) {
       // 🩵 [수정] 유형별 이동 로직 (서버 Enum과 일치)
       switch (n.type) {
         case "ADMIN_NOTICE":
-          // ✅ [추가됨 10/18] 공지사항 알림 클릭 시 → 공지사항 쪽지함으로 이동
           window.location.href = "/messages?tab=notice";
           break;
 
         case "MESSAGE":
-          // [수정됨 10/18: 공지사항 쪽지 상세 이동 추가]
           if (n.category === "ADMIN" && n.related_id) {
-            // ✅ 공지사항 쪽지 → 상세 페이지로 직접 이동
             window.location.href = `/messages?tab=notice&id=${n.related_id}`;
           } else {
-            // ✅ 일반 쪽지
             window.location.href = `/messages/${n.related_id}`;
           }
           break;
 
-
-        // ✅ 관리자 관련 → 관리자 쪽지함으로 이동 [수정 10/19]
         case "REPORT_RECEIVED":
         case "REPORT_RESOLVED":
         case "REPORT_REJECTED":
         case "BAN":
         case "WARNING":
         case "UNBAN":
-          // ✅ 제재·경고·해제 알림 → 관리자 쪽지함 이동
-          // 🩵 [보완] ADMIN 카테고리만 이동 (일반 신고자는 위에서 return)
           if (n.category === "ADMIN") {
             window.location.href = "/messages?tab=admin";
           }
@@ -99,12 +113,10 @@ export default function NotificationList({ onClose }) {
 
         case "APPLICATION_ACCEPTED":
         case "APPLICATION_REJECTED":
-          // ✅ 게시글 승인/거절 알림은 이동 없이 읽음 처리만 [10/19 수정]
           console.log("✅ 승인/거절 알림 클릭: 이동 없이 읽음 처리 완료");
           break;
 
         case "REPORT_ADMIN_NOTICE":
-          // 🩵 [추가] 신고 관련 관리자 시스템 공지 (대시보드 이동)
           window.location.href = "/admin/reports";
           break;
 
@@ -124,28 +136,48 @@ export default function NotificationList({ onClose }) {
   }
 
   // ================================================
-  // ✅ UI 렌더링
+  // ✅ UI 렌더링 (스크롤 구조 수정됨)
   // ================================================
   return (
     <div
-      className="absolute right-0 top-10 w-72 bg-white border shadow-lg rounded-lg z-50"
-      style={{ maxHeight: "400px", overflowY: "auto" }}
+      className="absolute right-0 top-10 w-72 bg-white border shadow-lg rounded-lg z-50 flex flex-col"
+      style={{ maxHeight: "400px" }}
     >
-      <div className="flex justify-between items-center px-3 py-2 border-b">
+      {/* 상단 헤더 */}
+      <div className="flex justify-between items-center px-3 py-2 border-b bg-white sticky top-0 z-20">
         <span className="font-semibold text-sm">알림</span>
         <button onClick={onClose} className="text-gray-500 text-sm">
           ✕
         </button>
       </div>
 
-      <ul className="divide-y text-sm">
+      {/* ✅ 컨트롤 버튼 영역 (고정) */}
+      <div className="flex justify-between items-center px-3 py-2 border-b bg-gray-50 text-xs text-gray-600 sticky top-8 z-10">
+        <button
+          onClick={handleClearAll}
+          className="hover:text-red-600 transition"
+        >
+          🗑️ 전체 삭제
+        </button>
+        <button
+          onClick={handleGoMessages}
+          className="hover:text-blue-600 transition"
+        >
+          ✉️ 쪽지함으로
+        </button>
+      </div>
+
+      {/* ✅ 알림 목록 (이 부분만 스크롤됨) */}
+      <ul
+        className="divide-y text-sm overflow-y-auto flex-1 bg-white"
+        style={{ maxHeight: "320px" }}
+      >
         {items.map((n) => (
           <li
             key={n.id}
             onClick={() => onClickItem(n)}
             className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
           >
-            {/* 🩵 [추가] 알림 타입 표시 (디버깅 시 가시성 ↑) */}
             <div className="font-medium">
               {n.message}
               {process.env.NODE_ENV === "development" && (
