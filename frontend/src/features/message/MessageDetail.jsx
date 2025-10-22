@@ -8,6 +8,11 @@ export default function MessageDetail({ message }) {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ message prop이 바뀔 때마다 msg 동기화
+  useEffect(() => {
+    setMsg(message);
+  }, [message]);
+
   // ✅ 로그인 사용자 불러오기
   useEffect(() => {
     async function fetchCurrentUser() {
