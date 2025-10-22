@@ -23,8 +23,10 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
         await websocket.close(code=4002)
         return
 
-    user_id = payload.get("sub")
-    if not user_id:
+    # ✅ user_id를 반드시 int로 변환 (🚨 중요 수정)
+    try:
+        user_id = int(payload.get("sub"))
+    except Exception:
         await websocket.close(code=4003)
         return
 

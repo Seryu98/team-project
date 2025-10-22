@@ -15,6 +15,9 @@ import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SessionExpiredModal from "./components/SessionExpiredModal";
 
+// ✅ 추가: 전역 세션 감시기
+import SessionManager from "./features/auth/SessionManager";
+
 // ---------------------------------------
 // Auth
 // ---------------------------------------
@@ -89,6 +92,8 @@ function MainLayout() {
   return (
     <>
       <Navbar />
+      {/* ✅ 전역 세션 감시기: FORCED_LOGOUT 수신/처리 */}
+      <SessionManager />
       <Outlet />
     </>
   );
@@ -247,7 +252,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
 
           <Route
             path="/admin/reports"

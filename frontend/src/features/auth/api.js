@@ -26,26 +26,43 @@ function redirectToLogin() {
   }
 }
 
-// ✅ 토큰 클리어
+// ✅ 토큰 클리어 (개선 버전)
 export function clearTokens(redirect = "always") {
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
-  stopLogoutTimer();
+  try {
+    // 🔒 1. 모든 토큰 및 세션 데이터 제거
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("session_expired");
+    stopLogoutTimer();
 
-  if (redirect === "always") {
-    redirectToLogin();
-  } else if (redirect === "auto") {
+    // 🔒 2. 현재 열린 모든 탭에서 로그아웃 이벤트 동기화
+    localStorage.setItem("logout_event", Date.now().toString());
+    setTimeout(() => localStorage.removeItem("logout_event"), 500);
+
+    // 🚪 3. redirect 정책 처리
     const currentPath = window.location.pathname;
-    const protectedPaths = [
-      "/board",
-      "/ranking",
-      "/profile",
-      "/recipe/create",
-      "/account",
-    ];
-    if (protectedPaths.some((path) => currentPath.startsWith(path))) {
+
+    if (redirect === "always") {
       redirectToLogin();
     }
+    else if (redirect === "auto") {
+      const protectedPaths = [
+        "/board",
+        "/ranking",
+        "/profile",
+        "/recipe/create",
+        "/account",
+      ];
+      if (protectedPaths.some((path) => currentPath.startsWith(path))) {
+        redirectToLogin();
+      }
+    }
+    else if (redirect === "never") {
+      // 이동 없이 단순 세션 종료 (예: 강제 로그아웃 시)
+      console.log("🧹 clearTokens: redirect 생략 (never)");
+    }
+  } catch (e) {
+    console.error("⚠️ clearTokens() 실패:", e);
   }
 }
 
@@ -122,6 +139,7 @@ export async function register(form) {
 
 // ============================
 // 로그인 (username=user_id)
+//  - 중복 로그인 감지 시 { duplicate: true, message } 반환
 // ============================
 export async function login(loginId, password) {
   const params = new URLSearchParams();
@@ -136,9 +154,62 @@ export async function login(loginId, password) {
     body: params,
   });
 
+  // ✅ 백엔드가 기존 세션 감지 시 409 또는 {status:"DUPLICATE_SESSION"}로 응답한다고 가정
+  if (res.status === 409) {
+    let body = null;
+    try {
+      body = await res.json();
+    } catch { }
+    const message =
+      body?.message ||
+      body?.detail ||
+      "다른 기기에서 로그인 중입니다. 로그인하시겠습니까?";
+    return { duplicate: true, message };
+  }
+
   if (!res.ok) {
+    // (기존 동작 유지)
     const errorText = await res.text();
     console.error("로그인 에러:", res.status, errorText);
+    throw new Error(String(res.status));
+  }
+
+  const data = await res.json();
+
+  // ✅ 백엔드가 200이지만 status로 신호를 줄 수도 있음(과거 버전 호환)
+  if (data?.status === "DUPLICATE_SESSION") {
+    return {
+      duplicate: true,
+      message:
+        data?.message ||
+        "다른 기기에서 로그인 중입니다. 로그인하시겠습니까?",
+    };
+  }
+
+  setTokens(data);
+  return data;
+}
+
+// ============================
+// ✅ 강제 로그인(기존 세션 무효화 후 로그인)
+//   - /auth/force-login 사용
+// ============================
+export async function forceLogin(loginId, password) {
+  const params = new URLSearchParams();
+  params.append("username", loginId);
+  params.append("password", password);
+  params.append("grant_type", "password");
+  params.append("scope", "");
+
+  const res = await fetch(`${API_URL}/auth/force-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params,
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("강제 로그인 에러:", res.status, errorText);
     throw new Error(String(res.status));
   }
 
@@ -237,9 +308,13 @@ export async function getCurrentUser({ skipRedirect = false } = {}) {
 // 로그인 + 사용자 정보까지 한 번에
 // ============================
 export async function loginAndFetchUser(loginId, password) {
-  const tokens = await login(loginId, password);
+  const result = await login(loginId, password);
+
+  // 🔔 중복 로그인 경고일 때는 토큰 저장을 아직 하지 않았으므로 그대로 반환
+  if (result?.duplicate) return { duplicate: true, message: result.message };
+
   const user = await getCurrentUser();
-  return { tokens, user };
+  return { tokens: result, user };
 }
 
 // ============================
@@ -353,3 +428,11 @@ export async function logoutUser() {
     clearTokens("always");
   }
 }
+
+// ✅ 로그아웃 이벤트 리스너 (다중 탭 동기화용)
+window.addEventListener("storage", (e) => {
+  if (e.key === "logout_event") {
+    console.log("🔁 다른 탭에서 로그아웃 감지 → 현재 탭도 로그아웃");
+    redirectToLogin();
+  }
+});

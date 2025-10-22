@@ -484,74 +484,6 @@ def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User
   return user
 
 
-# ===============================
-# 👤 로그인 / 인증 / 토큰 재발급
-# ===============================
-def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
-  login_id = form_data.username
-
-  user = db.query(User).filter(User.user_id == login_id).first()
-
-  # 🚫 탈퇴 계정 로그인 차단
-  if user and user.status == UserStatus.DELETED:
-    logger.warning("🚫 탈퇴 계정 로그인 시도 차단: user_id=%s", login_id)
-    raise HTTPException(status_code=403, detail="탈퇴한 계정은 로그인할 수 없습니다.")
-
-  if user and _is_locked(user):
-    db.commit()
-    logger.warning("잠금 상태 로그인 시도: user_id=%s", login_id)
-    return None
-
-  db_user = authenticate_user(db, login_id, form_data.password)
-  if not db_user:
-    if user:
-      _on_login_fail(user)
-      db.commit()
-    logger.info("로그인 실패: user_id=%s", login_id)
-    return None
-
-  _on_login_success(db_user)
-  db.commit()
-  db.refresh(db_user)
-
-  access_token, refresh_token = _issue_jwt_pair(db_user.id)
-  logger.info("로그인 성공: user_id=%s id=%s", db_user.user_id, db_user.id)
-
-  # ✅ 기존 세션이 이미 존재하는지 확인 (중복 로그인 방지)
-  existing_session = (
-      db.query(UserSession)
-      .filter(UserSession.user_id == db_user.id, UserSession.is_active == True)
-      .first()
-  )
-
-  if existing_session:
-      existing_session.is_active = False
-      db.commit()
-      logger.info("⚠️ 기존 세션 비활성화됨 → user_id=%s", db_user.id)
-
-      try:
-          # ✅ [수정됨] 비동기 함수 안전 호출 (await 대신 create_task)
-          asyncio.create_task(
-              send_realtime_notification(
-                  db_user.id,
-                  title="다른 기기에서 로그인되었습니다.",
-                  content="본인이 아닐 경우 즉시 비밀번호를 변경하세요.",
-              )
-          )
-      except Exception as e:
-          logger.warning("⚠️ 알림 전송 실패: %s", e)
-
-  # ✅ 새 세션 생성
-  _create_session(db, db_user.id, refresh_token)
-
-  return {
-      "access_token": access_token,
-      "refresh_token": refresh_token,
-      "token_type": "bearer",
-      "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-  }
-
-
 def refresh_access_token(refresh_token: str) -> Optional[dict]:
   payload = verify_token(refresh_token, expected_type="refresh")
   if not payload:
@@ -938,3 +870,61 @@ def logout_user(db: Session, user_id: int) -> None:
   """✅ 프론트에서 /auth/logout 호출 시 사용할 함수"""
   _invalidate_all_sessions(db, user_id)
   logger.info("🚪 로그아웃 완료 user_id=%s", user_id)
+
+
+# ===============================
+# ⚡ 강제 로그인 (기존 세션 무효화 후 새 로그인)
+# ===============================
+def force_login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
+    """
+    ✅ 기존 세션 무효화 후 새 로그인 세션 생성
+    - /auth/force-login 라우터에서 호출됨
+    """
+    login_id = form_data.username
+    user = db.query(User).filter(User.user_id == login_id).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    # 🚫 탈퇴 계정 로그인 차단
+    if user.status == UserStatus.DELETED:
+        logger.warning("🚫 탈퇴 계정 강제 로그인 시도 차단: user_id=%s", login_id)
+        raise HTTPException(status_code=403, detail="탈퇴한 계정은 로그인할 수 없습니다.")
+
+    # 🔒 비밀번호 확인
+    if not verify_password(form_data.password, user.password_hash):
+        logger.warning("⚠️ 비밀번호 불일치 (force-login): user_id=%s", login_id)
+        raise HTTPException(status_code=401, detail="비밀번호가 일치하지 않습니다.")
+
+    # ✅ 기존 세션 모두 비활성화
+    _invalidate_all_sessions(db, user.id)
+
+    # ✅ 새 토큰 발급
+    access_token, refresh_token = _issue_jwt_pair(user.id)
+
+    # ✅ 새 세션 생성
+    _create_session(db, user.id, refresh_token)
+    db.commit()
+
+    # ✅ 기존 기기에 WebSocket 로그아웃 알림 (optional)
+    try:
+        asyncio.create_task(
+            ws_manager.send_to_user(
+                user.id,
+                {
+                    "type": "FORCED_LOGOUT",
+                    "message": "다른 기기에서 로그인되어 로그아웃되었습니다.",
+                },
+            )
+        )
+    except Exception as e:
+        logger.warning("⚠️ 기존 기기 알림 실패: %s", e)
+
+    logger.info("✅ 강제 로그인 완료 user_id=%s", user.id)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }

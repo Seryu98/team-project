@@ -198,18 +198,53 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     tokens = auth_service.login_user(db, form_data)
     if not tokens:
         raise HTTPException(status_code=401, detail="로그인 실패")
+
+    # ✅ [추가됨] 중복 로그인 감지 시 응답 처리
+    if isinstance(tokens, dict) and tokens.get("status") == "DUPLICATE_SESSION":
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "DUPLICATE_SESSION",
+                "message": tokens["message"]
+            }
+        )
+
     return tokens
+
+
+# ✅ [🔧 수정됨] 강제 로그인 API (중복 로그인 모달 ‘확인’ 시 호출)
+@router.post("/force-login")
+def force_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """⚠️ 강제 로그인 (기존 세션 무효화 후 새 세션 발급)"""
+    try:
+        tokens = auth_service.force_login_user(db, form_data)  # ✅ auth_service에 구현된 강제 로그인 로직 호출
+        if not tokens:
+            raise HTTPException(status_code=401, detail="강제 로그인 실패")
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "access_token": tokens["access_token"],
+                "refresh_token": tokens["refresh_token"],
+                "token_type": "bearer",
+                "expires_in": tokens.get("expires_in", 3600),
+                "status": "SUCCESS"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("❌ 강제 로그인 중 예외 발생:", e)
+        raise HTTPException(status_code=500, detail="강제 로그인 처리 중 서버 오류가 발생했습니다.")
 
 
 @router.post("/refresh")
 def refresh_token(req: RefreshRequest):
     """♻️ Refresh Token으로 Access Token 재발급"""
-    # ✅ verify_token()으로 Refresh 유효성 검증
     payload = verify_token(req.refresh_token, expected_type="refresh")
     if not payload:
         raise HTTPException(status_code=401, detail="리프레시 토큰이 유효하지 않습니다.")
 
-    # 검증 통과 후 Access 토큰 재발급
     new_token = auth_service.refresh_access_token(req.refresh_token)
     if not new_token:
         raise HTTPException(status_code=401, detail="Access 토큰 재발급에 실패했습니다.")
@@ -245,7 +280,7 @@ def get_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
         "phone_number": user.phone_number,
         "role": getattr(user, "role", "user"),
         "status": user.status,
-        "auth_provider": getattr(user, "auth_provider", "local"),  # ✅ 추가된 부분
+        "auth_provider": getattr(user, "auth_provider", "local"),
     }
 
 
@@ -294,7 +329,6 @@ def delete_account(token: str = Depends(oauth2_scheme), db: Session = Depends(ge
     if user.status == UserStatus.DELETED:
         raise HTTPException(status_code=400, detail="이미 탈퇴한 계정입니다.")
 
-    # ✅ 중복 방지용 이메일/닉네임/전화번호 변경
     timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     user.email = f"{user.email}_deleted_{timestamp}"
     user.nickname = f"{user.nickname}_deleted_{timestamp}"
@@ -351,7 +385,7 @@ async def get_email_hint(req: EmailHintRequest, db: Session = Depends(get_db)):
 
     email = user.email
     email_hint = auth_service.get_email_hint(db, req.user_id)
-    return {"email_hint": email_hint, "email": email}  # ✅ 실제 이메일도 함께 반환
+    return {"email_hint": email_hint, "email": email}
 
 
 @router.post("/request-password-reset")
@@ -431,6 +465,7 @@ class EmailCodeRequest(BaseModel):
     email: EmailStr
     purpose: Literal["signup", "reset"]
 
+
 @router.post("/email/send-code")
 def send_verification_email(req: EmailCodeRequest):
     """📩 이메일 인증 코드 발송 (회원가입/비밀번호찾기 공통)"""
@@ -446,6 +481,7 @@ class VerifyCodeRequest(BaseModel):
     email: EmailStr
     code: str
     purpose: Literal["signup", "reset"]
+
 
 @router.post("/email/verify-code")
 def verify_email_code(req: VerifyCodeRequest):

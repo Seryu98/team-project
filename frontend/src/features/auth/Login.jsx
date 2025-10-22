@@ -17,6 +17,9 @@ function Login() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
 
+  /* ✅ 중복 로그인 감지용 모달 상태 */
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+
   /* ✅ 자동 로그인 */
   useEffect(() => {
     (async () => {
@@ -38,13 +41,49 @@ function Login() {
     e.preventDefault();
     setMsg("");
     try {
-      const { tokens } = await loginAndFetchUser(userId, password);
-      console.log("✅ 로그인 성공", tokens);
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          username: userId,
+          password: password,
+        }),
+      });
+
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      // ✅ 다양한 중복 로그인 응답 형태 포괄 감지
+      if (
+        res.status === 409 ||
+        data?.status === "DUPLICATE_SESSION" ||
+        (typeof data?.detail === "string" &&
+          data.detail.includes("다른 기기")) ||
+        (typeof data?.message === "string" &&
+          data.message.includes("이미 로그인"))
+      ) {
+        console.warn("⚠️ 중복 로그인 감지:", data);
+        setShowDuplicateModal(true);
+        return;
+      }
+
+      if (!res.ok) throw new Error(data.detail || "로그인 실패");
+
+      // ✅ 정상 로그인 처리
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("refresh_token", data.refresh_token);
+
       const user = await getCurrentUser();
       setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);
       navigate("/", { replace: true });
     } catch (err) {
-      console.error("❌ 로그인 후 에러:", err);
+      console.error("❌ 로그인 에러:", err);
       const message = String(err?.message || "");
       if (message.includes("423")) {
         setMsg("⏳ 계정이 잠겼습니다. 잠시 후 다시 시도하세요.");
@@ -54,6 +93,37 @@ function Login() {
       } else {
         setMsg("❌ 로그인 실패");
       }
+    }
+  };
+
+  /* ✅ 강제 로그인 (기존 세션 무효화 후 로그인) */
+  const handleForceLogin = async () => {
+    setShowDuplicateModal(false);
+    try {
+      const res = await fetch(`${API_BASE}/auth/force-login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          username: userId,
+          password: password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.detail || "강제 로그인 실패");
+
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("refresh_token", data.refresh_token);
+
+      const user = await getCurrentUser();
+      setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error("❌ 강제 로그인 에러:", err);
+      setMsg("⚠️ 강제 로그인 중 오류가 발생했습니다.");
     }
   };
 
@@ -152,6 +222,24 @@ function Login() {
 
         {msg && <p className="login-message">{msg}</p>}
       </div>
+
+      {/* ✅ 중복 로그인 모달 */}
+      {showDuplicateModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h3>이미 로그인된 계정입니다.</h3>
+            <p>
+              다른 기기에서 로그인된 세션이 있습니다.
+              <br />
+              이 기기에서 로그인하시겠습니까?
+            </p>
+            <div className="modal-buttons">
+              <button onClick={() => setShowDuplicateModal(false)}>취소</button>
+              <button onClick={handleForceLogin}>확인</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -335,3 +335,18 @@ async def send_realtime_notification(user_id: int, title: str, content: str):
     }
     await ws_manager.send_to_user(user_id, message)
     print(f"🔔 실시간 알림 전송 완료 → user_id={user_id}, title={title}")
+
+
+# ============================================================
+# ✅ [추가됨 10/22] 강제 로그아웃 실시간 전송 기능 (FORCED_LOGOUT)
+# ============================================================
+async def send_forced_logout(user_id: int):
+    """
+    중복 로그인 감지 시 기존 세션에 FORCED_LOGOUT 이벤트 실시간 전송
+    """
+    message = {
+        "type": "FORCED_LOGOUT",
+        "message": "다른 기기에서 로그인되어 자동으로 로그아웃되었습니다.",
+    }
+    await ws_manager.send_to_user(user_id, message)
+    print(f"🚫 FORCED_LOGOUT 전송 완료 → user_id={user_id}")
