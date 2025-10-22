@@ -21,6 +21,9 @@ export default function AdminReportsPage() {
   const [userAction, setUserAction] = useState("WARNING");
   const [reason, setReason] = useState("");
 
+  // ✅ [추가] 신고 내용 펼침 여부 상태
+  const [expandedId, setExpandedId] = useState(null);
+
   useEffect(() => {
     fetchReports();
   }, []);
@@ -103,7 +106,7 @@ export default function AdminReportsPage() {
         } else {
           alert(res.data?.message || "신고 처리 실패");
         }
-      } 
+      }
       // ✅ 게시글 신고 처리 (삭제 + 작성자 제재)
       else if (resolveModal.mode === "post") {
         const res = await axios.post(
@@ -196,6 +199,30 @@ export default function AdminReportsPage() {
                       대상: {r.target_type} (ID: {r.target_id})
                     </p>
 
+                    {/* ✅ 내용 보기 / 접기 버튼 */}
+                    <button
+                      className="toggle-btn"
+                      onClick={() =>
+                        setExpandedId(expandedId === r.id ? null : r.id)
+                      }
+                    >
+                      {expandedId === r.id ? "내용 접기 ▲" : "내용 보기 ▼"}
+                    </button>
+
+                    {/* ✅ 댓글 내용 표시 (스크롤 포함) */}
+                    {expandedId === r.id && (
+                      <div className="report-content-box">
+                        <h4>💬 신고된 댓글 내용</h4>
+                        <div
+                          className="scroll-box"
+                          dangerouslySetInnerHTML={{
+                            __html: r.comment_content || "<i>댓글 내용을 불러올 수 없습니다.</i>",
+                          }}
+                        />
+                      </div>
+                    )}
+
+
                     <div className="report-actions">
                       <button
                         className="report-btn btn-resolve"
@@ -236,6 +263,32 @@ export default function AdminReportsPage() {
                     <p className="report-target">
                       대상: {r.target_type} (ID: {r.target_id})
                     </p>
+
+                    {/* ✅ 내용 보기 / 접기 버튼 */}
+                    <button
+                      className="toggle-btn"
+                      onClick={() =>
+                        setExpandedId(expandedId === r.id ? null : r.id)
+                      }
+                    >
+                      {expandedId === r.id ? "내용 접기 ▲" : "내용 보기 ▼"}
+                    </button>
+
+                    {/* ✅ 게시글 내용 표시 (스크롤 포함) */}
+                    {expandedId === r.id && (
+                      <div className="report-content-box">
+                        <h4>📄 신고된 게시글 내용</h4>
+                        <div className="scroll-box">
+                          <strong>{r.post_title || "(제목 없음)"}</strong>
+                          <div
+                            dangerouslySetInnerHTML={{
+                              __html: r.post_content || "<i>게시글 내용을 불러올 수 없습니다.</i>",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
 
                     <div className="report-actions">
                       <button
