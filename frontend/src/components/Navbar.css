@@ -273,3 +273,76 @@
     transform: translateY(0);
   }
 }
+/* ===============================
+   📮 알림 컨트롤 버튼 (상단 툴바 스타일 통일)
+   =============================== */
+.notification-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 12px;
+  color: #374151;
+}
+
+.control-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 4px 6px;
+  transition: all 0.15s ease-in-out;
+}
+
+.control-btn:hover {
+  background-color: #f3f4f6;
+}
+
+.delete-btn {
+  color: #b91c1c;
+}
+.delete-btn:hover {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* 📮 쪽지함 버튼 - 기본 상태도 항상 표시 */
+.msg-btn {
+  color: #2563eb !important;   /* 기본 파란색 글씨 */
+  opacity: 1 !important;
+  visibility: visible !important;
+  background: transparent !important;
+}
+
+.msg-btn:hover {
+  background-color: #e0ecff !important;
+  color: #1d4ed8 !important;
+}
+
+/* ==========================================
+   🩵 쪽지/삭제 버튼 항상 표시 강제 (hover 무시)
+   ========================================== */
+.notification-popup .notification-controls,
+.notification-popup .control-btn,
+.notification-popup .msg-btn,
+.notification-popup .delete-btn {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  transition: none !important;
+  display: flex !important;
+}
+
+.notification-popup:hover .notification-controls,
+.notification-popup:hover .control-btn {
+  opacity: 1 !important;
+}
+

@@ -22,10 +22,10 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
-    const handleNotificationClick = () => {
-      setNotificationOpen((prev) => !prev);
-      setMenuOpen(false);
-    };
+  const handleNotificationClick = () => {
+    setNotificationOpen((prev) => !prev);
+    setMenuOpen(false);
+  };
 
 
   // ✅ 페이지 이동 시 스크롤 맨 위로 부드럽게 이동
@@ -123,7 +123,7 @@ export default function Navbar() {
     }
   }
 
-    const handleLogout = () => {
+  const handleLogout = () => {
     clearTokens();
     setCurrentUser(null);
     setProfileImage(null);
@@ -148,32 +148,32 @@ export default function Navbar() {
   // -----------------------------
   // localStorage 이벤트 → Navbar 알림 즉시 새로고침
   // -----------------------------
-useEffect(() => {
-  const handleStorageChange = (e) => {
-    const key = e?.key || "refreshNotifications";
-    const value = e?.newValue || localStorage.getItem("refreshNotifications");
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      const key = e?.key || "refreshNotifications";
+      const value = e?.newValue || localStorage.getItem("refreshNotifications");
 
-    if (key === "refreshNotifications" && value === "true") {
-      console.log("🔔 즉시 알림 새로고침 실행됨");
-      fetchNotifications(); // ✅ Navbar 갱신
-      localStorage.removeItem("refreshNotifications");
+      if (key === "refreshNotifications" && value === "true") {
+        console.log("🔔 즉시 알림 새로고침 실행됨");
+        fetchNotifications(); // ✅ Navbar 갱신
+        localStorage.removeItem("refreshNotifications");
+      }
+    };
+
+    // ✅ 같은 탭에서도 커스텀 이벤트 직접 감지
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("refreshNotifications", handleStorageChange);
+
+    // ✅ 혹시 이미 refreshNotifications=true인 경우 즉시 반영
+    if (localStorage.getItem("refreshNotifications") === "true") {
+      handleStorageChange();
     }
-  };
 
-  // ✅ 같은 탭에서도 커스텀 이벤트 직접 감지
-  window.addEventListener("storage", handleStorageChange);
-  window.addEventListener("refreshNotifications", handleStorageChange);
-
-  // ✅ 혹시 이미 refreshNotifications=true인 경우 즉시 반영
-  if (localStorage.getItem("refreshNotifications") === "true") {
-    handleStorageChange();
-  }
-
-  return () => {
-    window.removeEventListener("storage", handleStorageChange);
-    window.removeEventListener("refreshNotifications", handleStorageChange);
-  };
-}, []);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("refreshNotifications", handleStorageChange);
+    };
+  }, []);
 
   // -----------------------------
   // ✅ 알림 클릭 처리 (수정됨)
@@ -269,6 +269,41 @@ useEffect(() => {
                       ✕
                     </button>
                   </div>
+                  
+                  {/* ✅ 컨트롤 버튼 영역 (UI 개선) */}
+                  <div className="notification-controls">
+                    <button
+                      onClick={async () => {
+                        if (notifications.length === 0) return alert("삭제할 알림이 없습니다.");
+                        if (!window.confirm("모든 알림을 읽음 처리하고 비우시겠습니까?")) return;
+                        try {
+                          const token = localStorage.getItem("access_token");
+                          await axios.post("http://localhost:8000/notifications/read-all", null, {
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          setNotifications([]);
+                          setUnreadCount(0);
+                          alert("모든 알림이 삭제되었습니다.");
+                        } catch (err) {
+                          console.error("❌ 전체 삭제 실패:", err);
+                          alert("전체 삭제 중 오류가 발생했습니다.");
+                        }
+                      }}
+                      className="control-btn delete-btn"
+                    >
+                      🗑 전체 삭제
+                    </button>
+                    <button
+                      onClick={() => {
+                        setNotificationOpen(false);
+                        navigate("/messages");
+                      }}
+                      className="control-btn msg-btn"
+                    >
+                      ✉ 쪽지함으로
+                    </button>
+                  </div>
+
 
                   {/* ✅ 페이지네이션용 상태 */}
                   <ul className="notification-list">
@@ -303,9 +338,8 @@ useEffect(() => {
                             <li
                               key={n.id}
                               onClick={() => handleNotificationItemClick(n)}
-                              className={`notification-item ${
-                                n.is_read ? "read" : "unread"
-                              }`}
+                              className={`notification-item ${n.is_read ? "read" : "unread"
+                                }`}
                             >
                               <span className="notification-message">
                                 {icon} {n.message}
