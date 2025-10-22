@@ -12,18 +12,18 @@ const getProfileImageUrl = (imagePath) => {
   if (!imagePath || imagePath.startsWith('/assets/')) {
     return defaultProfileImage;
   }
-  
+
   // 완전한 URL이면 그대로 반환
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
     return imagePath;
   }
-  
+
   // /uploads/가 포함되어 있으면 API_URL 붙임
   if (imagePath.includes('/uploads/')) {
     const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
     return `${API_URL}${cleanPath}`;
   }
-  
+
   // 파일명만 있는 경우
   return `${API_URL}/uploads/${imagePath}`;
 };
@@ -77,31 +77,31 @@ export default function SearchPage() {
   };
 
   return (
-    <div style={{ 
-      minHeight: "100vh", 
+    <div style={{
+      minHeight: "100vh",
       background: "linear-gradient(to bottom, #f8fafc, #e2e8f0)",
-      padding: "2rem 1rem" 
+      padding: "2rem 1rem"
     }}>
       <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
         {/* 🔍 검색 헤더 */}
-        <div style={{ 
-          background: "white", 
-          borderRadius: "1rem", 
+        <div style={{
+          background: "white",
+          borderRadius: "1rem",
           padding: "2rem",
           boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
           marginBottom: "2rem"
         }}>
-          <h1 style={{ 
-            fontSize: "1.875rem", 
-            fontWeight: "bold", 
+          <h1 style={{
+            fontSize: "1.875rem",
+            fontWeight: "bold",
             marginBottom: "1.5rem",
             color: "#1e293b"
           }}>
             🔍 통합 검색
           </h1>
-          
-          <div 
-            onSubmit={handleSearch} 
+
+          <div
+            onSubmit={handleSearch}
             style={{ display: "flex", gap: "0.5rem" }}
           >
             <input
@@ -163,8 +163,8 @@ export default function SearchPage() {
         </div>
 
         {/* 🗂️ 탭 네비게이션 */}
-        <div style={{ 
-          background: "white", 
+        <div style={{
+          background: "white",
           borderRadius: "1rem",
           padding: "0.75rem",
           marginBottom: "1.5rem",
@@ -183,16 +183,16 @@ export default function SearchPage() {
                   padding: "1rem",
                   borderRadius: "0.75rem",
                   border: "none",
-                  background: isActive 
-                    ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" 
+                  background: isActive
+                    ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)"
                     : "transparent",
                   color: isActive ? "white" : "#64748b",
                   fontWeight: isActive ? "600" : "500",
                   cursor: "pointer",
                   transition: "all 0.2s ease-in-out",
                   fontSize: "0.95rem",
-                  boxShadow: isActive 
-                    ? "0 4px 6px -1px rgba(59, 130, 246, 0.3)" 
+                  boxShadow: isActive
+                    ? "0 4px 6px -1px rgba(59, 130, 246, 0.3)"
                     : "none"
                 }}
                 onMouseEnter={(e) => {
@@ -227,16 +227,16 @@ export default function SearchPage() {
         </div>
 
         {/* 📊 검색 결과 */}
-        <div style={{ 
-          background: "white", 
+        <div style={{
+          background: "white",
           borderRadius: "1rem",
           padding: "2rem",
           minHeight: "400px",
           boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
         }}>
           {loading ? (
-            <div style={{ 
-              textAlign: "center", 
+            <div style={{
+              textAlign: "center",
               padding: "4rem",
               color: "#64748b"
             }}>
@@ -244,8 +244,8 @@ export default function SearchPage() {
               <p style={{ fontSize: "1.125rem", fontWeight: "500" }}>검색중...</p>
             </div>
           ) : !query ? (
-            <div style={{ 
-              textAlign: "center", 
+            <div style={{
+              textAlign: "center",
               padding: "4rem",
               color: "#94a3b8"
             }}>
@@ -256,18 +256,18 @@ export default function SearchPage() {
             <>
               {activeTab === "projects" && (
                 <div>
-                  <h3 style={{ 
-                    fontSize: "1.25rem", 
-                    fontWeight: "700", 
+                  <h3 style={{
+                    fontSize: "1.25rem",
+                    fontWeight: "700",
                     marginBottom: "1.5rem",
                     color: "#1e293b"
                   }}>
                     📚 스터디 / 프로젝트 ({results.projects.length})
                   </h3>
                   {results.projects.length === 0 ? (
-                    <p style={{ 
-                      textAlign: "center", 
-                      padding: "3rem", 
+                    <p style={{
+                      textAlign: "center",
+                      padding: "3rem",
                       color: "#94a3b8",
                       fontSize: "1rem"
                     }}>
@@ -317,19 +317,19 @@ export default function SearchPage() {
                                 }}
                               />
                             )}
-                            
+
                             {/* 프로젝트 정보 */}
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem", flexWrap: "wrap" }}>
-                                <h4 style={{ 
-                                  fontWeight: "600", 
+                                <h4 style={{
+                                  fontWeight: "600",
                                   fontSize: "1.125rem",
                                   color: "#1e293b",
                                   margin: 0
                                 }}>
                                   {p.title}
                                 </h4>
-                                
+
                                 {/* 타입 뱃지 (프로젝트/스터디) */}
                                 <span style={{
                                   backgroundColor: p.type === "PROJECT" ? "#dbeafe" : "#fef3c7",
@@ -341,7 +341,7 @@ export default function SearchPage() {
                                 }}>
                                   {p.type === "PROJECT" ? "프로젝트" : "스터디"}
                                 </span>
-                                
+
                                 {/* 모집 상태 뱃지 */}
                                 {p.status && (
                                   <span style={{
@@ -356,31 +356,39 @@ export default function SearchPage() {
                                   </span>
                                 )}
                               </div>
-                              
-                              {/* 설명 */}
-                              <p style={{ 
-                                fontSize: "0.9rem", 
-                                color: "#64748b",
-                                lineHeight: "1.5",
-                                marginBottom: "0.75rem"
-                              }}>
-                                {p.description || "설명 없음"}
-                              </p>
-                              
+
+                              {/* 설명 (HTML 렌더링 지원) */}
+                              <div
+                                style={{
+                                  fontSize: "0.9rem",
+                                  color: "#64748b",
+                                  lineHeight: "1.5",
+                                  marginBottom: "0.75rem"
+                                }}
+                                dangerouslySetInnerHTML={{
+                                  __html: p.description
+                                    ? p.description.length > 100
+                                      ? p.description.substring(0, 100) + "..."
+                                      : p.description
+                                    : "설명 없음",
+                                }}
+                              />
+
+
                               {/* 기술 스택 태그 */}
                               {p.skills && p.skills.length > 0 && (
                                 <div>
-                                  <p style={{ 
-                                    fontSize: "0.75rem", 
-                                    color: "#94a3b8", 
+                                  <p style={{
+                                    fontSize: "0.75rem",
+                                    color: "#94a3b8",
                                     marginBottom: "0.5rem",
                                     fontWeight: "500"
                                   }}>
                                     사용 언어/기술
                                   </p>
-                                  <div style={{ 
-                                    display: "flex", 
-                                    gap: "0.5rem", 
+                                  <div style={{
+                                    display: "flex",
+                                    gap: "0.5rem",
                                     flexWrap: "wrap"
                                   }}>
                                     {p.skills.slice(0, 8).map((skill, idx) => (
@@ -422,18 +430,18 @@ export default function SearchPage() {
 
               {activeTab === "boards" && (
                 <div>
-                  <h3 style={{ 
-                    fontSize: "1.25rem", 
-                    fontWeight: "700", 
+                  <h3 style={{
+                    fontSize: "1.25rem",
+                    fontWeight: "700",
                     marginBottom: "1.5rem",
                     color: "#1e293b"
                   }}>
                     💬 유저 게시판 ({results.boards.length})
                   </h3>
                   {results.boards.length === 0 ? (
-                    <p style={{ 
-                      textAlign: "center", 
-                      padding: "3rem", 
+                    <p style={{
+                      textAlign: "center",
+                      padding: "3rem",
                       color: "#94a3b8",
                       fontSize: "1rem"
                     }}>
@@ -464,16 +472,16 @@ export default function SearchPage() {
                             e.currentTarget.style.transform = "translateY(0)";
                           }}
                         >
-                          <h4 style={{ 
-                            fontWeight: "600", 
+                          <h4 style={{
+                            fontWeight: "600",
                             fontSize: "1.125rem",
                             marginBottom: "0.5rem",
                             color: "#1e293b"
                           }}>
                             {b.title}
                           </h4>
-                          <p style={{ 
-                            fontSize: "0.9rem", 
+                          <p style={{
+                            fontSize: "0.9rem",
                             color: "#64748b",
                             lineHeight: "1.5"
                           }}>
@@ -488,18 +496,18 @@ export default function SearchPage() {
 
               {activeTab === "users" && (
                 <div>
-                  <h3 style={{ 
-                    fontSize: "1.25rem", 
-                    fontWeight: "700", 
+                  <h3 style={{
+                    fontSize: "1.25rem",
+                    fontWeight: "700",
                     marginBottom: "1.5rem",
                     color: "#1e293b"
                   }}>
                     🏆 랭킹 게시판 ({results.users.length})
                   </h3>
                   {results.users.length === 0 ? (
-                    <p style={{ 
-                      textAlign: "center", 
-                      padding: "3rem", 
+                    <p style={{
+                      textAlign: "center",
+                      padding: "3rem",
                       color: "#94a3b8",
                       fontSize: "1rem"
                     }}>
@@ -549,11 +557,11 @@ export default function SearchPage() {
                                 e.target.src = defaultProfileImage;
                               }}
                             />
-                            
+
                             {/* 유저 정보 */}
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
-                                <h4 style={{ 
+                                <h4 style={{
                                   fontWeight: "600",
                                   fontSize: "1.125rem",
                                   color: "#1e293b",
@@ -561,7 +569,7 @@ export default function SearchPage() {
                                 }}>
                                   {u.nickname}
                                 </h4>
-                                
+
                                 {/* 팔로워 수 */}
                                 {u.follower_count !== undefined && (
                                   <span style={{
@@ -578,11 +586,11 @@ export default function SearchPage() {
                                   </span>
                                 )}
                               </div>
-                              
+
                               {/* 한줄 자기소개 */}
                               {u.headline && (
-                                <p style={{ 
-                                  fontSize: "0.9rem", 
+                                <p style={{
+                                  fontSize: "0.9rem",
                                   color: "#64748b",
                                   marginBottom: "0.75rem",
                                   lineHeight: "1.5"
@@ -590,12 +598,12 @@ export default function SearchPage() {
                                   {u.headline}
                                 </p>
                               )}
-                              
+
                               {/* 스킬/언어 태그 */}
                               {u.skills && u.skills.length > 0 && (
-                                <div style={{ 
-                                  display: "flex", 
-                                  gap: "0.5rem", 
+                                <div style={{
+                                  display: "flex",
+                                  gap: "0.5rem",
                                   flexWrap: "wrap",
                                   marginTop: "0.75rem"
                                 }}>
