@@ -58,15 +58,16 @@ export default function NotificationList({ onClose }) {
           console.log("✅ 신고자용 신고 접수 알림 클릭: 이동 없이 읽음 처리만 수행");
           return;
         } else if (n.category === "ADMIN") {
-          window.location.href = "/messages?tab=admin";
+          // 관리자용 신고 접수 알림 → 신고 관리 페이지로 이동
+          window.location.href = n.redirect_path || "/admin/reports";
           return;
         }
       }
 
       // 🩵 [수정] 유형별 이동 로직 (서버 Enum과 일치)
       switch (n.type) {
-         case "ADMIN_NOTICE":
-        // ✅ [추가됨 10/18] 공지사항 알림 클릭 시 → 공지사항 쪽지함으로 이동
+        case "ADMIN_NOTICE":
+          // ✅ [추가됨 10/18] 공지사항 알림 클릭 시 → 공지사항 쪽지함으로 이동
           window.location.href = "/messages?tab=notice";
           break;
 
@@ -81,7 +82,7 @@ export default function NotificationList({ onClose }) {
           }
           break;
 
-        
+
         // ✅ 관리자 관련 → 관리자 쪽지함으로 이동 [수정 10/19]
         case "REPORT_RECEIVED":
         case "REPORT_RESOLVED":
@@ -95,7 +96,7 @@ export default function NotificationList({ onClose }) {
             window.location.href = "/messages?tab=admin";
           }
           break;
-          
+
         case "APPLICATION_ACCEPTED":
         case "APPLICATION_REJECTED":
           // ✅ 게시글 승인/거절 알림은 이동 없이 읽음 처리만 [10/19 수정]
