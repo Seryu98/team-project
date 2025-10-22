@@ -134,6 +134,37 @@ export default function AdminReportsPage() {
     }
   }
 
+  // ✅ 게시글 신고 반려 처리 함수 추가
+  async function handleRejectPost(reportId) {
+    const token = localStorage.getItem("access_token");
+    const reason = prompt("반려 사유를 입력하세요:");
+    if (!reason) return alert("사유를 입력해야 합니다.");
+
+    try {
+      const res = await axios.post(
+        `${base}/admin/reports/${reportId}/resolve/post`,
+        {
+          post_action: "NONE",  // 삭제는 안 하고
+          user_action: "NONE",  // 제재도 없음
+          reason: reason,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.data?.success) {
+        alert("✅ 게시글 신고 반려 완료");
+        await fetchReports(); // 목록 새로고침
+      } else {
+        alert(res.data?.message || "게시글 신고 반려 실패");
+      }
+    } catch (err) {
+      console.error("❌ 게시글 신고 반려 실패:", err);
+      alert("서버 오류로 반려 처리에 실패했습니다.");
+    }
+  }
+
+
+
   // ✅ 기존 handleResolve (반려용)는 그대로 둠
   async function handleResolve(id, actionType = "RESOLVE") {
     const reason = prompt("처리 사유를 입력하세요:");
@@ -299,7 +330,7 @@ export default function AdminReportsPage() {
                       </button>
                       <button
                         className="report-btn btn-reject"
-                        onClick={() => handleResolve(r.id, "REJECT")}
+                        onClick={() => handleRejectPost(r.id)}
                       >
                         반려
                       </button>
