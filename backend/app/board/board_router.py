@@ -67,11 +67,18 @@ def top3_weekly(
                 SELECT 
                     bp.id, bp.title, bp.view_count, bp.like_count, bp.created_at,
                     ct.name AS category_name,
-                    au.id AS author_id, au.nickname, p.profile_image
+                    au.id AS author_id, au.nickname, p.profile_image,
+                    COALESCE(c.comment_count, 0) AS comment_count  -- ✅ 추가됨
                 FROM board_posts bp
                 LEFT JOIN users au ON au.id = bp.author_id
                 LEFT JOIN profiles p ON p.id = au.id
                 LEFT JOIN categories ct ON ct.id = bp.category_id
+                LEFT JOIN (
+                    SELECT board_post_id, COUNT(*) AS comment_count
+                    FROM comments
+                    WHERE status = 'VISIBLE'
+                    GROUP BY board_post_id
+                ) c ON c.board_post_id = bp.id
                 WHERE bp.id = :pid
             """),
             {"pid": r["id"]},
@@ -87,15 +94,16 @@ def top3_weekly(
                     "nickname": post["nickname"] or "탈퇴한 사용자",
                     "profile_image": post["profile_image"],
                 },
-                # ✅ datetime → 문자열로 변환 (핵심 수정)
                 "created_at": post["created_at"].isoformat() if post["created_at"] else None,
                 "view_count": post["view_count"],
                 "like_count": post["like_count"],
+                "comment_count": post["comment_count"],  # ✅ 추가됨
                 "recent_views": r.get("recent_views", 0),
                 "recent_likes": r.get("recent_likes", 0),
                 "hot_score": r.get("hot_score", 0.0),
-                "badge": r.get("badge"),  # 🔥 추가!
+                "badge": r.get("badge"),
             })
+
 
     # ✅ FastAPI에서 안전하게 JSON 직렬화
     return JSONResponse(content=jsonable_encoder(enriched))
@@ -150,11 +158,18 @@ def list_posts(
                 SELECT 
                     bp.id, bp.title, bp.view_count, bp.like_count, bp.created_at,
                     ct.name AS category_name,
-                    au.id AS author_id, au.nickname, p.profile_image
+                    au.id AS author_id, au.nickname, p.profile_image,
+                    COALESCE(c.comment_count, 0) AS comment_count  -- ✅ 추가됨
                 FROM board_posts bp
                 LEFT JOIN users au ON au.id = bp.author_id
                 LEFT JOIN profiles p ON p.id = au.id
                 LEFT JOIN categories ct ON ct.id = bp.category_id
+                LEFT JOIN (
+                    SELECT board_post_id, COUNT(*) AS comment_count
+                    FROM comments
+                    WHERE status = 'VISIBLE'
+                    GROUP BY board_post_id
+                ) c ON c.board_post_id = bp.id
                 WHERE bp.id = :pid
             """),
             {"pid": r["id"]},
@@ -173,11 +188,13 @@ def list_posts(
                 "created_at": post["created_at"],
                 "view_count": post["view_count"],
                 "like_count": post["like_count"],
+                "comment_count": post["comment_count"],  # ✅ 추가됨
                 "recent_views": r.get("recent_views", 0),
                 "recent_likes": r.get("recent_likes", 0),
                 "hot_score": r.get("hot_score", 0.0),
                 "badge": r.get("badge"),
             })
+
 
     return {"posts": items, "top_posts": enriched, "total": total}
 
