@@ -1,6 +1,7 @@
 // src/features/admin/AdminPendingPage.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import "./AdminPendingPage.css";
 
 export default function AdminPendingPage() {
   const [pendingPosts, setPendingPosts] = useState([]);
@@ -9,6 +10,7 @@ export default function AdminPendingPage() {
     fetchPending();
   }, []);
 
+  // ✅ 승인 대기 게시글 불러오기
   async function fetchPending() {
     try {
       const token = localStorage.getItem("access_token");
@@ -22,6 +24,7 @@ export default function AdminPendingPage() {
   }
 
   // [10/19 수정]
+  // ✅ 관리자 승인 처리
   async function approvePost(id) {
     try {
       const token = localStorage.getItem("access_token");
@@ -37,6 +40,7 @@ export default function AdminPendingPage() {
     }
   }
 
+  // ✅ 관리자 거절 처리
   async function rejectPost(id) {
     try {
       const token = localStorage.getItem("access_token");
@@ -63,7 +67,7 @@ export default function AdminPendingPage() {
           {pendingPosts.map((p) => (
             <li
               key={p.id}
-              className="border p-4 rounded-lg shadow-sm hover:bg-gray-50 transition"
+              className="pending-item" // ✅ 10/22: 겹침 방지용 카드 여백 + 내부 스크롤 적용
             >
               <div className="flex justify-between items-start">
                 <div className="flex-1">
@@ -75,18 +79,45 @@ export default function AdminPendingPage() {
                     {p.leader_nickname || "알 수 없음"}
                   </p>
 
-                  {/* ✅ 내용 일부 미리보기 */}
-                  {p.preview && (
-                    <p className="text-sm text-gray-700 mt-2 line-clamp-3">
-                      {p.preview}
-                    </p>
-                  )}
+                  {/* ✅ 내용 일부 미리보기 (펼치기 기능 포함) */}
+                  <div className="text-sm text-gray-700 mt-2">
+                    <div
+                      className={`preview-box ${p.expanded ? "expanded" : ""}`}
+                    >
+                      <div
+                        className="preview-content"
+                        dangerouslySetInnerHTML={{
+                          __html: p.full_description || "",
+                        }}
+                      ></div>
+                    </div>
 
+                    {/* ▼ 버튼 */}
+                    {p.full_description && (
+                      <button
+                        onClick={() =>
+                          setPendingPosts((prev) =>
+                            prev.map((post) =>
+                              post.id === p.id
+                                ? { ...post, expanded: !post.expanded }
+                                : post
+                            )
+                          )
+                        }
+                        className="toggle-btn text-blue-600 text-xs mt-1 hover:underline"
+                      >
+                        {p.expanded ? "▲ 접기" : "▼ 더보기"}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ✅ 작성일 */}
                   <p className="text-xs text-gray-400 mt-2">
                     작성일: {new Date(p.created_at).toLocaleString()}
                   </p>
                 </div>
 
+                {/* ✅ 승인 / 거절 버튼 */}
                 <div className="flex flex-col gap-2 ml-4">
                   <button
                     onClick={() => approvePost(p.id)}

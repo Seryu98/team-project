@@ -52,6 +52,10 @@ export default function RecipeEdit() {
     async function fetchData() {
       try {
         const res = await authFetch(`/recipe/${postId}`, { method: "GET" });
+        // ✅ 기존 DB가 \n 기반이라면 HTML로 변환
+        const safeDesc = res.description?.includes("<p>") || res.description?.includes("<br>")
+          ? res.description
+          : res.description?.replace(/\n/g, "<br>") || "";
 
         setForm({
           title: res.title,

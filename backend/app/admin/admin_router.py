@@ -286,6 +286,7 @@ def api_get_pending_posts(
                 p.type,                                  -- ✅ 프로젝트 / 스터디 구분
                 COALESCE(u.nickname, CONCAT('작성자(', p.leader_id, ')')) AS leader_nickname,  -- ✅ 작성자 닉네임 (닉네임이 NULL이면 "작성자(leader_id)" 형태로 대체)
                 LEFT(p.description, 100) AS preview,  -- ✅ 여기 description으로 변경됨         -- ✅ 내용 미리보기
+                p.description AS full_description,    -- ✅ 전체내용 추가
                 p.created_at,  -- 게시글 생성일
                 p.leader_id    -- 작성자(리더) 사용자 ID
             FROM posts p

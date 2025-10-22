@@ -1,0 +1,55 @@
+/* src/features/admin/AdminPendingPage.css */
+
+/* ===============================
+📘 AdminPendingPage.css (10/22)
+- 카드 내부 스크롤 + 3줄 미리보기 개선
+=============================== */
+
+/* ✅ 카드 자체 */
+.pending-item {
+  margin-bottom: 40px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 18px 22px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* ✅ 내부 콘텐츠 영역 (스크롤 가능하게 감쌈) */
+.preview-box {
+  max-height: 4.5em; /* 축소 상태: 약 3줄 */
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  position: relative;
+}
+
+/* ✅ 펼쳤을 때 카드 내부 스크롤 허용 */
+.preview-box.expanded {
+  max-height: 300px; /* 카드 내부에서 보여줄 최대 높이 */
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+/* ✅ 실제 텍스트 내용 */
+.preview-content {
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* ✅ 더보기 / 접기 버튼 */
+.toggle-btn {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 500;
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+.toggle-btn:hover {
+  text-decoration: underline;
+}

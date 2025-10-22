@@ -90,9 +90,7 @@ export default function RecipeCreate() {
       setShowModal(true);
     }
   };
-  const convertNewlinesToHTML = (text) => {
-    return text.replace(/\n/g, "<br>");
-  };
+  
   // =======================================
   // 🎯 타입 선택 (프로젝트 / 스터디)
   // =======================================

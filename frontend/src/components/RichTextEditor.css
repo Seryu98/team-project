@@ -1,14 +1,15 @@
+/*frontend/src/components/RichTextRoute.css*/
 /* ✅ Quill 전체 컨테이너 */
 .ql-container {
   width: 100%;
-  min-height: 480px !important;       /* ✅ 기본 높이 충분히 확보 */
-  max-height: 650px;                  /* ✅ 너무 커지지 않게 제한 */
+  min-height: 480px !important;
+  max-height: 650px;
   border: 1px solid #d1d5db;
   border-radius: 0 0 8px 8px;
   background-color: #fff;
   box-sizing: border-box;
   overflow-y: auto;
-  margin-bottom: 24px;                /* 다음 섹션 간격 확보 */
+  margin-bottom: 24px;
 }
 
 /* ✅ 툴바 */
@@ -23,17 +24,18 @@
 .ql-editor {
   font-family: inherit;
   font-size: 15px;
-  line-height: 1.55;                 /* 🔽 기존 1.8 → 살짝 줄임 */
+  line-height: 1.6;
   color: #111827;
-  padding: 14px 16px;                /* 🔽 패딩 살짝 줄임 */
-  white-space: pre-wrap;
+  padding: 14px 16px;
+  white-space: pre-line; /* ✅ HTML + 줄바꿈 모두 반영 */
   word-break: break-word;
   overflow-wrap: break-word;
+  box-sizing: border-box;
 }
 
 /* ✅ 문단 간격 */
 .ql-editor p {
-  margin: 0 0 5px 0;                /* 🔽 기존 7px → 5px로 줄임 */
+  margin: 0 0 4px 0;
 }
 
 /* ✅ placeholder 스타일 */

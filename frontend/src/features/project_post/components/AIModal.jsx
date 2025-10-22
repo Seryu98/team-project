@@ -8,20 +8,25 @@ export default function AIModal({ onClose, onResult }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
 
+  // ✅ 줄바꿈 → <p> / <br> 변환 함수
+  const formatToHTML = (text) => {
+    return text
+      .split(/\n{2,}/) // 빈 줄 기준 문단 구분
+      .map((block) => `<p>${block.trim().replace(/\n/g, "<br>")}</p>`)
+      .join("");
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim()) return alert("프로젝트 설명을 입력해주세요.");
     setLoading(true);
     try {
       const desc = await generateAIDescription(prompt);
 
-      // ✅ Quill에 맞게 문단 단위로 변환 (줄바꿈 → <p> 태그)
-      const formattedDesc = desc
-        .split(/\n+/)
-        .map((line) => `<p>${line.trim()}</p>`)
-        .join("");
+      // ✅ HTML 형식으로 변환
+      const formattedDesc = formatToHTML(desc);
 
       setResult(formattedDesc);
-      onResult(formattedDesc); // ✅ HTML 포맷으로 전달
+      onResult(formattedDesc); // RichTextEditor에 HTML로 전달
     } catch (err) {
       alert("AI 생성 실패: " + err.message);
     } finally {
