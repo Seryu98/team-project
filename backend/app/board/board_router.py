@@ -104,13 +104,12 @@ def top3_weekly(
                 "badge": r.get("badge"),
             })
 
-
     # ✅ FastAPI에서 안전하게 JSON 직렬화
     return JSONResponse(content=jsonable_encoder(enriched))
 
 
 # ===============================
-# 📰 게시글 목록
+# 📰 게시글 목록 (무한스크롤 지원)
 # ===============================
 def _map_sort(sort: str) -> str:
     return {
@@ -126,30 +125,94 @@ def list_posts(
     category: Optional[str] = Query(None),
     sort: str = Query("latest"),
     search: Optional[str] = Query(None),
-    page: int = 1,
-    page_size: int = 10,
+    page: int = Query(1, ge=1, description="현재 페이지 (1부터 시작)"),
+    page_size: int = Query(12, ge=1, le=50, description="페이지당 게시글 수"),
     category_ids: Optional[List[int]] = Query(None),
     order: str = Query("desc"),
     db: Session = Depends(get_db),
 ):
+    """
+    🧩 게시글 목록 (무한스크롤 지원)
+    - 프론트엔드에서 page, page_size 기반으로 호출
+    - category, sort, search 필터 지원
+    - 조회 결과: posts, top_posts, total
+    """
+    # ✅ 카테고리 변환
     if category and not category_ids:
         cat = svc.find_category_by_name(db, category)
         category_ids = [cat["id"]] if cat else None
 
     sort_col = _map_sort(sort)
-    items, total = svc.list_posts(
-        db=db,
-        sort=sort_col,
-        order=order,
-        category_ids=category_ids,
-        start_date=None,
-        end_date=None,
-        q=search,
-        page=page,
-        page_size=page_size,
-    )
+    offset = (page - 1) * page_size
 
-    # ✅ Top3도 enriched 버전으로 보강
+    base_query = """
+        SELECT 
+            bp.id, bp.title, bp.created_at, bp.view_count, bp.like_count,
+            bp.content AS content_preview,
+            ct.name AS category_name,
+            au.id AS author_id, au.nickname, p.profile_image,
+            COALESCE(c.comment_count, 0) AS comment_count,
+            bp.attachment_url
+        FROM board_posts bp
+        LEFT JOIN users au ON au.id = bp.author_id
+        LEFT JOIN profiles p ON p.id = au.id
+        LEFT JOIN categories ct ON ct.id = bp.category_id
+        LEFT JOIN (
+            SELECT board_post_id, COUNT(*) AS comment_count
+            FROM comments
+            WHERE status = 'VISIBLE'
+            GROUP BY board_post_id
+        ) c ON c.board_post_id = bp.id
+        WHERE bp.status = 'VISIBLE'
+    """
+
+    params = {}
+
+    # ✅ 검색어
+    if search:
+        base_query += " AND (bp.title LIKE :kw OR bp.content LIKE :kw)"
+        params["kw"] = f"%{search}%"
+
+    # ✅ 카테고리 필터
+    if category_ids:
+        base_query += " AND bp.category_id IN :cids"
+        params["cids"] = tuple(category_ids)
+
+    # ✅ 정렬
+    order_sql = f" ORDER BY bp.{sort_col} {order.upper()}, bp.id DESC"
+
+    # ✅ 페이지 제한
+    limit_sql = " LIMIT :limit OFFSET :offset"
+    params.update({"limit": page_size, "offset": offset})
+
+    rows = db.execute(text(base_query + order_sql + limit_sql), params).mappings().all()
+
+    # ✅ total 계산
+    total_sql = "SELECT COUNT(*) FROM board_posts WHERE status='VISIBLE'"
+    total = db.execute(text(total_sql)).scalar() or 0
+
+    # ✅ 포맷 통일
+    items = []
+    for r in rows:
+        items.append({
+            "id": r["id"],
+            "title": r["title"],
+            "category_name": r["category_name"],
+            "author": {
+                "id": r["author_id"],
+                "nickname": r["nickname"] or "탈퇴한 사용자",
+                "profile_image": r["profile_image"],
+            },
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            "view_count": r["view_count"] or 0,
+            "like_count": r["like_count"] or 0,
+            "comment_count": r["comment_count"] or 0,
+            "content_preview": r["content_preview"] or "",
+            "attachment_url": r["attachment_url"] or "",
+            "badge": None,
+        })
+
+    # ✅ 주간 인기글도 병합
     top3_raw = svc.get_weekly_hot3(db)
     enriched = []
     for r in top3_raw:
@@ -159,7 +222,7 @@ def list_posts(
                     bp.id, bp.title, bp.view_count, bp.like_count, bp.created_at,
                     ct.name AS category_name,
                     au.id AS author_id, au.nickname, p.profile_image,
-                    COALESCE(c.comment_count, 0) AS comment_count  -- ✅ 추가됨
+                    COALESCE(c.comment_count, 0) AS comment_count
                 FROM board_posts bp
                 LEFT JOIN users au ON au.id = bp.author_id
                 LEFT JOIN profiles p ON p.id = au.id
@@ -185,16 +248,15 @@ def list_posts(
                     "nickname": post["nickname"] or "탈퇴한 사용자",
                     "profile_image": post["profile_image"],
                 },
-                "created_at": post["created_at"],
+                "created_at": post["created_at"].isoformat() if post["created_at"] else None,
                 "view_count": post["view_count"],
                 "like_count": post["like_count"],
-                "comment_count": post["comment_count"],  # ✅ 추가됨
+                "comment_count": post["comment_count"],
                 "recent_views": r.get("recent_views", 0),
                 "recent_likes": r.get("recent_likes", 0),
                 "hot_score": r.get("hot_score", 0.0),
                 "badge": r.get("badge"),
             })
-
 
     return {"posts": items, "top_posts": enriched, "total": total}
 
@@ -321,14 +383,9 @@ def report(payload: ReportCreate, db: Session = Depends(get_db), me=Depends(get_
     return {"id": rid, "success": True}
 
 
-
 # ===============================
 # 📰 게시글 목록 간단 버전 (HomePage용, 공개)
-# - 기존: posts + total만 반환
-# - 수정: 🔥 get_weekly_hot3 결과 포함 → top_posts 반환
-#       각 게시글에 badge(인기급상승, 메달 등) 병합
 # ===============================
-
 @public_router.get("/list")
 def list_posts_simple(
     skip: int = Query(0, description="건너뛸 개수 (offset)"),
@@ -375,17 +432,15 @@ def list_posts_simple(
         "like_count": r["like_count"] or 0,
         "comment_count": r["comment_count"] or 0,
         "author_nickname": r["author_nickname"] or "익명",
-        "badge": None,   # 🔖 기본값
+        "badge": None,
     } for r in rows]
 
-    # ✅ 인기글/배지 병합 (get_weekly_hot3 사용)
     hot3 = svc.get_weekly_hot3(db)
     hot_map = {h["id"]: h for h in hot3}
     for item in items:
         if item["id"] in hot_map:
             item["badge"] = hot_map[item["id"]].get("badge")
 
-    # ✅ top_posts도 같이 내려줌
     return {"posts": items, "top_posts": hot3, "total": total}
 
 
