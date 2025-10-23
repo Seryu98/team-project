@@ -479,7 +479,7 @@ export default function HomePage() {
                                             padding: '3rem 5rem',
                                             cursor: 'pointer',
                                             boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                                            minHeight: '450px',
+                                            minHeight: '550px',
                                             display: 'flex',
                                             flexDirection: 'column',
                                             justifyContent: 'space-between',
@@ -499,7 +499,7 @@ export default function HomePage() {
                                             </span>
                                         </div>
 
-                                        {/* ✅✅✅ 제목 + 설명 (중앙 정렬) ✅✅✅ */}
+                                        javascript{/* ✅✅✅ 제목 + 설명 (중앙 정렬) ✅✅✅ */}
                                         <div style={{
                                             flex: 1,
                                             display: 'flex',
@@ -507,24 +507,46 @@ export default function HomePage() {
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             padding: '2rem 0',
-                                            textAlign: 'center'
+                                            textAlign: 'center',
+                                            minHeight: '280px',
+                                            maxHeight: '280px',
+                                            overflow: 'hidden'
                                         }}>
                                             {/* 제목 */}
                                             <h3 style={{
                                                 fontSize: '4rem',
                                                 fontWeight: 'bold',
-                                                marginBottom: '1rem'
+                                                marginBottom: '1rem',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 2,
+                                                WebkitBoxOrient: 'vertical',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                minHeight: '10rem'
                                             }}>
                                                 {truncatedTitle}
                                             </h3>
-                                            {/* 설명 (10글자) */}
-                                            <p style={{
-                                                fontSize: '1.25rem',
-                                                opacity: 0.9,
-                                                lineHeight: '1.6'
-                                            }}>
-                                                {truncatedDesc}
-                                            </p>
+                                            {/* 설명 (10글자, HTML 렌더링 지원) */}
+                                            <div
+                                                style={{
+                                                    fontSize: '1.25rem',
+                                                    opacity: 0.9,
+                                                    lineHeight: '1.6',
+                                                    display: '-webkit-box',
+                                                    WebkitLineClamp: 3,
+                                                    WebkitBoxOrient: 'vertical',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    maxHeight: '6rem'
+                                                }}
+                                                dangerouslySetInnerHTML={{
+                                                    __html: project.description
+                                                        ? project.description.length > 100
+                                                            ? project.description.substring(0, 100) + "..."
+                                                            : project.description
+                                                        : "설명 없음"
+                                                }}
+                                            />
                                         </div>
 
                                         {/* 하단 정보 - 스킬 + 리더 + 인원 */}
@@ -532,7 +554,7 @@ export default function HomePage() {
                                             display: 'flex',
                                             justifyContent: 'space-between',
                                             alignItems: 'center',
-                                            marginTop: '2.5rem',
+                                            marginTop: 'auto',
                                             paddingTop: '2rem',
                                             borderTop: '1px solid rgba(255,255,255,0.2)',
                                             gap: '1.5rem'
