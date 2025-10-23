@@ -75,5 +75,9 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload 
 "D:\soldesk project\team-project\backend\venv\Scripts\python.exe" -m uvicorn app.main:app --reload
 
+서버컴퓨터 실행용
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 
+locust 데이터 데스트 실행용 코드
+locust -f locustfile.py --host http://127.0.0.1:8000
