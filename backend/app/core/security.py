@@ -116,3 +116,19 @@ def verify_token(token: str, expected_type: Optional[str] = None):
         return None
 
     return payload
+
+
+# ===============================
+# ✅ 사용자 인증 (authenticate_user)
+# ===============================
+from sqlalchemy.orm import Session
+from app.users.user_model import User
+
+def authenticate_user(db: Session, user_id: str, password: str):
+    """입력한 ID와 비밀번호가 일치하는지 검증"""
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        return None
+    if not verify_password(password, user.password):
+        return None
+    return user

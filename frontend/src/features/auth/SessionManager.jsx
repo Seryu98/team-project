@@ -14,6 +14,7 @@ export default function SessionManager() {
   const navigate = useNavigate();
   const [showForcedLogoutModal, setShowForcedLogoutModal] = useState(false);
   const wsRef = useRef(null);
+  const reconnectTimer = useRef(null);
   const [token, setToken] = useState(() => localStorage.getItem("access_token"));
 
   // ✅ 토큰 변경 감시 → WebSocket 재연결
@@ -41,11 +42,22 @@ export default function SessionManager() {
     const wsUrl = `${protocol}://${backendHost}:8000/ws/notify?token=${pureToken}`;
     console.log("🌐 [SessionManager] WebSocket 연결 시도:", wsUrl);
 
+    // ✅ 기존 연결이 열려있으면 중복 연결 방지
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      console.log("⚠️ [SessionManager] 이미 WebSocket 연결이 존재함 → 재연결 중단");
+      return;
+    }
+
     const socket = new WebSocket(wsUrl);
     wsRef.current = socket;
 
     socket.onopen = () => {
       console.log("✅ [SessionManager] WebSocket 연결 성공");
+      // 기존 재연결 타이머 제거
+      if (reconnectTimer.current) {
+        clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = null;
+      }
     };
 
     socket.onmessage = (event) => {
@@ -78,6 +90,12 @@ export default function SessionManager() {
         console.warn("🚨 WebSocket 종료 사유로 강제 로그아웃 감지됨");
         clearTokens("never");
         setShowForcedLogoutModal(true);
+      } else if (event.code !== 1000) {
+        // ✅ 서버 재시작/네트워크 오류 → 자동 재연결
+        console.log("🔁 [SessionManager] WebSocket 재연결 시도 예정 (3초 후)");
+        reconnectTimer.current = setTimeout(() => {
+          setToken(localStorage.getItem("access_token")); // 트리거
+        }, 3000);
       }
     };
 
@@ -86,6 +104,10 @@ export default function SessionManager() {
         socket.close(1000, "SessionManager unmount");
       } catch {}
       wsRef.current = null;
+      if (reconnectTimer.current) {
+        clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = null;
+      }
     };
   }, [token]);
 

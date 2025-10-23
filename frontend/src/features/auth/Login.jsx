@@ -1,5 +1,5 @@
 // src/features/auth/Login.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { loginAndFetchUser, getCurrentUser, clearTokens } from "./api";
 import "./Login.css";
@@ -20,6 +20,9 @@ function Login() {
   /* ✅ 중복 로그인 감지용 모달 상태 */
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
+  /* ✅ WebSocket 연결 객체 (강제 로그아웃 감지용) */
+  const wsRef = useRef(null);
+
   /* ✅ 자동 로그인 */
   useEffect(() => {
     (async () => {
@@ -34,6 +37,36 @@ function Login() {
         setMsg("⏰ 세션이 만료되었습니다. 다시 로그인 해주세요.");
       }
     })();
+  }, [navigate]);
+
+  /* ✅ WebSocket 연결 설정 (로그아웃 감지) */
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    const wsUrl = API_BASE.replace("http", "ws") + "/ws/notify";
+    const ws = new WebSocket(`${wsUrl}?token=${token}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => console.log("🔌 WebSocket 연결됨");
+    ws.onclose = () => console.log("❌ WebSocket 연결 종료됨");
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data?.type === "FORCED_LOGOUT") {
+          alert(data.message || "다른 기기에서 로그인되어 로그아웃되었습니다.");
+          clearTokens();
+          navigate("/login", { replace: true });
+        }
+      } catch (err) {
+        console.warn("⚠️ WebSocket 메시지 파싱 실패:", err);
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
   }, [navigate]);
 
   /* ✅ 일반 로그인 */
@@ -59,12 +92,13 @@ function Login() {
         data = {};
       }
 
-      // ✅ 다양한 중복 로그인 응답 형태 포괄 감지
+      // ✅ 백엔드가 existing_session 또는 중복 세션 상태를 응답할 경우 처리
       if (
         res.status === 409 ||
+        data?.existing_session === true ||
         data?.status === "DUPLICATE_SESSION" ||
         (typeof data?.detail === "string" &&
-          data.detail.includes("다른 기기")) ||
+          data.detail.includes("이미 로그인된 기기")) ||
         (typeof data?.message === "string" &&
           data.message.includes("이미 로그인"))
       ) {
@@ -78,6 +112,11 @@ function Login() {
       // ✅ 정상 로그인 처리
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
+
+      // ✅ WebSocket 재연결 (로그인 후)
+      if (wsRef.current) wsRef.current.close();
+      const wsUrl = API_BASE.replace("http", "ws") + "/ws/notify";
+      wsRef.current = new WebSocket(`${wsUrl}?token=${data.access_token}`);
 
       const user = await getCurrentUser();
       setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);
@@ -117,6 +156,11 @@ function Login() {
 
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
+
+      // ✅ WebSocket 재연결 (강제 로그인 후)
+      if (wsRef.current) wsRef.current.close();
+      const wsUrl = API_BASE.replace("http", "ws") + "/ws/notify";
+      wsRef.current = new WebSocket(`${wsUrl}?token=${data.access_token}`);
 
       const user = await getCurrentUser();
       setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);

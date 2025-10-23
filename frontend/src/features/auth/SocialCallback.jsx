@@ -1,16 +1,19 @@
 // src/features/auth/SocialCallback.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Modal from "../../components/Modal.jsx";
 
 function SocialCallback() {
   const navigate = useNavigate();
   const [message, setMessage] = useState("⏳ 소셜 로그인 처리 중...");
+  const [showExistingSessionModal, setShowExistingSessionModal] = useState(false); // ✅ 기존 세션 모달 상태
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const accessToken = urlParams.get("access_token");
     const refreshToken = urlParams.get("refresh_token");
     const isNewUser = urlParams.get("new_user") === "true";  // ✅ 신규 사용자 확인
+    const isExistingSession = urlParams.get("existing_session") === "true"; // ✅ 기존 세션 감지 여부
 
     if (accessToken && refreshToken) {
       // ✅ 토큰 저장
@@ -27,6 +30,14 @@ function SocialCallback() {
         }
       } catch (err) {
         console.warn("⚠️ JWT decode 실패:", err);
+      }
+
+      // ✅ 기존 세션이 감지된 경우 (다른 기기 로그인)
+      if (isExistingSession) {
+        console.log("⚠️ 기존 로그인 세션 감지됨");
+        setMessage("⚠️ 이미 로그인된 기기가 있습니다.");
+        setShowExistingSessionModal(true);
+        return; // 아래 이동 로직 중복 방지
       }
 
       // ✅ 신규 사용자 여부에 따라 메시지 변경
@@ -55,9 +66,32 @@ function SocialCallback() {
     }
   }, [navigate]);
 
+  // ✅ 기존 세션 감지 모달 확인 버튼
+  const handleConfirm = () => {
+    setShowExistingSessionModal(false);
+    setMessage("🔄 기존 기기에서 로그아웃 후 로그인 완료!");
+    setTimeout(() => {
+      navigate("/", { replace: true });
+    }, 1000);
+  };
+
   return (
     <div style={{ textAlign: "center", marginTop: "120px" }}>
       <h2>{message}</h2>
+
+      {/* ✅ 기존 세션 감지 시 공용 Modal 표시 */}
+      {showExistingSessionModal && (
+        <Modal
+          title="이미 로그인된 기기가 있습니다"
+          confirmText="확인"
+          onConfirm={handleConfirm}
+          onClose={() => setShowExistingSessionModal(false)}
+        >
+          기존 기기에서 로그아웃 후 새 기기에서 로그인합니다.
+          <br />
+          계속하시겠습니까?
+        </Modal>
+      )}
     </div>
   );
 }

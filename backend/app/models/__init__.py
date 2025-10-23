@@ -1,7 +1,7 @@
 # app/models/__init__.py
 # 모든 모델을 한곳에 모아 SQLAlchemy Base에서 인식되도록 연결
 
-from app.users.user_model import User
+from app.users.user_model import User, UserStatus
 from app.profile.profile_model import Profile
 from app.profile.follow_model import Follow
 from app.profile.user_skill_model import UserSkill

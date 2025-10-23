@@ -118,7 +118,7 @@ def _get_json(url: str, headers: dict) -> dict:
         raise ValueError("사용자 정보 조회 실패")
 
 # ===============================
-# 💾 세션 관련 유틸
+# 💾 세션 관련 유틸 (수정 완료 버전)
 # ===============================
 def _create_session(
     db: Session,
@@ -128,6 +128,9 @@ def _create_session(
     ip: Optional[str] = None,
 ) -> None:
     """✅ 로그인 시 세션 레코드 생성"""
+    # 🔍 디버깅 로그 추가
+    logger.info("🧩 세션 생성 시도: user_id=%s, token=%s, device_id=%s", user_id, token, device_id)
+
     sess = UserSession(
         user_id=user_id,
         device_id=device_id or str(uuid4()),
@@ -138,37 +141,77 @@ def _create_session(
         expires_at=datetime.utcnow() + timedelta(days=1),
     )
     db.add(sess)
-    db.commit()
-    logger.info("🆕 세션 생성 user_id=%s", user_id)
+    try:
+        db.commit()
+        logger.info("🆕 세션 생성 성공 user_id=%s", user_id)
+    except Exception as e:
+        db.rollback()
+        logger.error("❌ 세션 생성 실패 user_id=%s, error=%s", user_id, e)
+        raise
 
 
 def _invalidate_all_sessions(db: Session, user_id: int) -> None:
     """✅ 해당 사용자 모든 세션 비활성화"""
-    db.query(UserSession).filter(UserSession.user_id == user_id).update({"is_active": False})
-    db.commit()
-    logger.info("🗑️ 모든 세션 만료 user_id=%s", user_id)
+    try:
+        updated = db.query(UserSession).filter(UserSession.user_id == user_id).update({"is_active": False})
+        db.commit()
+        logger.info("🗑️ 모든 세션 만료 user_id=%s (총 %s개)", user_id, updated)
+    except Exception as e:
+        db.rollback()
+        logger.error("❌ 세션 만료 중 오류 user_id=%s, error=%s", user_id, e)
+        raise
 
 
 def _validate_refresh_session(db: Session, user_id: int, token: str) -> bool:
     """✅ DB 세션 유효성 확인"""
-    sess = (
-        db.query(UserSession)
-        .filter(UserSession.user_id == user_id, UserSession.token == token, UserSession.is_active == True)
-        .first()
-    )
-    if not sess:
+    try:
+        sess = (
+            db.query(UserSession)
+            .filter(UserSession.user_id == user_id, UserSession.token == token, UserSession.is_active == True)
+            .first()
+        )
+        if not sess:
+            logger.warning("⚠️ 세션 없음 user_id=%s token=%s", user_id, token)
+            return False
+
+        if sess.expires_at and sess.expires_at < datetime.utcnow():
+            sess.is_active = False
+            db.commit()
+            logger.info("⌛ 세션 만료됨 user_id=%s", user_id)
+            return False
+
+        return True
+    except Exception as e:
+        logger.error("❌ 세션 검증 중 오류 user_id=%s, error=%s", user_id, e)
+        db.rollback()
         return False
-    if sess.expires_at and sess.expires_at < datetime.utcnow():
-        sess.is_active = False
-        db.commit()
-        return False
-    return True
 
 
 # ===============================================================
-# 🔐 단일 로그인 정책 적용 (여기가 핵심 수정된 login_user 함수)
+# 🔐 단일 로그인 정책 적용 (완전 동기화 버전 - 최종)
 # ===============================================================
-def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
+import asyncio
+from datetime import timedelta
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+from app.models import User, UserSession, UserStatus
+from app.core.security import (
+    authenticate_user,
+    create_access_token,
+    create_refresh_token,
+)
+from app.notifications.notification_ws_manager import ws_manager
+from app.notifications.notification_service import send_realtime_notification
+from app.auth.utils import _invalidate_all_sessions, _is_locked, _on_login_fail, _on_login_success, _create_session
+from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
+import logging
+
+logger = logging.getLogger(__name__)
+
+# ===============================================================
+# 🔐 단일 로그인 정책 적용 (비동기 완전 동기화 버전)
+# ===============================================================
+async def login_user(db: Session, form_data) -> Optional[dict]:
     login_id = form_data.username
     user = db.query(User).filter(User.user_id == login_id).first()
 
@@ -177,11 +220,13 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
         logger.warning("🚫 탈퇴 계정 로그인 시도 차단: user_id=%s", login_id)
         raise HTTPException(status_code=403, detail="탈퇴한 계정은 로그인할 수 없습니다.")
 
+    # 🚫 잠금 상태 로그인 차단
     if user and _is_locked(user):
         db.commit()
         logger.warning("잠금 상태 로그인 시도: user_id=%s", login_id)
         return None
 
+    # ✅ 사용자 인증
     db_user = authenticate_user(db, login_id, form_data.password)
     if not db_user:
         if user:
@@ -190,6 +235,7 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
         logger.info("로그인 실패: user_id=%s", login_id)
         return None
 
+    # ✅ 로그인 성공 처리
     _on_login_success(db_user)
     db.commit()
     db.refresh(db_user)
@@ -200,39 +246,17 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
         .filter(UserSession.user_id == db_user.id, UserSession.is_active == True)
         .first()
     )
+    is_existing_session = existing_session is not None
 
     if existing_session:
-        logger.info("⚠️ 기존 세션 감지 → 다른 기기 로그인 처리 user_id=%s", db_user.id)
+        logger.info("⚠️ 기존 세션 감지 → 중복 로그인 시도 user_id=%s", db_user.id)
 
-        # ✅ 기존 세션 비활성화
-        existing_session.is_active = False
-        db.commit()
-
-        # ✅ 기존 로그인 중인 사용자에게 WebSocket 강제 로그아웃 알림
-        try:
-            asyncio.create_task(
-                ws_manager.send_to_user(
-                    db_user.id,
-                    {
-                        "type": "FORCED_LOGOUT",
-                        "message": "다른 기기에서 로그인되어 로그아웃되었습니다.",
-                    },
-                )
-            )
-        except Exception as e:
-            logger.warning("⚠️ 기존 사용자 WebSocket 알림 실패: %s", e)
-
-        # ✅ DB 알림 저장 (선택)
-        try:
-            asyncio.create_task(
-                send_realtime_notification(
-                    db_user.id,
-                    title="다른 기기에서 로그인되었습니다.",
-                    content="본인이 아닐 경우 즉시 비밀번호를 변경하세요.",
-                )
-            )
-        except Exception as e:
-            logger.warning("⚠️ 알림 저장 실패: %s", e)
+        # ✅ 기존 세션이 있어도 강제 로그아웃 신호는 지금 보내지 않음
+        #    → 프론트에서 '확인(Force Login)' 누를 때 처리하도록 변경
+        return {
+            "status": "DUPLICATE_SESSION",
+            "message": "이미 로그인된 계정입니다. 기존 세션을 종료하고 새로 로그인하시겠습니까?",
+        }
 
     # ✅ 새 JWT 발급
     access_token = create_access_token(
@@ -246,7 +270,6 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
 
     # ✅ 새 세션 등록
     _create_session(db, db_user.id, refresh_token)
-
     logger.info("✅ 새 세션 등록 완료 user_id=%s", db_user.id)
 
     return {
@@ -254,7 +277,9 @@ def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[di
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "existing_session": is_existing_session,  # ✅ 프론트 모달 제어용 플래그
     }
+
 
 # ===============================
 # 🔹 랜덤 닉네임 생성
@@ -670,6 +695,9 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
         provider.capitalize(), user.id, user.email, is_new_user
     )
 
+    # ✅ 세션 생성 직전 로그 추가 (디버깅용)
+    logger.info("📩 세션 생성 직전: user_id=%s, provider=%s", user.id, provider)
+
     # ======================================================
     # ✅ 단일 로그인 정책 적용 (소셜 로그인도 동일하게)
     # ======================================================
@@ -688,7 +716,7 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
         try:
             asyncio.create_task(
                 ws_manager.send_to_user(
-                    user.id,
+                    str(user.id),
                     {
                         "type": "FORCED_LOGOUT",
                         "message": "다른 기기에서 로그인되어 로그아웃되었습니다.",
@@ -710,14 +738,15 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
         except Exception as e:
             logger.warning("⚠️ 소셜 로그인 알림 저장 실패: %s", e)
 
-    # ✅ 새로운 세션 생성
+    # ✅ 양방향 단일 로그인 보장: 기존 세션 모두 비활성화 후 새 세션 생성
+    _invalidate_all_sessions(db, user.id)
     _create_session(db, user.id, refresh_token)
 
     # ✅ 현재 로그인 사용자에게 새 로그인 알림
     try:
         asyncio.create_task(
             ws_manager.send_to_user(
-                user.id,
+                str(user.id),
                 {
                     "type": "LOGIN_ALERT",
                     "message": f"{provider.capitalize()} 계정으로 새 기기에서 로그인되었습니다.",
@@ -727,8 +756,18 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
     except Exception as e:
         logger.warning("⚠️ 새 소셜 로그인 WebSocket 알림 실패: %s", e)
 
-    # ✅ 리다이렉트 URL
-    redirect_url = build_frontend_redirect_url(access_token, refresh_token, is_new_user)
+    # ✅ 기존 세션 감지 여부 플래그 추가
+    is_existing_session = existing_session is not None
+
+    # ✅ 리다이렉트 URL (기존 세션 여부 포함)
+    redirect_url = build_frontend_redirect_url(
+        access_token,
+        refresh_token,
+        is_new_user,
+    )
+    if is_existing_session:
+        redirect_url += "&existing_session=true"
+
     return RedirectResponse(url=redirect_url)
 
 
@@ -910,7 +949,7 @@ def force_login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optio
     try:
         asyncio.create_task(
             ws_manager.send_to_user(
-                user.id,
+                str(user.id), # ✅ 문자열 변환 (중요)
                 {
                     "type": "FORCED_LOGOUT",
                     "message": "다른 기기에서 로그인되어 로그아웃되었습니다.",

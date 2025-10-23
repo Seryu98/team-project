@@ -17,6 +17,8 @@ from app.users.user_model import User, UserStatus
 
 # ✅ 추가: 이메일 인증 모듈
 from app.core.email_verifier import is_verified as is_email_verified, send_code, verify_code
+# ✅ 추가: WebSocket 매니저 (기존 기기 로그아웃 전송용)
+from app.notifications.notification_ws_manager import ws_manager  # ✅ 추가됨
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -193,9 +195,9 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 # ✅ 로그인 / 토큰
 # ===============================
 @router.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """🔐 일반 로그인 (Access + Refresh Token 발급)"""
-    tokens = auth_service.login_user(db, form_data)
+    tokens = await auth_service.login_user(db, form_data)
     if not tokens:
         raise HTTPException(status_code=401, detail="로그인 실패")
 
@@ -214,12 +216,17 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 # ✅ [🔧 수정됨] 강제 로그인 API (중복 로그인 모달 ‘확인’ 시 호출)
 @router.post("/force-login")
-def force_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """⚠️ 강제 로그인 (기존 세션 무효화 후 새 세션 발급)"""
+async def force_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """⚠️ 강제 로그인 (기존 세션 무효화 후 새 세션 발급 + 기존 기기 WebSocket 로그아웃 전송)"""
     try:
         tokens = auth_service.force_login_user(db, form_data)  # ✅ auth_service에 구현된 강제 로그인 로직 호출
         if not tokens:
             raise HTTPException(status_code=401, detail="강제 로그인 실패")
+
+        # ✅ 기존 로그인 중인 기기에 WebSocket 강제 로그아웃 메시지 전송
+        user = db.query(User).filter(User.user_id == form_data.username).first()
+        if user:
+            await ws_manager.force_logout_all(user.id)
 
         return JSONResponse(
             status_code=200,
