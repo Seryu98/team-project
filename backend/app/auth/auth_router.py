@@ -122,7 +122,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         # ✅ 비밀번호 확인
         if hasattr(user, "password_confirm") and user.password != user.password_confirm:
             raise ValueError("비밀번호가 일치하지 않습니다.")
-
+        
         # ✅ 이메일 유효성 검사
         email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
         if not user.email or not re.match(email_pattern, user.email):
@@ -135,6 +135,13 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         # ✅ 이메일 인증 여부 확인 (email_verifier.py)
         if not is_email_verified(user.email):
             raise ValueError("이메일 인증이 완료되지 않았습니다. 인증 코드를 확인해주세요.")
+
+        # # ✅ 이름 중복 확인 (추가해야 하는 부분!)
+        # if db.query(User).filter(
+        #     User.name == user.name,
+        #     User.status == UserStatus.ACTIVE
+        # ).first():
+        #     raise ValueError("이미 등록된 이름입니다.")  # ← 여기서 fail to fetch 방지됨
 
         # ✅ 이메일 중복 확인 (ACTIVE 계정만)
         if db.query(User).filter(
@@ -172,6 +179,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
     except IntegrityError as e:
         db.rollback()
         err_msg = str(e.orig)
@@ -197,7 +205,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 @router.post("/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """🔐 일반 로그인 (Access + Refresh Token 발급)"""
-    tokens = await auth_service.login_user(db, form_data)
+    tokens = auth_service.login_user(db, form_data)
     if not tokens:
         raise HTTPException(status_code=401, detail="로그인 실패")
 
