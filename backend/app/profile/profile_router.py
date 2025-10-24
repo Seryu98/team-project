@@ -8,6 +8,8 @@ from app.profile.profile_service import get_profile_detail, update_profile, get_
 from app.core.deps import get_current_user
 from app.models import User
 from app.files import upload_router   # ✅ 업로드 모듈 가져오기
+from typing import Optional
+from app.core.deps import get_current_user_optional
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
@@ -31,17 +33,18 @@ def get_my_profile(
 # ---------------------------------------------------------------------
 # ✅ 특정 유저 프로필 조회
 # ---------------------------------------------------------------------
+
 @router.get("/{user_id}", response_model=ProfileOut)
 def get_profile(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     return get_profile_detail(
         db,
         user_id,
-        current_user_id=current_user.id,
-        current_user_role=current_user.role
+        current_user_id=current_user.id if current_user else None,
+        current_user_role=current_user.role if current_user else "GUEST"
     )
 
 
