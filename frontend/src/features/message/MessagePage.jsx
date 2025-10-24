@@ -1,6 +1,6 @@
 // src/features/message/MessagesPage.jsx
-import { useLocation, useParams } from "react-router-dom"; // ✅ [10/18]useParams 추가
 import React, { useState, useEffect } from "react";
+import { useLocation, useParams } from "react-router-dom";
 import axios from "axios";
 import MessageDetail from "./MessageDetail";
 import MessageList from "./MessageList";
@@ -10,8 +10,12 @@ import "./messages.css";
 export default function MessagesPage() {
   // ✅ 상태 정의
   const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const receiverFromQuery = params.get("receiver") || "";
   const { id: messageId } = useParams(); // ✅ [10/18] URL 파라미터
-  const [selectedTab, setSelectedTab] = useState("inbox"); // notice | admin | compose | inbox | sent
+  const [selectedTab, setSelectedTab] = useState(
+    receiverFromQuery ? "compose" : "inbox"   // ✅ receiver 있으면 compose로 시작
+  );
   const [messages, setMessages] = useState([]); // 목록 데이터
   const [selectedMessage, setSelectedMessage] = useState(null); // 상세보기 데이터
   const [loading, setLoading] = useState(false); // 로딩 상태
@@ -204,9 +208,8 @@ export default function MessagesPage() {
 
         {/* ✅ 공지사항 탭 */}
         <button
-          className={`msg-sidebar__btn ${
-            selectedTab === "notice" ? "msg-sidebar__btn--active" : ""
-          }`}
+          className={`msg-sidebar__btn ${selectedTab === "notice" ? "msg-sidebar__btn--active" : ""
+            }`}
           onClick={() => setSelectedTab("notice")}
         >
           📢 공지사항
@@ -214,9 +217,8 @@ export default function MessagesPage() {
 
         {/* ✅ 관리자 탭 */}
         <button
-          className={`msg-sidebar__btn ${
-            selectedTab === "admin" ? "msg-sidebar__btn--active" : ""
-          }`}
+          className={`msg-sidebar__btn ${selectedTab === "admin" ? "msg-sidebar__btn--active" : ""
+            }`}
           onClick={() => setSelectedTab("admin")}
         >
           👮 관리자
@@ -224,9 +226,8 @@ export default function MessagesPage() {
 
         {/* ✅ 쪽지 작성 */}
         <button
-          className={`msg-sidebar__btn ${
-            selectedTab === "compose" ? "msg-sidebar__btn--active" : ""
-          }`}
+          className={`msg-sidebar__btn ${selectedTab === "compose" ? "msg-sidebar__btn--active" : ""
+            }`}
           onClick={() => setSelectedTab("compose")}
         >
           ✉️ 쪽지 보내기
@@ -234,18 +235,16 @@ export default function MessagesPage() {
 
         {/* ✅ 받은/보낸 쪽지 */}
         <button
-          className={`msg-sidebar__btn ${
-            selectedTab === "inbox" ? "msg-sidebar__btn--active" : ""
-          }`}
+          className={`msg-sidebar__btn ${selectedTab === "inbox" ? "msg-sidebar__btn--active" : ""
+            }`}
           onClick={() => setSelectedTab("inbox")}
         >
           📥 받은 쪽지
         </button>
 
         <button
-          className={`msg-sidebar__btn ${
-            selectedTab === "sent" ? "msg-sidebar__btn--active" : ""
-          }`}
+          className={`msg-sidebar__btn ${selectedTab === "sent" ? "msg-sidebar__btn--active" : ""
+            }`}
           onClick={() => setSelectedTab("sent")}
         >
           📤 보낸 쪽지
@@ -261,12 +260,12 @@ export default function MessagesPage() {
             {selectedTab === "notice"
               ? "공지사항 목록"
               : selectedTab === "admin"
-              ? "관리자 쪽지 목록"
-              : selectedTab === "inbox"
-              ? "받은 쪽지 목록"
-              : selectedTab === "sent"
-              ? "보낸 쪽지 목록"
-              : "쪽지 작성"}
+                ? "관리자 쪽지 목록"
+                : selectedTab === "inbox"
+                  ? "받은 쪽지 목록"
+                  : selectedTab === "sent"
+                    ? "보낸 쪽지 목록"
+                    : "쪽지 작성"}
           </span>
         </div>
 
@@ -275,7 +274,10 @@ export default function MessagesPage() {
         ) : error ? (
           <p className="p-4 text-red-600">{error}</p>
         ) : selectedTab === "compose" ? (
-          <MessageCompose onSent={() => setSelectedTab("sent")} />
+          <MessageCompose
+            onSent={() => setSelectedTab("sent")}
+            defaultReceiver={receiverFromQuery}   // ✅ 쿼리에서 받은 닉네임 전달
+          />
         ) : messages.length === 0 ? (
           <p className="p-4 text-gray-500">쪽지가 없습니다.</p>
         ) : (
