@@ -646,7 +646,7 @@ export default function ProfilePage() {
                         {profile.is_following ? "언팔로우" : "팔로우"}
                       </button>
                       <button
-                        onClick={handleSendMessage}
+                        onClick={() => navigate(`/messages/new?receiver=${profile.nickname}`)}
                         style={{
                           padding: "6px 16px",
                           fontSize: "13px",
