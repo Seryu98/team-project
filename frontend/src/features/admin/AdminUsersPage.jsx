@@ -1,6 +1,7 @@
 // src/features/admin/AdminUsersPage.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import "./AdminUsersPage.css";
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
@@ -83,73 +84,73 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">👮 제재 유저 관리</h1>
+    <div className="admin-users-page">
+      <div className="admin-users-header">
+        <h1 className="admin-users-title">👮 제재 유저 관리</h1>
         <button
           onClick={fetchBanned}
-          className="px-3 py-1 rounded bg-gray-800 text-white hover:bg-black"
+          className="admin-users-refresh-btn"
         >
           새로고침
         </button>
       </div>
 
       {loading ? (
-        <p className="text-gray-500">로딩 중...</p>
+        <p className="admin-users-loading">로딩 중...</p>
       ) : rows.length === 0 ? (
-        <p className="text-gray-600">현재 제재 중인 유저가 없습니다.</p>
+        <p className="admin-users-empty">현재 제재 중인 유저가 없습니다.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white rounded-lg shadow">
+        <div className="admin-users-table-container">
+          <table className="admin-users-table">
             <thead>
-              <tr className="text-left border-b">
-                <th className="p-3">ID</th>
-                <th className="p-3">닉네임</th>
-                <th className="p-3">이메일</th>
-                <th className="p-3">상태</th>
-                <th className="p-3">제재 만료</th>
-                <th className="p-3 text-right">액션</th>
+              <tr>
+                <th>ID</th>
+                <th>닉네임</th>
+                <th>이메일</th>
+                <th>상태</th>
+                <th>제재 만료</th>
+                <th>액션</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((u) => (
-                <tr key={u.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3">{u.id}</td>
-                  <td className="p-3">{u.nickname}</td>
-                  <td className="p-3">{u.email}</td>
-                  <td className="p-3">{u.status}</td>
-                  <td className="p-3">
+                <tr key={u.id}>
+                  <td className="admin-users-id">{u.id}</td>
+                  <td className="admin-users-nickname">{u.nickname}</td>
+                  <td className="admin-users-email">{u.email}</td>
+                  <td className="admin-users-status">{u.status}</td>
+                  <td className="admin-users-banned-until">
                     {u.banned_until ? new Date(u.banned_until).toLocaleString() : "-"}
                   </td>
-                  <td className="p-3">
-                    <div className="flex justify-end gap-2">
+                  <td>
+                    <div className="admin-users-actions">
                       <button
                         onClick={() => doBan(u.id, 3)}
-                        className="px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+                        className="admin-users-btn admin-users-btn-3day"
                       >
                         3일
                       </button>
                       <button
                         onClick={() => doBan(u.id, 7)}
-                        className="px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+                        className="admin-users-btn admin-users-btn-7day"
                       >
                         7일
                       </button>
                       <button
                         onClick={() => doBan(u.id, null)}
-                        className="px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700"
+                        className="admin-users-btn admin-users-btn-permanent"
                       >
                         영구
                       </button>
                       <button
                         onClick={() => doBanCustom(u.id)}
-                        className="px-2 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                        className="admin-users-btn admin-users-btn-custom"
                       >
                         커스텀
                       </button>
                       <button
                         onClick={() => doUnban(u.id)}
-                        className="px-2 py-1 rounded bg-gray-600 text-white hover:bg-gray-700"
+                        className="admin-users-btn admin-users-btn-unban"
                       >
                         해제
                       </button>
