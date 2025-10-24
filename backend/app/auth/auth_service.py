@@ -29,6 +29,9 @@ from app.core.security import (
 )
 from app.core.database import get_db
 
+# ✅ 추가됨: WebSocket 매니저 import
+from app.notifications.notification_ws_manager import manager
+
 # ===============================
 # ⚙️ 정책 상수
 # ===============================

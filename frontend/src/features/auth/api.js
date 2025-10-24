@@ -122,14 +122,15 @@ export async function register(form) {
 // ============================
 // 로그인 (username=user_id)
 // ============================
-export async function login(loginId, password) {
+export async function login(loginId, password, force = false) {
   const params = new URLSearchParams();
   params.append("username", loginId);
   params.append("password", password);
   params.append("grant_type", "password");
   params.append("scope", "");
 
-  const res = await fetch(`${API_URL}/auth/login`, {
+  // ✅ 강제 로그인 파라미터 포함
+  const res = await fetch(`${API_URL}/auth/login?force=${force}`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params,
@@ -238,14 +239,24 @@ export async function authFetch(url, options = {}, { skipRedirect = false } = {}
 // 현재 로그인된 사용자
 // ============================
 export async function getCurrentUser({ skipRedirect = false } = {}) {
-  return authFetch("/auth/me", { method: "GET" }, { skipRedirect });
+  try {
+    const res = await authFetch("/auth/me", { method: "GET" }, { skipRedirect });
+    return res;
+  } catch (err) {
+    // ✅ 수정: 401일 때는 강제 로그아웃하지 않고 null 반환 (FORCED_LOGOUT 감지용)
+    if (err.status === 401) {
+      console.warn("⚠️ getCurrentUser 401 → 무시하고 null 반환 (FORCED_LOGOUT 감지용)");
+      return null;
+    }
+    throw err;
+  }
 }
 
 // ============================
 // 로그인 + 사용자 정보까지 한 번에
 // ============================
-export async function loginAndFetchUser(loginId, password) {
-  const tokens = await login(loginId, password);
+export async function loginAndFetchUser(loginId, password, force = false) {
+  const tokens = await login(loginId, password, force);
   const user = await getCurrentUser();
   return { tokens, user };
 }
