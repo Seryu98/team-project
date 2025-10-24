@@ -50,7 +50,7 @@ def api_get_pending_reports(user=Depends(get_current_user), db: Session = Depend
     """
     처리 대기 중인 신고 목록 조회
     - 상태: PENDING
-    - 게시글/댓글/쪽지 내용 함께 반환 (관리자 판단용)
+    - 게시글/댓글/쪽지/프로젝트/스터디 내용 함께 반환 (관리자 판단용)
     """
     _ensure_admin(user)
 
@@ -68,21 +68,39 @@ def api_get_pending_reports(user=Depends(get_current_user), db: Session = Depend
                 r.status,
                 r.created_at,
 
-                -- ✅ 게시글 / 댓글 / 쪽지 내용 병합
-                bp.title AS post_title,
-                bp.content AS post_content,
+                -- ✅ 유저게시판 (BOARD_POST)
+                bp.title AS board_post_title,
+                bp.content AS board_post_content,
+
+                -- ✅ 프로젝트/스터디 (POST)
+                p.title AS project_title,
+                p.description AS project_description,
+
+                -- ✅ 댓글
                 c.content AS comment_content,
-                m.content AS message_content   -- ✅ 추가됨 (쪽지 본문)
+
+                -- ✅ 쪽지
+                m.content AS message_content,
+
+                -- ✅ 통합 표시용 컬럼 (프론트 호환)
+                COALESCE(bp.title, p.title) AS post_title,
+                COALESCE(bp.content, p.description) AS post_content
 
             FROM reports r
-            LEFT JOIN users ru ON ru.id = r.reporter_user_id      -- 신고자
-            LEFT JOIN users tu ON tu.id = r.reported_user_id      -- 피신고자
+            LEFT JOIN users ru ON ru.id = r.reporter_user_id
+            LEFT JOIN users tu ON tu.id = r.reported_user_id
+
+            LEFT JOIN posts p 
+                ON r.target_type = 'POST' AND p.id = r.target_id
+
             LEFT JOIN board_posts bp 
-                ON r.target_type IN ('POST', 'BOARD_POST') AND bp.id = r.target_id
+                ON r.target_type = 'BOARD_POST' AND bp.id = r.target_id
+
             LEFT JOIN comments c 
                 ON r.target_type = 'COMMENT' AND c.id = r.target_id
+
             LEFT JOIN messages m 
-                ON r.target_type = 'MESSAGE' AND m.id = r.target_id   -- ✅ 쪽지 JOIN 추가
+                ON r.target_type = 'MESSAGE' AND m.id = r.target_id
 
             WHERE r.status = 'PENDING'
             ORDER BY r.created_at DESC
@@ -94,6 +112,8 @@ def api_get_pending_reports(user=Depends(get_current_user), db: Session = Depend
         "data": [dict(r) for r in rows],
         "message": "신고 대기 목록 조회 성공 (내용 포함)",
     }
+
+
 
 
 # ----------------------------

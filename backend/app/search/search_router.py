@@ -28,9 +28,11 @@ def global_search(
 
     # ✅ 유저 검색
     user_results = (
-        db.query(User, Profile)
-        .join(Profile, Profile.id == User.id, isouter=True)
-        .filter(
+    db.query(User, Profile)
+    .join(Profile, Profile.id == User.id, isouter=True)
+    .filter(
+        and_(
+            User.status == "ACTIVE",   # 🔥 정지/삭제된 계정 제외
             or_(
                 User.nickname.like(keyword),
                 User.id.in_(
@@ -40,9 +42,10 @@ def global_search(
                 )
             )
         )
-        .limit(10)
-        .all()
     )
+    .limit(10)
+    .all()
+)
 
     users = []
     for user, profile in user_results:
@@ -64,25 +67,27 @@ def global_search(
 
     # ✅ 프로젝트/스터디 검색 (프로젝트 종료 제외 + 모집중/모집완료 모두 포함)
     project_results = (
-        db.query(RecipePost)
-        .filter(
-            and_(
-                RecipePost.project_status != "ENDED",  # ✅ 프로젝트 종료된 것만 제외
-                RecipePost.recruit_status.in_(["OPEN", "CLOSED"]),  # ✅ 모집중 + 모집완료 (FINISHED 제외)
-                or_(
-                    RecipePost.title.like(keyword),
-                    RecipePost.description.like(keyword),
-                    RecipePost.id.in_(
-                        db.query(RecipePostSkill.post_id)
-                        .join(Skill, Skill.id == RecipePostSkill.skill_id)
-                        .filter(Skill.name.like(keyword))
-                    )
+    db.query(RecipePost)
+    .filter(
+        and_(
+            RecipePost.project_status != "ENDED",
+            RecipePost.recruit_status.in_(["OPEN", "CLOSED"]),
+            RecipePost.status == "VISIBLE",      # 🔥 숨김된 프로젝트 제외
+            RecipePost.deleted_at.is_(None),     # 🔥 삭제된 프로젝트 제외
+            or_(
+                RecipePost.title.like(keyword),
+                RecipePost.description.like(keyword),
+                RecipePost.id.in_(
+                    db.query(RecipePostSkill.post_id)
+                    .join(Skill, Skill.id == RecipePostSkill.skill_id)
+                    .filter(Skill.name.like(keyword))
                 )
             )
         )
-        .limit(10)
-        .all()
     )
+    .limit(10)
+    .all()
+)
 
     projects = []
     for project in project_results:
@@ -115,16 +120,20 @@ def global_search(
 
     # ✅ 게시판 검색
     boards = (
-        db.query(BoardPost.id, BoardPost.title, BoardPost.content, BoardPost.category_id)
-        .filter(
+    db.query(BoardPost.id, BoardPost.title, BoardPost.content, BoardPost.category_id)
+    .filter(
+        and_(
+            BoardPost.status == "VISIBLE",     # 🔥 숨김된 글 제외
+            BoardPost.deleted_at.is_(None),    # 🔥 삭제된 글 제외
             or_(
                 BoardPost.title.like(keyword),
                 BoardPost.content.like(keyword)
             )
         )
-        .limit(10)
-        .all()
     )
+    .limit(10)
+    .all()
+)
 
     return {
         "users": users,
