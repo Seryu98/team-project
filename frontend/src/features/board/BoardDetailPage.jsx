@@ -207,39 +207,46 @@ export default function BoardDetailPage() {
 
   // ✅ 권한별 버튼 렌더
   const renderButtons = (item, isMine) => {
-    return (
-      <>
-        {isMine ? (
-          <>
-            <button className="edit-btn" onClick={() => startEdit(item.id, item.content)}>
-              수정
-            </button>
-            <button className="delete-btn" onClick={() => handleCommentDelete(item.id)}>
-              삭제
-            </button>
-          </>
-        ) : (
-          <button
-            className="report-btn"
-            onClick={async () => {
-              const reason = prompt("신고 사유를 입력해주세요:");
-              if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
-              try {
-                await submitReport("COMMENT", item.id, reason);
-                alert("🚨 댓글 신고가 접수되었습니다.");
-                bumpNotificationList();
-              } catch (err) {
-                console.error("❌ 댓글 신고 실패:", err);
-                alert("신고 중 오류가 발생했습니다.");
-              }
-            }}
-          >
-            🚨 신고
+    if (isMine) {
+      return (
+        <>
+          <button className="edit-btn" onClick={() => startEdit(item.id, item.content)}>
+            수정
           </button>
-        )}
-      </>
-    );
+          <button className="delete-btn" onClick={() => handleCommentDelete(item.id)}>
+            삭제
+          </button>
+        </>
+      );
+    }
+
+    // 🚨 로그인했고 내가 쓴 게 아닐 때만 신고 버튼 보이게
+    if (isLoggedIn) {
+      return (
+        <button
+          className="report-btn"
+          onClick={async () => {
+            const reason = prompt("이 댓글을 신고하는 이유를 입력해주세요:");
+            if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
+            try {
+              await submitReport("COMMENT", item.id, reason);
+              alert("🚨 댓글 신고가 접수되었습니다.");
+              bumpNotificationList();
+            } catch (err) {
+              console.error("❌ 댓글 신고 실패:", err);
+              alert("신고 중 오류가 발생했습니다.");
+            }
+          }}
+        >
+          🚨 신고
+        </button>
+      );
+    }
+
+    // 비로그인 → 아무 버튼도 안보임
+    return null;
   };
+
 
   // ===============================
   // ✅ 화면 렌더링
@@ -321,11 +328,14 @@ export default function BoardDetailPage() {
               {post.author.nickname}
             </span>
           </div>
-          {isLoggedIn && (
-            <button className="like-btn" onClick={handleLike}>
-              ❤️ {post.like_count}
-            </button>
-          )}
+          <button
+            className="like-btn"
+            onClick={isLoggedIn ? handleLike : undefined}
+            disabled={!isLoggedIn}   // ✅ 비로그인 시 disabled 처리
+            style={{ opacity: !isLoggedIn ? 0.5 : 1, cursor: !isLoggedIn ? "not-allowed" : "pointer" }}
+          >
+            ❤️ {post.like_count}
+          </button>
         </div>
 
         {/* 🚨 게시글 신고 버튼 (작성자 본인 제외) */}
