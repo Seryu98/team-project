@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Modal from "../../components/Modal";
-import { register, login } from "./api"; // ✅ sendVerificationCode, verifyCode 제거
+import { register, login } from "./api";
 import axios from "axios";
 
 function Register() {
@@ -23,11 +23,15 @@ function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [passwordMatch, setPasswordMatch] = useState(true);
-  const [isIdChecked, setIsIdChecked] = useState(false); // ✅ 중복확인 여부 추적
+  const [isIdChecked, setIsIdChecked] = useState(false);
 
-  // ✅ 추가: 이메일 유효성 검증 상태
+  // ✅ 이메일 유효성 검증 상태
   const [emailCheckMsg, setEmailCheckMsg] = useState("");
   const [isEmailValid, setIsEmailValid] = useState(false);
+
+  // ✅ 전화번호 중복확인 상태
+  const [phoneCheckMsg, setPhoneCheckMsg] = useState("");
+  const [isPhoneChecked, setIsPhoneChecked] = useState(false);
 
   // ✅ 이메일 인증 모달 상태
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -38,51 +42,47 @@ function Register() {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
 
-    // 실시간 비밀번호 일치 검사
     if (name === "password" || name === "passwordConfirm") {
       const nextPassword = name === "password" ? value : form.password;
       const nextConfirm =
         name === "passwordConfirm" ? value : form.passwordConfirm;
-
-      // ✅ 비밀번호 확인란이 입력된 경우에만 비교 (UX 개선)
       if (nextConfirm.length > 0) {
         setPasswordMatch(nextPassword === nextConfirm);
       } else {
-        setPasswordMatch(true); // 비밀번호 확인칸이 비어있을 땐 경고 안 띄움
+        setPasswordMatch(true);
       }
     }
 
-    // ✅ 아이디를 수정하면 중복확인 초기화
     if (name === "user_id") {
       setIsIdChecked(false);
       setIdCheckMsg("");
     }
 
-    // ✅ 이메일 변경 시 검증 초기화
     if (name === "email") {
       setEmailCheckMsg("");
       setIsEmailValid(false);
     }
+
+    if (name === "phone_number") {
+      setPhoneCheckMsg("");
+      setIsPhoneChecked(false);
+    }
   };
 
-  // ✅ 이메일 인증 코드 발송 (새 백엔드 구조 반영)
+  // ✅ 이메일 인증 코드 발송
   const handleEmailCheck = async () => {
     if (!form.email) {
       setEmailCheckMsg("⚠️ 이메일을 입력해주세요.");
       setIsEmailValid(false);
       return;
     }
-
-    // ✅ 이메일 형식 정규식 검증 추가
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(form.email)) {
       setEmailCheckMsg("❌ 올바른 이메일 형식을 입력해주세요.");
       setIsEmailValid(false);
       return;
     }
-
     try {
-      // ✅ 새 API 엔드포인트 사용
       await axios.post("http://localhost:8000/auth/email/send-code", {
         email: form.email,
         purpose: "signup",
@@ -94,17 +94,16 @@ function Register() {
       if (error.response?.data?.detail) {
         setEmailCheckMsg(`❌ ${error.response.data.detail}`);
       } else {
-        setEmailCheckMsg("❌ 이메일 발송 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        setEmailCheckMsg("❌ 이메일 발송 중 문제가 발생했습니다.");
       }
       setIsEmailValid(false);
     }
   };
 
-  // ✅ 이메일 인증 코드 확인 (Modal에서 전달받은 code 사용)
+  // ✅ 이메일 인증 코드 확인
   const handleVerifyEmailCode = async (codeFromModal) => {
     try {
       const codeToUse = codeFromModal || verificationCode;
-      // ✅ 새 API 엔드포인트 사용
       await axios.post("http://localhost:8000/auth/email/verify-code", {
         email: form.email,
         code: codeToUse,
@@ -140,24 +139,46 @@ function Register() {
     }
   };
 
+  // ✅ 전화번호 중복확인
+  const handlePhoneCheck = async () => {
+    if (!form.phone_number) {
+      setPhoneCheckMsg("⚠️ 전화번호를 입력해주세요.");
+      setIsPhoneChecked(false);
+      return;
+    }
+    try {
+      const res = await axios.get(
+        `http://localhost:8000/auth/check-phone?phone_number=${form.phone_number}`
+      );
+      setPhoneCheckMsg(res.data.message);
+      setIsPhoneChecked(res.data.available);
+    } catch (error) {
+      setPhoneCheckMsg(
+        error.response?.data?.detail || "❌ 전화번호 중복 확인 중 오류 발생"
+      );
+      setIsPhoneChecked(false);
+    }
+  };
+
   // ✅ 회원가입 제출
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMsg("");
-
-    // ✅ 회원가입 전에 남은 토큰/세션 완전 초기화 (재가입 시 충돌 방지)
     localStorage.clear();
     sessionStorage.clear();
 
-    // ✅ 이메일 유효성 검증 여부 확인
     if (!isEmailValid) {
       setMsg("❌ 이메일 인증을 완료해주세요.");
       return;
     }
 
-    // ✅ 중복확인 여부 확인
     if (!isIdChecked) {
       setMsg("❌ 아이디 중복확인을 해주세요.");
+      return;
+    }
+
+    if (form.phone_number && !isPhoneChecked) {
+      setMsg("❌ 전화번호 중복확인을 해주세요.");
       return;
     }
 
@@ -173,14 +194,12 @@ function Register() {
       return;
     }
 
-    // ✅ 비밀번호 정규식 검증
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$/;
     if (!passwordRegex.test(form.password)) {
       setMsg("❌ 비밀번호는 영문, 숫자, 특수문자를 포함한 8~20자여야 합니다.");
       return;
     }
 
-    // ✅ 비밀번호 일치 여부
     if (!passwordMatch) {
       setMsg("❌ 비밀번호가 일치하지 않습니다.");
       return;
@@ -188,22 +207,17 @@ function Register() {
 
     setSubmitting(true);
     try {
-      // ✅ 회원가입 요청
       await register(form);
-
-      // ✅ 자동 로그인 (회원가입 후 새 토큰 발급)
       const loginRes = await login(form.user_id, form.password);
-
-      // ✅ 새 토큰 저장 (명시적)
       if (loginRes?.access_token && loginRes?.refresh_token) {
         localStorage.setItem("access_token", loginRes.access_token);
         localStorage.setItem("refresh_token", loginRes.refresh_token);
       }
-
-      setShowDone(true); // ✅ 가입 완료 모달 표시
+      setShowDone(true);
     } catch (error) {
       console.error("회원가입 실패:", error);
-      const detail = error.message || "회원가입 실패";
+      const detail =
+        error.response?.data?.detail || error.message || "회원가입 실패";
       setMsg(`❌ ${detail}`);
     } finally {
       setSubmitting(false);
@@ -214,7 +228,7 @@ function Register() {
     navigate("/tutorial", { replace: true });
   };
 
-  // 공통 스타일
+  // 스타일
   const inputStyle = {
     padding: "10px 12px",
     borderRadius: "8px",
@@ -301,7 +315,7 @@ function Register() {
             )}
           </label>
 
-          {/* 아이디 + 중복확인 */}
+          {/* 아이디 */}
           <label style={{ fontSize: "13px" }}>
             아이디<span style={{ color: "#ef4444" }}> *</span>
             <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
@@ -442,19 +456,45 @@ function Register() {
             />
           </label>
 
-          {/* 전화번호 */}
+          {/* 전화번호 + 중복확인 */}
           <label style={{ fontSize: "13px" }}>
-            전화번호
-            <input
-              name="phone_number"
-              placeholder="01012345678"
-              value={form.phone_number}
-              onChange={handleChange}
-              style={{ ...inputStyle, marginTop: "6px" }}
-            />
+            전화번호<span style={{ color: "#ef4444" }}> *</span>
+            <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+              <input
+                name="phone_number"
+                placeholder="01012345678"
+                value={form.phone_number}
+                onChange={handleChange}
+                style={{ ...inputStyle, flex: 1 }}
+                required
+              />
+              <button
+                type="button"
+                onClick={handlePhoneCheck}
+                style={{
+                  ...buttonPrimary,
+                  background: "#4b5563",
+                  whiteSpace: "nowrap",
+                  padding: "10px 14px",
+                }}
+              >
+                중복확인
+              </button>
+            </div>
+            {phoneCheckMsg && (
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: phoneCheckMsg.includes("가능") ? "green" : "red",
+                  marginTop: "4px",
+                }}
+              >
+                {phoneCheckMsg}
+              </p>
+            )}
           </label>
 
-          {/* 가입 버튼 */}
+
           <button type="submit" style={buttonPrimary} disabled={submitting}>
             {submitting ? "처리 중..." : "가입하기"}
           </button>
@@ -489,6 +529,7 @@ function Register() {
         </Modal>
       )}
 
+      {/* 가입 완료 모달 */}
       {showDone && (
         <Modal
           title="회원가입 완료"
