@@ -1,4 +1,4 @@
-// ✅ 수정된 RichTextEditor.jsx
+// frontend/src/components/RichTextRoute.jsx
 // 프론트에서 npm install react-quill해야함
 import React from "react";
 import ReactQuill from "react-quill";

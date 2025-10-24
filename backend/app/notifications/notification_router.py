@@ -64,3 +64,24 @@ def api_mark_read(
         raise HTTPException(status_code=404, detail="대상 알림을 찾을 수 없습니다.")
 
     return {"success": True, "message": f"{updated}개의 알림 읽음 처리 완료"}
+
+# ✅ 4. 모든 알림 전체 읽음 처리
+@router.post("/read-all")
+def api_mark_all_read(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    현재 로그인한 사용자의 모든 알림을 읽음 처리합니다.
+    """
+    updated = (
+        db.query(Notification)
+        .filter(
+            Notification.user_id == current_user.id,
+            Notification.is_read == False
+        )
+        .update({"is_read": True}, synchronize_session=False)
+    )
+    db.commit()
+
+    return {"success": True, "message": f"{updated}개의 알림이 읽음 처리되었습니다."}

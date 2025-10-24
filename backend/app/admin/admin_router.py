@@ -49,8 +49,10 @@ def api_get_pending_reports(user=Depends(get_current_user), db: Session = Depend
     """
     처리 대기 중인 신고 목록 조회
     - 상태: PENDING
+    - 게시글/댓글 내용 함께 반환 (관리자 판단용)
     """
     _ensure_admin(user)
+
     rows = db.execute(
         text("""
             SELECT 
@@ -63,10 +65,20 @@ def api_get_pending_reports(user=Depends(get_current_user), db: Session = Depend
                 r.target_id,
                 r.reason,
                 r.status,
-                r.created_at
+                r.created_at,
+
+                -- ✅ 게시글 및 댓글 내용 추가
+                bp.title AS post_title,
+                bp.content AS post_content,
+                c.content AS comment_content
+
             FROM reports r
-            LEFT JOIN users ru ON ru.id = r.reporter_user_id
-            LEFT JOIN users tu ON tu.id = r.reported_user_id
+            LEFT JOIN users ru ON ru.id = r.reporter_user_id      -- 신고자
+            LEFT JOIN users tu ON tu.id = r.reported_user_id      -- 피신고자
+            LEFT JOIN board_posts bp 
+                ON r.target_type IN ('POST', 'BOARD_POST') AND bp.id = r.target_id
+            LEFT JOIN comments c 
+                ON r.target_type = 'COMMENT' AND c.id = r.target_id
             WHERE r.status = 'PENDING'
             ORDER BY r.created_at DESC
         """)
@@ -75,8 +87,9 @@ def api_get_pending_reports(user=Depends(get_current_user), db: Session = Depend
     return {
         "success": True,
         "data": [dict(r) for r in rows],
-        "message": "신고 대기 목록 조회 성공",
+        "message": "신고 대기 목록 조회 성공 (내용 포함)",
     }
+
 
 # ----------------------------
 # ✅ 신고 처리 요청 스키마
@@ -286,6 +299,7 @@ def api_get_pending_posts(
                 p.type,                                  -- ✅ 프로젝트 / 스터디 구분
                 COALESCE(u.nickname, CONCAT('작성자(', p.leader_id, ')')) AS leader_nickname,  -- ✅ 작성자 닉네임 (닉네임이 NULL이면 "작성자(leader_id)" 형태로 대체)
                 LEFT(p.description, 100) AS preview,  -- ✅ 여기 description으로 변경됨         -- ✅ 내용 미리보기
+                p.description AS full_description,    -- ✅ 전체내용 추가
                 p.created_at,  -- 게시글 생성일
                 p.leader_id    -- 작성자(리더) 사용자 ID
             FROM posts p

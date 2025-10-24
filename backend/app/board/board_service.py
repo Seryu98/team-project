@@ -76,14 +76,27 @@ def get_weekly_hot3(db, now_utc: datetime | None = None) -> List[Dict[str, Any]]
     target_kst_midnight = base_kst_midnight
     target_utc = target_kst_midnight.astimezone(timezone.utc)
 
-    # 2) 캐시 조회
     cached = db.execute(
         text("""
-            SELECT hc.board_post_id AS id, bp.title,
-                   hc.recent_views, hc.recent_likes, hc.hot_score
+            SELECT 
+                hc.board_post_id AS id,
+                bp.title,
+                hc.recent_views,
+                hc.recent_likes,
+                hc.hot_score,
+                bp.view_count,        -- 누적 조회수
+                bp.like_count,        -- 누적 좋아요
+                COALESCE(c.comment_count, 0) AS comment_count  -- ✅ 누적 댓글 수
             FROM hot3_cache hc
             JOIN board_posts bp ON bp.id = hc.board_post_id
+            LEFT JOIN (
+                SELECT board_post_id, COUNT(*) AS comment_count
+                FROM comments
+                WHERE status = 'VISIBLE'
+                GROUP BY board_post_id
+            ) c ON c.board_post_id = bp.id
             WHERE DATE(hc.target_date) = DATE(:target_utc)
+            AND bp.status = 'VISIBLE'
             ORDER BY hc.hot_score DESC, bp.created_at DESC
             LIMIT 3
         """),
@@ -150,7 +163,7 @@ def get_weekly_hot3(db, now_utc: datetime | None = None) -> List[Dict[str, Any]]
     sql = text("""
     WITH kst_midnight AS (
         SELECT CONVERT_TZ(DATE(CONVERT_TZ(:now_utc, '+00:00', '+09:00')),
-                          '+09:00', '+00:00') AS base_utc
+                        '+09:00', '+00:00') AS base_utc
     )
     SELECT
         bp.id,
@@ -160,25 +173,35 @@ def get_weekly_hot3(db, now_utc: datetime | None = None) -> List[Dict[str, Any]]
         (
             COALESCE(CAST(v.recent_views AS FLOAT), 0) * 0.5 +
             COALESCE(CAST(l.recent_likes AS FLOAT), 0) * 1.0
-        ) AS hot_score
+        ) AS hot_score,
+        bp.view_count,      -- ✅ 누적 조회수 포함
+        bp.like_count,      -- ✅ 누적 좋아요 포함
+        COALESCE(c.comment_count, 0) AS comment_count  -- ✅ 누적 댓글수 포함
     FROM board_posts bp
     LEFT JOIN (
         SELECT board_post_id, COUNT(*) AS recent_views
         FROM board_post_views, kst_midnight
         WHERE viewed_at >= (kst_midnight.base_utc - INTERVAL 7 DAY)
-          AND viewed_at < kst_midnight.base_utc
+        AND viewed_at < kst_midnight.base_utc
         GROUP BY board_post_id
     ) v ON v.board_post_id = bp.id
     LEFT JOIN (
         SELECT board_post_id, COUNT(*) AS recent_likes
         FROM board_post_likes, kst_midnight
         WHERE created_at >= (CONVERT_TZ(kst_midnight.base_utc, '+00:00', '+09:00') - INTERVAL 7 DAY)
-          AND created_at < CONVERT_TZ(kst_midnight.base_utc, '+00:00', '+09:00')
+        AND created_at < CONVERT_TZ(kst_midnight.base_utc, '+00:00', '+09:00')
         GROUP BY board_post_id
     ) l ON l.board_post_id = bp.id
+    LEFT JOIN (
+        SELECT board_post_id, COUNT(*) AS comment_count
+        FROM comments
+        WHERE status = 'VISIBLE'
+        GROUP BY board_post_id
+    ) c ON c.board_post_id = bp.id
     WHERE bp.status = 'VISIBLE'
     ORDER BY hot_score DESC, bp.created_at DESC
     """)
+
     rows = db.execute(sql, {"now_utc": now_utc}).mappings().all()
     print(f"✅ [DEBUG] 계산 완료, 결과 수: {len(rows)}")
 
@@ -297,12 +320,6 @@ def list_posts(
     page: int,
     page_size: int,
 ) -> Tuple[List[Dict[str, Any]], int]:
-    """
-    📰 게시글 목록 조회
-    - 기본 정렬/검색/페이징
-    - 🔥 오늘 기준 급상승 점수 반영 (조회수×0.5 + 좋아요×1.0)
-    - 상위 20% 게시글에 "인기급상승" 배지 부여
-    """
     sort_col = {
         "created_at": "bp.created_at",
         "view_count": "bp.view_count",
@@ -313,9 +330,6 @@ def list_posts(
     where = [VISIBLE_WHERE]
     params: Dict[str, Any] = {}
 
-    # ─────────────────────────────────────────────
-    # 🔍 필터링 조건 구성
-    # ─────────────────────────────────────────────
     if category_ids:
         where.append("bp.category_id IN :cat_ids")
         params["cat_ids"] = tuple(category_ids)
@@ -330,58 +344,55 @@ def list_posts(
         params["kw"] = f"%{q}%"
 
     where_sql = " AND ".join(where)
-
-    # ─────────────────────────────────────────────
-    # 📊 전체 개수 조회
-    # ─────────────────────────────────────────────
-    total = db.execute(
-        text(f"SELECT COUNT(*) FROM board_posts bp WHERE {where_sql}"), params
-    ).scalar_one()
-
-    # ─────────────────────────────────────────────
-    # 🧾 게시글 목록 조회
-    # ─────────────────────────────────────────────
+    total = db.execute(text(f"SELECT COUNT(*) FROM board_posts bp WHERE {where_sql}"), params).scalar_one()
     offset = (page - 1) * page_size
+
+    # ✅ 댓글 수 서브쿼리 방식으로 변경
     sql = text(f"""
         SELECT
-        bp.id, bp.title, bp.content, bp.category_id, ct.name AS category_name,
-        bp.created_at, bp.view_count, bp.like_count,
-        bp.attachment_url,                            -- ✅ 추가
-        au.id AS author_id, au.nickname, p.profile_image,
-        COALESCE(COUNT(c.id), 0) AS comment_count
+            bp.id, bp.title, bp.content, bp.category_id, ct.name AS category_name,
+            bp.created_at, bp.view_count, bp.like_count,
+            bp.attachment_url,
+            au.id AS author_id, au.nickname, p.profile_image,
+            COALESCE(c.comment_count, 0) AS comment_count
         FROM board_posts bp
         {AUTHOR_JOIN}
         {CATEGORY_JOIN}
         LEFT JOIN profiles p ON p.id = au.id
-        LEFT JOIN comments c ON c.board_post_id = bp.id AND c.status = 'VISIBLE'
+        LEFT JOIN (
+            SELECT board_post_id, COUNT(*) AS comment_count
+            FROM comments
+            WHERE status = 'VISIBLE'
+            GROUP BY board_post_id
+        ) c ON c.board_post_id = bp.id
         WHERE {where_sql}
-        GROUP BY bp.id, ct.name, au.id, au.nickname, p.profile_image
         ORDER BY {sort_col} {order_kw}
         LIMIT :limit OFFSET :offset
     """)
+
     rows = db.execute(sql, {**params, "limit": page_size, "offset": offset}).mappings().all()
 
     posts = [
-    dict(
-        id=r["id"],
-        title=r["title"],
-        content_preview=_preview(r["content"]),
-        category_id=r["category_id"],
-        category_name=r["category_name"],
-        created_at=r["created_at"],
-        view_count=r["view_count"],
-        like_count=r["like_count"],
-        comment_count=r["comment_count"],
-        author=dict(
-            id=r["author_id"],
-            nickname=r["nickname"],
-            profile_image=r["profile_image"],
-        ),
-        attachment_url=r.get("attachment_url"),  # ✅ 추가
-        badge=None,  # 🔖 기본값
-    )
-    for r in rows
-]
+        dict(
+            id=r["id"],
+            title=r["title"],
+            content_preview=_preview(r["content"]),
+            category_id=r["category_id"],
+            category_name=r["category_name"],
+            created_at=r["created_at"],
+            view_count=r["view_count"],
+            like_count=r["like_count"],
+            comment_count=r["comment_count"],
+            author=dict(
+                id=r["author_id"],
+                nickname=r["nickname"],
+                profile_image=r["profile_image"],
+            ),
+            attachment_url=r.get("attachment_url"),
+            badge=None,
+        )
+        for r in rows
+    ]
 
     # ─────────────────────────────────────────────
     # 🔥 오늘 기준 급상승 점수 계산
@@ -594,18 +605,30 @@ def update_post(db: Session, post_id: int, author_id: int, data: Dict[str, Any])
 
 
 def delete_post(db: Session, post_id: int, author_id: int) -> bool:
+    """🗑 게시글 삭제 시 hot3_cache에서도 즉시 제거"""
     own = db.execute(
         text("SELECT 1 FROM board_posts WHERE id=:id AND author_id=:uid AND status='VISIBLE'"),
         {"id": post_id, "uid": author_id},
     ).first()
     if not own:
         return False
+
+    # ✅ 게시글 상태 변경
     db.execute(
         text("UPDATE board_posts SET status='DELETED', deleted_at=UTC_TIMESTAMP() WHERE id=:id"),
         {"id": post_id},
     )
+
+    # ✅ hot3_cache에서도 제거 (삭제된 게시글 캐시 즉시 삭제)
+    db.execute(
+        text("DELETE FROM hot3_cache WHERE board_post_id = :id"),
+        {"id": post_id},
+    )
+
     db.commit()
+    print(f"🧹 [HOT3 CLEANUP] post_id={post_id} 캐시에서 제거 완료")
     return True
+
 
 # ===============================
 # ❤️ 좋아요

@@ -17,7 +17,7 @@ class ReportStatus(str, enum.Enum):
     PENDING = "PENDING"
     RESOLVED = "RESOLVED"
     REJECTED = "REJECTED"
-
+    
 class Report(Base):
     __tablename__ = "reports"
 
