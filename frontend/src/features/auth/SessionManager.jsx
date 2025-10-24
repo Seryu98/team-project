@@ -1,17 +1,12 @@
 // src/features/auth/SessionManager.jsx
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { clearTokens } from "./api";
 import Modal from "../../components/Modal";
 
-/**
- * ✅ SessionManager.jsx
- * - 전역 세션 상태 감시
- * - 다른 기기 로그인(강제 로그아웃) 및 세션 만료 감지
- * - 모달을 통해 사용자에게 알림 후 자동 로그아웃 처리
- */
 export default function SessionManager() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showForcedLogoutModal, setShowForcedLogoutModal] = useState(false);
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
@@ -35,16 +30,16 @@ export default function SessionManager() {
       ? token.replace("Bearer ", "")
       : token;
 
-    // ✅ ws/wss 자동 감지 추가
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const backendHost =
-      import.meta.env.VITE_BACKEND_HOST || window.location.hostname || "localhost";
+      import.meta.env.VITE_BACKEND_HOST ||
+      window.location.hostname ||
+      "localhost";
     const wsUrl = `${protocol}://${backendHost}:8000/ws/notify?token=${pureToken}`;
     console.log("🌐 [SessionManager] WebSocket 연결 시도:", wsUrl);
 
-    // ✅ 기존 연결이 열려있으면 중복 연결 방지
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log("⚠️ [SessionManager] 이미 WebSocket 연결이 존재함 → 재연결 중단");
+      console.log("⚠️ [SessionManager] 이미 WebSocket 연결 존재 → 재연결 중단");
       return;
     }
 
@@ -53,7 +48,6 @@ export default function SessionManager() {
 
     socket.onopen = () => {
       console.log("✅ [SessionManager] WebSocket 연결 성공");
-      // 기존 재연결 타이머 제거
       if (reconnectTimer.current) {
         clearTimeout(reconnectTimer.current);
         reconnectTimer.current = null;
@@ -80,18 +74,13 @@ export default function SessionManager() {
     };
 
     socket.onclose = (event) => {
-      console.log(
-        "❌ [SessionManager] WebSocket 종료:",
-        event.code,
-        event.reason || ""
-      );
+      console.log("❌ [SessionManager] WebSocket 종료:", event.code, event.reason || "");
 
       if (event.code === 4001 && event.reason.includes("다른 기기")) {
         console.warn("🚨 WebSocket 종료 사유로 강제 로그아웃 감지됨");
         clearTokens("never");
         setShowForcedLogoutModal(true);
       } else if (event.code !== 1000) {
-        // ✅ 서버 재시작/네트워크 오류 → 자동 재연결
         console.log("🔁 [SessionManager] WebSocket 재연결 시도 예정 (3초 후)");
         reconnectTimer.current = setTimeout(() => {
           setToken(localStorage.getItem("access_token")); // 트리거
@@ -111,35 +100,40 @@ export default function SessionManager() {
     };
   }, [token]);
 
-  // ✅ 세션 만료 및 로그아웃 감시
+  // ✅ 로그인 감시 로직 (비로그인 허용 페이지 예외처리)
   useEffect(() => {
     const interval = setInterval(() => {
       const storedToken = localStorage.getItem("access_token");
       const sessionExpiredFlag = localStorage.getItem("session_expired");
 
       // 🚫 세션 만료 상태는 App.jsx 모달에서 처리
-      if (!storedToken && sessionExpiredFlag === "true") {
-        console.log("⏰ 세션 만료 감지 (App.jsx에서 모달 처리 중)");
-        return;
-      }
+      if (!storedToken && sessionExpiredFlag === "true") return;
 
       // 🚫 강제 로그아웃 모달이 떠 있을 때는 navigate 중단
-      if (showForcedLogoutModal) {
-        console.log("🚫 강제 로그아웃 모달 표시 중 → 자동 이동 중단");
-        return;
-      }
+      if (showForcedLogoutModal) return;
 
-      // ✅ 토큰이 없고 로그인 페이지가 아닐 때만 이동
-      if (!storedToken && window.location.pathname !== "/login") {
+      // ✅ 비로그인 접근 허용 경로 (prefix 단위로 비교)
+      const publicPaths = [
+        "/", "/login", "/register", "/find-account",
+        "/tutorial", "/social/callback", "/search",
+        "/board", "/recipe", "/profile",
+        "/ranking", "/users/ranking"
+      ];
+      const isPublic = publicPaths.some((path) =>
+        location.pathname.startsWith(path)
+      );
+
+      // ✅ 로그인 필요 페이지에서만 튕기게
+      if (!storedToken && !isPublic) {
         console.warn("⚠️ 토큰 없음 → 로그인 페이지로 이동");
         navigate("/login", { replace: true });
       }
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [navigate, showForcedLogoutModal]);
+  }, [navigate, location.pathname, showForcedLogoutModal]);
 
-  // ✅ 다른 브라우저/탭에서 로그아웃 감지 → 현재 탭도 동기화
+  // ✅ 다른 탭 로그아웃 동기화
   useEffect(() => {
     const handleCrossLogout = (e) => {
       if (e.key === "logout_event") {

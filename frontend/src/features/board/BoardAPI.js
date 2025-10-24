@@ -17,10 +17,38 @@ export async function getBoardPosts(params = {}) {
   return await authFetch(`/board${query ? `?${query}` : ""}`, { method: "GET" });
 }
 
+// ✅ 게시글 상세 조회 (비로그인 허용)
 export async function getBoardPostDetail(postId) {
-  const res = await authFetch(`/board/${postId}`, { method: "GET" });
-  return { post: res.post || {}, comments: res.comments || [] };
+  try {
+    // access_token이 있을 때만 Authorization 헤더 추가
+    const token = localStorage.getItem("access_token");
+    const headers = token
+      ? { Authorization: `Bearer ${token}` }
+      : {};
+
+    const res = await fetch(
+      `${import.meta.env.VITE_API_BASE_URL}/board/${postId}`,
+      {
+        method: "GET",
+        headers,
+        credentials: "include",
+      }
+    );
+
+    // 서버 응답이 실패한 경우 (예: 404)
+    if (!res.ok) {
+      console.warn("게시글 조회 실패:", res.status);
+      return { post: null, comments: [] };
+    }
+
+    const data = await res.json();
+    return { post: data.post || {}, comments: data.comments || [] };
+  } catch (err) {
+    console.error("❌ 게시글 조회 에러:", err);
+    return { post: null, comments: [] };
+  }
 }
+
 
 export async function createBoardPost(data) {
   const res = await authFetch(`/board`, {

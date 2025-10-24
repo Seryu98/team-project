@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
+from app.board.board_model import BoardPost
+from app.board.board_schema import BoardPostDetail
 
 from app.board import board_service as svc
 from app.board.board_schema import (
@@ -262,33 +264,23 @@ def list_posts(
 
 
 # ===============================
-# 📄 게시글 상세 + 댓글 포함
+# 📄 게시글 상세 + 댓글 포함 (비로그인 허용)
 # ===============================
-@router.get("/{post_id}")
-def get_post_detail(
-    post_id: int,
-    request: Request,
+@router.get("/{board_id}", response_model=BoardPostDetail)
+async def get_board_detail(
+    board_id: int,
     db: Session = Depends(get_db),
-    me=Depends(get_current_user),  # ✅ 추가
 ):
-    ip = request.client.host if request.client else None
-    ua = request.headers.get("user-agent", "")
-
-    # ✅ 로그인 여부에 따라 viewer_id 전달
-    viewer_id = me.id if me else None
-
-    post = svc.get_post_and_touch_view(
-        db=db,
-        post_id=post_id,
-        viewer_id=viewer_id,
-        ip_address=ip,
-        user_agent=ua,
+    board = (
+        db.query(BoardPost)
+        .filter(BoardPost.id == board_id, BoardPost.deleted_at.is_(None))
+        .first()
     )
-    if not post:
+
+    if not board:
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
 
-    comments = svc.list_comments(db, post_id)
-    return {"post": post, "comments": comments}
+    return board
 
 
 # ===============================

@@ -72,6 +72,11 @@ export default function BoardDetailPage() {
   // 좋아요
   // ===============================
   const handleLike = async () => {
+    if (!isLoggedIn) {
+      alert("로그인 후 이용 가능합니다.");
+      navigate("/login");
+      return;
+    }
     try {
       const res = await toggleBoardLike(post.id);
       if (res?.success === false || res?.message || res?.detail) {
@@ -92,6 +97,11 @@ export default function BoardDetailPage() {
   // 게시글 삭제
   // ===============================
   const handleDelete = async () => {
+    if (!isLoggedIn) {
+      alert("로그인 후 이용 가능합니다.");
+      navigate("/login");
+      return;
+    }
     if (!window.confirm("이 게시글을 삭제하시겠습니까?")) return;
     try {
       const res = await deleteBoardPost(id);
@@ -108,6 +118,11 @@ export default function BoardDetailPage() {
   // 댓글 등록
   // ===============================
   const handleCommentSubmit = async () => {
+    if (!isLoggedIn) {
+      alert("로그인 후 댓글을 작성할 수 있습니다.");
+      navigate("/login");
+      return;
+    }
     if (!newComment.trim()) return;
     try {
       const res = await createBoardComment(id, { content: newComment });
@@ -124,6 +139,11 @@ export default function BoardDetailPage() {
   // 대댓글 등록
   // ===============================
   const handleAddReply = async (parentId) => {
+    if (!isLoggedIn) {
+      alert("로그인 후 답글을 작성할 수 있습니다.");
+      navigate("/login");
+      return;
+    }
     const content = replyMap[parentId];
     if (!content?.trim()) return;
     try {
@@ -145,6 +165,11 @@ export default function BoardDetailPage() {
   // 댓글 삭제
   // ===============================
   const handleCommentDelete = async (cid) => {
+    if (!isLoggedIn) {
+      alert("로그인 후 이용 가능합니다.");
+      navigate("/login");
+      return;
+    }
     if (!window.confirm("댓글을 삭제하시겠습니까?")) return;
     try {
       const res = await deleteBoardComment(cid);
@@ -163,6 +188,11 @@ export default function BoardDetailPage() {
   };
 
   const handleEditSubmit = async (cid) => {
+    if (!isLoggedIn) {
+      alert("로그인 후 이용 가능합니다.");
+      navigate("/login");
+      return;
+    }
     if (!editContent.trim()) return;
     try {
       const res = await updateBoardComment(cid, { content: editContent });
@@ -219,23 +249,25 @@ export default function BoardDetailPage() {
             </button>
           </>
         ) : (
-          <button
-            className="report-btn"
-            onClick={async () => {
-              const reason = prompt("신고 사유를 입력해주세요:");
-              if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
-              try {
-                await submitReport("COMMENT", item.id, reason);
-                alert("🚨 댓글 신고가 접수되었습니다.");
-                bumpNotificationList();
-              } catch (err) {
-                console.error("❌ 댓글 신고 실패:", err);
-                alert("신고 중 오류가 발생했습니다.");
-              }
-            }}
-          >
-            🚨 신고
-          </button>
+          isLoggedIn && (
+            <button
+              className="report-btn"
+              onClick={async () => {
+                const reason = prompt("신고 사유를 입력해주세요:");
+                if (!reason || !reason.trim()) return alert("신고 사유를 입력해야 합니다.");
+                try {
+                  await submitReport("COMMENT", item.id, reason);
+                  alert("🚨 댓글 신고가 접수되었습니다.");
+                  bumpNotificationList();
+                } catch (err) {
+                  console.error("❌ 댓글 신고 실패:", err);
+                  alert("신고 중 오류가 발생했습니다.");
+                }
+              }}
+            >
+              🚨 신고
+            </button>
+          )
         )}
       </>
     );
@@ -251,7 +283,6 @@ export default function BoardDetailPage() {
       </button>
 
       <div className="board-detail-card">
-
         {/* 제목 + 날짜 */}
         <div className="detail-header-row">
           <div className="detail-title-left">
@@ -301,24 +332,25 @@ export default function BoardDetailPage() {
           <span className="detail-meta-item">💬 {visibleCommentCount}</span>
         </div>
 
+        
         {/* 작성자 + 좋아요 */}
         <div className="detail-author-like">
           <div className="author-box">
             <img
               src={
-                post.author.profile_image
+                post?.author?.profile_image
                   ? `http://localhost:8000${post.author.profile_image}`
                   : "http://localhost:8000/assets/profile/default_profile.png"
               }
               alt="프로필"
               className="profile-thumb"
-              onClick={() => navigate(`/profile/${post.author.id}`)}
+              onClick={() => post?.author && navigate(`/profile/${post.author.id}`)}
             />
             <span
               className="nickname"
-              onClick={() => navigate(`/profile/${post.author.id}`)}
+              onClick={() => post?.author && navigate(`/profile/${post.author.id}`)}
             >
-              {post.author.nickname}
+              {post?.author?.nickname || "알 수 없는 작성자"}
             </span>
           </div>
           {isLoggedIn && (
@@ -327,6 +359,7 @@ export default function BoardDetailPage() {
             </button>
           )}
         </div>
+
 
         {/* 🚨 게시글 신고 버튼 (작성자 본인 제외) */}
         {isLoggedIn && !isOwner && (
