@@ -3,9 +3,10 @@ import { useLocation, useParams } from "react-router-dom"; // ✅ [10/18]usePara
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import MessageDetail from "./MessageDetail";
-import MessageList from "./MessageList";
+import MessageList from "./MessageList"; // (삭제기능 통합버전)
 import MessageCompose from "./MessageCompose";
 import "./messages.css";
+import "./messageControls.css"; // 쪽지 선택/삭제 컨트롤바 스타일
 
 export default function MessagesPage() {
   // ✅ 상태 정의
@@ -17,7 +18,7 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(false); // 로딩 상태
   const [error, setError] = useState(null); // 에러 상태
 
-  // ✅ [수정됨 10/24 최종] 공지 클릭 시 탭 전환 + 즉시 목록 재조회 보완
+  // ✅ 공지 클릭 시 탭 전환 + 즉시 목록 재조회 보완
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const idFromQuery = params.get("id");
@@ -50,7 +51,7 @@ export default function MessagesPage() {
     }
   }, [location.search]);
 
-  // ✅ [10/18] URL이 /messages/:id 형태일 경우 → 받은쪽지함 자동 열기 + 상세보기 표시
+  // ✅ URL이 /messages/:id 형태일 경우 → 받은쪽지함 자동 열기 + 상세보기 표시
   useEffect(() => {
     if (messageId && selectedTab !== "notice") {
       setSelectedTab("inbox");

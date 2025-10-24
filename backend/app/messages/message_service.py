@@ -8,7 +8,7 @@ from app.notifications.notification_service import send_notification
 from app.users.user_model import User
 from fastapi import HTTPException
 import re
-from datetime import datetime  # 🩵 [추가] UTC 시간 기록용
+from datetime import datetime
 from app.messages.message_model import MessageCategory
 from app.notifications.notification_model import NotificationType, NotificationCategory  # 🩵 [추가] NotificationCategory import
 import copy
@@ -67,7 +67,7 @@ def send_message(
             VALUES (:m, :sender, 1), (:m, :receiver, 0)
         """), {"m": message_id, "sender": sender_id, "receiver": receiver_id})
 
-        # ✅ [수정됨] category별 알림 카테고리 구분
+        # ✅ category별 알림 카테고리 구분
         if category == MessageCategory.ADMIN.value:
             noti_category = NotificationCategory.ADMIN.value
         elif category == MessageCategory.NOTICE.value:
@@ -134,7 +134,7 @@ def send_message_by_nickname(
             db.close()
 
 # ---------------------------------------------------------------------
-# ✅ 🩵 [추가됨] 10/18 관리자 공지사항 발송 (모든 사용자에게 쪽지 + 알림 전송)
+# ✅ 관리자 공지사항 발송 (모든 사용자에게 쪽지 + 알림 전송)
 # ---------------------------------------------------------------------
 def send_admin_announcement(
     admin_id: int,
@@ -217,6 +217,7 @@ def list_inbox(user_id: int, limit: int = 50, db: Optional[Session] = None, cate
             JOIN users sender ON m.sender_id = sender.id
             JOIN users receiver ON m.receiver_id = receiver.id
             WHERE m.receiver_id = :u
+            AND m.is_deleted = 0
             AND LOWER(CAST(m.category AS CHAR)) = LOWER(:cat)
             ORDER BY m.id DESC
             LIMIT :limit
@@ -235,6 +236,56 @@ def list_admin_messages(user_id: int, limit: int = 50, db: Optional[Session] = N
     """관리자(Admin) 카테고리 쪽지함 전용"""
     return list_inbox(user_id=user_id, limit=limit, db=db, category=MessageCategory.ADMIN.value)
 
+# ---------------------------------------------------------------------
+# ✅ 메시지 삭제 (Soft Delete) — 🩵 [추가됨 10/25]
+# ---------------------------------------------------------------------
+def delete_messages(user_id: int, message_ids: Optional[List[int]] = None, delete_all: bool = False, category: Optional[str] = None, db: Optional[Session] = None) -> bool:
+    """
+    쪽지 삭제 (Soft Delete)
+    - delete_all=True → 전체삭제
+    - message_ids → 선택삭제
+    - 실제 삭제가 아닌 is_deleted=1 처리
+    """
+    db, close = _get_db(db)
+    try:
+        if delete_all:
+            if category:
+                db.execute(text("""
+                    UPDATE messages
+                       SET is_deleted = 1
+                     WHERE receiver_id = :uid
+                       AND LOWER(CAST(category AS CHAR)) = LOWER(:cat)
+                """), {"uid": user_id, "cat": category})
+            else:
+                db.execute(text("""
+                    UPDATE messages
+                       SET is_deleted = 1
+                     WHERE receiver_id = :uid
+                """), {"uid": user_id})
+            print(f"🧹 전체 쪽지 삭제 완료: user={user_id}")
+
+        elif message_ids:
+            id_list = ",".join(map(str, message_ids))
+            db.execute(
+                text(f"""
+                    UPDATE messages
+                       SET is_deleted = 1
+                     WHERE receiver_id = :uid
+                       AND id IN ({id_list})
+                """),
+                {"uid": user_id},
+            )
+            print(f"🗑 선택 쪽지 삭제 완료: user={user_id}, ids={message_ids}")
+        else:
+            raise HTTPException(status_code=400, detail="삭제할 쪽지 정보가 없습니다.")
+
+        db.commit()
+        return True
+    finally:
+        if close:
+            db.close()
+
+
 
 # ---------------------------------------------------------------------
 # ✅ 보낸함 목록 (내가 보낸 쪽지)
@@ -251,6 +302,7 @@ def list_sent(user_id: int, limit: int = 50, db: Optional[Session] = None) -> Li
             JOIN users sender ON m.sender_id = sender.id
             JOIN users receiver ON m.receiver_id = receiver.id
             WHERE m.sender_id = :u
+            AND m.is_deleted = 0
             ORDER BY m.id DESC
             LIMIT :limit
         """), {"u": user_id, "limit": limit}).mappings().all()
@@ -271,13 +323,17 @@ def get_message(user_id: int, message_id: int, db: Optional[Session] = None) -> 
             SELECT 
                 m.id, m.sender_id, sender.nickname AS sender_nickname,
                 m.receiver_id, receiver.nickname AS receiver_nickname,
-                m.content, m.is_read, m.created_at, m.category
+                m.content, m.is_read, m.created_at, m.category, m.is_deleted
             FROM messages m
             JOIN users sender ON m.sender_id = sender.id
             JOIN users receiver ON m.receiver_id = receiver.id
             WHERE m.id = :mid
               AND (m.sender_id = :u OR m.receiver_id = :u)
         """), {"mid": message_id, "u": user_id}).mappings().first()
+
+        # 🩵 [10/25] 삭제된 쪽지는 조회 불가 처리
+        if row and row["is_deleted"]:
+            raise HTTPException(status_code=403, detail="삭제된 쪽지입니다.")
 
         # 2️⃣ 공지사항(운영자 → 모든 유저)일 경우 fallback 조회
         if not row:

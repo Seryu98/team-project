@@ -272,3 +272,26 @@
   background: #e0f2fe;
   font-weight: 600;
 }
+
+/* =========================================
+   ✅ 쪽지 목록 체크박스 위치 조정 (왼쪽 하단, 작게)
+   ========================================= */
+.msg-item input[type="checkbox"] {
+  position: absolute !important;
+  top: auto !important;       /* 상단 고정 해제 */
+  bottom: 8px !important;     /* 왼쪽 하단 배치 */
+  left: 14px !important;      /* 살짝 오른쪽으로 */
+  width: 14px;                /* 작게 */
+  height: 14px;
+  transform: scale(0.9);      /* 크기 조정 */
+  opacity: 0.8;               /* 은은하게 */
+  accent-color: #2563eb;      /* 파란 체크박스 */
+  cursor: pointer;
+  z-index: 5;
+  transition: all 0.15s ease-in-out;
+}
+
+.msg-item input[type="checkbox"]:hover {
+  opacity: 1;
+  transform: scale(1);
+}

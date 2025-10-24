@@ -55,6 +55,14 @@ class Message(Base):
         comment="쪽지 생성 시각"
     )
 
+    # ✅ 삭제 여부 (Soft Delete)
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="쪽지 삭제 여부 (True=삭제됨)"
+    )
+
     # ✅ 관계 설정
     sender = relationship("User", foreign_keys=[sender_id])
     receiver = relationship("User", foreign_keys=[receiver_id])

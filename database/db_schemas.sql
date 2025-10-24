@@ -387,6 +387,10 @@ CREATE TABLE messages (
   CONSTRAINT FK_messages_receiver FOREIGN KEY (receiver_id) REFERENCES users (id)
 );
 
+ALTER TABLE messages 
+ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '쪽지 삭제 여부 (1=삭제됨)';
+
+
 CREATE TABLE report_actions (
   id BIGINT NOT NULL AUTO_INCREMENT,
   report_id BIGINT NOT NULL,
@@ -481,3 +485,8 @@ MODIFY COLUMN type ENUM(
   'REPORT_REJECTED',
   'ADMIN_NOTICE'  -- ✅ 오늘 추가된 타입
 ) NOT NULL;
+
+
+--메세지 컬럼 추가 (메세지함 소프트 삭제)
+ALTER TABLE messages 
+ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '쪽지 삭제 여부 (1=삭제됨)';

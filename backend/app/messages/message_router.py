@@ -1,6 +1,7 @@
 # app/messages/message_router.py
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.messages.message_service import (
@@ -11,12 +12,13 @@ from app.messages.message_service import (
     mark_read,
     send_message_by_nickname,
     list_admin_messages,
+    delete_messages,
 )
 from app.messages.message_schema import MessageCreate
 from app.messages.message_model import MessageCategory
 from fastapi.responses import JSONResponse
 from datetime import datetime
-from app.messages.message_service import send_admin_announcement # [추가 10/18] 관리자 공지사항 발송 함수 import
+from app.messages.message_service import send_admin_announcement
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
@@ -147,7 +149,7 @@ def api_mark_read(
     return {"success": True, "message": "읽음 처리 완료"}
 
 # ---------------------------------------------------------------------
-# ✅ [추가됨 10/18] 관리자 공지사항 발송 API
+# ✅ 관리자 공지사항 발송 API
 # ---------------------------------------------------------------------
 @router.post("/admin/announcement")
 def api_admin_announcement(
@@ -166,3 +168,74 @@ def api_admin_announcement(
 
     result = send_admin_announcement(admin_id=user.id, title=title, content=content, db=db)
     return {"success": True, "data": result, "message": "공지사항 전송 완료"}
+
+# ---------------------------------------------------------------------
+# ✅ 선택 쪽지 삭제 (Soft Delete)
+# ---------------------------------------------------------------------
+@router.delete("/bulk")
+async def api_delete_selected_messages(
+    payload: dict = Body(..., description="삭제할 쪽지 ID 및 카테고리"),  # 🩵 [수정됨]
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """🩵 선택 쪽지 삭제"""
+    try:
+        message_ids = payload.get("message_ids", [])
+        category = payload.get("category", "NORMAL")
+
+        if not message_ids:
+            raise HTTPException(status_code=400, detail="삭제할 쪽지 ID가 없습니다.")
+
+        success = delete_messages(
+            user_id=user.id,
+            message_ids=message_ids,
+            delete_all=False,
+            category=category,
+            db=db,
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="삭제할 쪽지를 찾을 수 없습니다.")
+        return {"success": True, "message": f"{len(message_ids)}개의 쪽지가 삭제되었습니다."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"삭제 실패: {e}")
+# ---------------------------------------------------------------------
+# ✅ 전체 쪽지 삭제 (Soft Delete)
+# ---------------------------------------------------------------------
+@router.delete("/bulk/all")
+def api_delete_all_messages(
+   category: str = Query("NORMAL", description="쪽지 카테고리 (NORMAL | ADMIN | NOTICE)"),  # 🩵 [추가됨]
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """🩵 전체 쪽지 삭제"""
+    success = delete_messages(
+        user_id=user.id,
+        delete_all=True,
+       category=category,  # 🩵 [추가됨]
+        db=db,
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail="삭제 실패")
+    return {"success": True, "message": "모든 쪽지가 삭제되었습니다."}
+
+# ---------------------------------------------------------------------
+# ✅ 쪽지 단일 삭제 (Soft Delete)
+# ---------------------------------------------------------------------
+@router.delete("/{message_id}")
+def api_delete_message(
+    message_id: int,
+    category: str = Query("NORMAL", description="쪽지 카테고리 (NORMAL | ADMIN | NOTICE)"),  # 🩵 [추가됨]
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """🩵 단일 쪽지 삭제 (is_deleted=1)"""
+    success = delete_messages(
+        user_id=user.id,
+        message_ids=[message_id],
+        delete_all=False,
+       category=category,
+        db=db,
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="삭제할 쪽지를 찾을 수 없습니다.")
+    return {"success": True, "message": "쪽지가 삭제되었습니다."}

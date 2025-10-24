@@ -147,7 +147,7 @@ def resolve_report(
                 message=f"신고(ID:{report_id})가 승인되어 처리되었습니다.",
                 related_id=report_id,
                 redirect_path=None,
-                category=NotificationCategory.NORMAL.value,
+                category=NotificationCategory.ADMIN.value,
                 db=db,
             )
             send_message(

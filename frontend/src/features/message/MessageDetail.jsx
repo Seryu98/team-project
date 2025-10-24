@@ -175,7 +175,7 @@ export default function MessageDetail({ message }) {
         )}
 
       {/* ✅ 신고 버튼 */}
-      {currentUser?.id === msg.receiver_id && (
+      {currentUser?.id === msg.receiver_id && msg?.category !== "ADMIN" &&(
         <div className="mt-4 flex justify-end">
           <button
             onClick={async () => {
