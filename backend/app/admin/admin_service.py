@@ -139,22 +139,24 @@ def resolve_report(
             VALUES (:rid, :aid, :act, :reason)
         """), {"rid": report_id, "aid": admin_id, "act": action, "reason": reason or "(사유 없음)"})
 
+        msg_id = None  # ✅ 미리 선언 (VSCode 경고 방지용)
+
         # ✅ 반려(REJECT)
         if action == "REJECT":
+            msg_id = send_message(
+                sender_id=admin_id,
+                receiver_id=reporter_id,
+                content=f"[신고 반려 안내]\n신고(ID:{report_id})가 반려되었습니다.\n사유: {reason or '관리자 판단에 의한 반려입니다.'}",
+                category=MessageCategory.ADMIN.value,
+                db=db,
+            )
             send_notification(
                 user_id=reporter_id,
                 type_=NotificationType.REPORT_REJECTED.value,
                 message="신고가 반려되었습니다.",
                 related_id=report_id,
-                redirect_path=f"/messages?tab=admin&id={report_id}",
+                redirect_path=f"/messages?tab=admin&id={msg_id}",  # ✅ msg_id로 변경
                 category=NotificationCategory.NORMAL.value,
-                db=db,
-            )
-            send_message(
-                sender_id=admin_id,
-                receiver_id=reporter_id,
-                content=f"[신고 반려 안내]\n신고(ID:{report_id})가 반려되었습니다.\n사유: {reason or '관리자 판단에 의한 반려입니다.'}",
-                category=MessageCategory.ADMIN.value,
                 db=db,
             )
 
@@ -167,21 +169,20 @@ def resolve_report(
                 "BAN_PERMANENT": "영구 정지되었습니다.",
             }.get(penalty_type or "WARNING", "경고 조치되었습니다.")
 
+            msg_id = send_message(
+                sender_id=admin_id,
+                receiver_id=reporter_id,
+                content=f"[신고 처리 안내]\n신고(ID:{report_id})가 처리되었습니다.\n제재 내용: {penalty_msg}",
+                category=MessageCategory.ADMIN.value,
+                db=db,
+            )
             send_notification(
                 user_id=reporter_id,
                 type_=NotificationType.REPORT_RESOLVED.value,
                 message="신고가 처리되었습니다. (제재 조치 포함)",
                 related_id=report_id,
-                redirect_path=f"/messages?tab=admin&id={report_id}",
+                redirect_path=f"/messages?tab=admin&id={msg_id}",  # ✅ msg_id로 변경
                 category=NotificationCategory.NORMAL.value,
-                db=db,
-            )
-
-            send_message(
-                sender_id=admin_id,
-                receiver_id=reported_id,
-                content=f"[제재 안내]\n귀하의 {target_type}(ID:{target_id})가 신고되어 {penalty_msg}\n사유: {reason or '관리자 판단에 의한 제재입니다.'}",
-                category=MessageCategory.ADMIN.value,
                 db=db,
             )
 
@@ -212,25 +213,27 @@ def resolve_user_comment_report(report_id: int, body, admin_id: int, db: Optiona
         reported_user_id = report["reported_user_id"]
         target_id = report["target_id"]
 
+        msg_id = None  # ✅ 추가됨
+
         # ✅ 반려(REJECT)
         if body.comment_action == "REJECT":
             db.execute(text("UPDATE reports SET status='REJECTED' WHERE id=:rid"), {"rid": report_id})
+
+            msg_id = send_message(
+                sender_id=admin_id,
+                receiver_id=reporter_id,
+                content=f"[신고 반려 안내]\n신고(ID:{report_id})가 반려되었습니다.\n사유: {body.reason or '관리자 판단에 의한 반려입니다.'}",
+                category=MessageCategory.ADMIN.value,
+                db=db,
+            )
 
             send_notification(
                 user_id=reporter_id,
                 type_=NotificationType.REPORT_REJECTED.value,
                 message="신고가 반려되었습니다.",
                 related_id=report_id,
-                redirect_path=f"/messages?tab=admin&id={report_id}",
+                redirect_path=f"/messages?tab=admin&id={msg_id}",
                 category=NotificationCategory.NORMAL.value,
-                db=db,
-            )
-
-            send_message(
-                sender_id=admin_id,
-                receiver_id=reporter_id,
-                content=f"[신고 반려 안내]\n신고(ID:{report_id})가 반려되었습니다.\n사유: {body.reason or '관리자 판단에 의한 반려입니다.'}",
-                category=MessageCategory.ADMIN.value,
                 db=db,
             )
 
@@ -244,6 +247,7 @@ def resolve_user_comment_report(report_id: int, body, admin_id: int, db: Optiona
         elif body.comment_action == "HIDE":
             db.execute(text("UPDATE comments SET is_hidden=1 WHERE id=:cid"), {"cid": target_id})
 
+        # 제재 로직
         if body.user_action == "WARNING":
             db.execute(text("""
                 INSERT INTO user_warnings(user_id, admin_id, reason)
@@ -260,28 +264,21 @@ def resolve_user_comment_report(report_id: int, body, admin_id: int, db: Optiona
 
         db.execute(text("UPDATE reports SET status='RESOLVED' WHERE id=:rid"), {"rid": report_id})
 
+        msg_id = send_message(
+            sender_id=admin_id,
+            receiver_id=reporter_id,
+            content=f"[신고 처리 안내]\n신고(ID:{report_id})가 처리되었습니다.",
+            category=MessageCategory.ADMIN.value,
+            db=db,
+        )
+
         send_notification(
             user_id=reporter_id,
             type_=NotificationType.REPORT_RESOLVED.value,
             message="신고가 처리되었습니다. (댓글/유저 제재 완료)",
             related_id=report_id,
-            redirect_path=f"/messages?tab=admin&id={report_id}",
+            redirect_path=f"/messages?tab=admin&id={msg_id}",
             category=NotificationCategory.NORMAL.value,
-            db=db,
-        )
-
-        penalty_msg = {
-            "WARNING": "경고 조치되었습니다.",
-            "BAN_3DAYS": "3일 정지 조치되었습니다.",
-            "BAN_7DAYS": "7일 정지 조치되었습니다.",
-            "BAN_PERMANENT": "영구 정지 조치되었습니다.",
-        }.get(body.user_action or "WARNING", "경고 조치되었습니다.")
-
-        send_message(
-            sender_id=admin_id,
-            receiver_id=reporter_id,
-            content=f"[신고 처리 안내]\n신고(ID:{report_id})가 처리되었습니다.\n제재 내용: {penalty_msg}",
-            category=MessageCategory.ADMIN.value,
             db=db,
         )
 
@@ -313,25 +310,27 @@ def resolve_post_report(report_id: int, body, admin_id: int, db: Optional[Sessio
         target_type = report["target_type"]
         target_id = report["target_id"]
 
+        msg_id = None  # ✅ 추가됨
+
         # ✅ 반려(REJECT)
         if body.post_action == "REJECT":
             db.execute(text("UPDATE reports SET status='REJECTED' WHERE id=:rid"), {"rid": report_id})
+
+            msg_id = send_message(
+                sender_id=admin_id,
+                receiver_id=reporter_id,
+                content=f"[신고 반려 안내]\n신고(ID:{report_id})가 반려되었습니다.\n사유: {body.reason or '관리자 판단에 의한 반려입니다.'}",
+                category=MessageCategory.ADMIN.value,
+                db=db,
+            )
 
             send_notification(
                 user_id=reporter_id,
                 type_=NotificationType.REPORT_REJECTED.value,
                 message="신고가 반려되었습니다.",
                 related_id=report_id,
-                redirect_path=f"/messages?tab=admin&id={report_id}",
+                redirect_path=f"/messages?tab=admin&id={msg_id}",
                 category=NotificationCategory.NORMAL.value,
-                db=db,
-            )
-
-            send_message(
-                sender_id=admin_id,
-                receiver_id=reporter_id,
-                content=f"[신고 반려 안내]\n신고(ID:{report_id})가 반려되었습니다.\n사유: {body.reason or '관리자 판단에 의한 반려입니다.'}",
-                category=MessageCategory.ADMIN.value,
                 db=db,
             )
 
@@ -346,6 +345,7 @@ def resolve_post_report(report_id: int, body, admin_id: int, db: Optional[Sessio
             elif target_type == "POST":
                 db.execute(text("UPDATE posts SET status='REJECTED', deleted_at=NOW() WHERE id=:id"), {"id": target_id})
 
+        # 유저 제재
         if hasattr(body, "user_action") and body.user_action != "NONE":
             if body.user_action == "WARNING":
                 db.execute(text("""
@@ -363,28 +363,21 @@ def resolve_post_report(report_id: int, body, admin_id: int, db: Optional[Sessio
 
         db.execute(text("UPDATE reports SET status='RESOLVED' WHERE id=:rid"), {"rid": report_id})
 
+        msg_id = send_message(
+            sender_id=admin_id,
+            receiver_id=reporter_id,
+            content=f"[신고 처리 안내]\n신고(ID:{report_id})가 처리되었습니다.",
+            category=MessageCategory.ADMIN.value,
+            db=db,
+        )
+
         send_notification(
             user_id=reporter_id,
             type_=NotificationType.REPORT_RESOLVED.value,
             message="신고가 처리되었습니다. (게시글 삭제 및 작성자 제재 포함)",
             related_id=report_id,
-            redirect_path=f"/messages?tab=admin&id={report_id}",
+            redirect_path=f"/messages?tab=admin&id={msg_id}",
             category=NotificationCategory.NORMAL.value,
-            db=db,
-        )
-
-        penalty_msg = {
-            "WARNING": "경고 조치되었습니다.",
-            "BAN_3DAYS": "3일 정지 조치되었습니다.",
-            "BAN_7DAYS": "7일 정지 조치되었습니다.",
-            "BAN_PERMANENT": "영구 정지 조치되었습니다.",
-        }.get(body.user_action or "WARNING", "경고 조치되었습니다.")
-
-        send_message(
-            sender_id=admin_id,
-            receiver_id=reporter_id,
-            content=f"[신고 처리 안내]\n신고(ID:{report_id})가 처리되었습니다.\n제재 내용: {penalty_msg}",
-            category=MessageCategory.ADMIN.value,
             db=db,
         )
 
@@ -394,6 +387,7 @@ def resolve_post_report(report_id: int, body, admin_id: int, db: Optional[Sessio
     finally:
         if close:
             db.close()
+
 
 
 # ===============================================

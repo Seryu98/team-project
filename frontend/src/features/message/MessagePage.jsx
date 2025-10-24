@@ -14,43 +14,39 @@ export default function MessagesPage() {
   const receiverFromQuery = params.get("receiver") || "";
   const { id: messageId } = useParams(); // ✅ [10/18] URL 파라미터
   const [selectedTab, setSelectedTab] = useState(
-    receiverFromQuery ? "compose" : "inbox"   // ✅ receiver 있으면 compose로 시작
+    receiverFromQuery ? "compose" : "inbox" // ✅ receiver 있으면 compose로 시작
   );
   const [messages, setMessages] = useState([]); // 목록 데이터
   const [selectedMessage, setSelectedMessage] = useState(null); // 상세보기 데이터
   const [loading, setLoading] = useState(false); // 로딩 상태
   const [error, setError] = useState(null); // 에러 상태
 
-  // ✅ [수정됨 10/24 최종] 공지 클릭 시 탭 전환 + 즉시 목록 재조회 보완
+  // ✅ [핵심 수정] 알림 클릭 시 탭 전환 + 목록 선로딩 안정화 (공지/관리자 공통)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const idFromQuery = params.get("id");
     const tab = params.get("tab");
 
-    if (idFromQuery) {
-      const nextTab = tab === "notice" ? "notice" : "inbox";
-      setSelectedTab(nextTab);
+    if (idFromQuery && ["admin", "notice"].includes(tab)) {
+      console.log("🩵 알림 클릭 진입:", tab);
+      setSelectedTab(tab);
 
-      // ✅ 탭 전환 후 fetchMessages 재실행 (지연 보정)
+      // ✅ 목록 선로딩 (지연 보정)
       setTimeout(() => {
-        fetchMessages(nextTab);
+        fetchMessages(tab);
+      }, 150);
+    }
+
+    // ✅ 일반 쪽지 알림 (tab 없이 id만 있을 때)
+    else if (idFromQuery && !tab) {
+      setSelectedTab("inbox");
+
+      setTimeout(() => {
+        fetchMessages("inbox");
       }, 150);
 
-      // ✅ 공지 탭이면 URL 유지, 받은쪽지만 주소 덮어쓰기
-      if (nextTab === "inbox") {
-        window.history.replaceState({}, "", `/messages/${idFromQuery}`);
-      }
-    }
-  }, [location.search]);
-
-  // ✅ URL 쿼리파라미터로 탭 자동 설정
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const tab = params.get("tab");
-    if (tab === "admin") {
-      setSelectedTab("admin");
-    } else if (tab === "notice") {
-      setSelectedTab("notice"); // ✅ 추가됨
+      // ✅ URL 정리 (id만 있을 때는 inbox 경로로 덮어쓰기)
+      window.history.replaceState({}, "", `/messages/${idFromQuery}`);
     }
   }, [location.search]);
 
@@ -60,28 +56,6 @@ export default function MessagesPage() {
       setSelectedTab("inbox");
     }
   }, [messageId]);
-
-  // ✅ 두 번째: 실제 쪽지 목록 + 상세 데이터 불러오기
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!messageId || selectedTab !== "inbox" || !token) return;
-
-    // ✅ 받은쪽지 목록 먼저
-    fetchMessages();
-
-    // ✅ 상세 쪽지 불러오기
-    axios
-      .get(`http://localhost:8000/messages/${messageId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        const msg = res.data?.data;
-        if (msg) setSelectedMessage(msg);
-      })
-      .catch((err) => {
-        console.error("❌ 쪽지 상세 불러오기 실패:", err);
-      });
-  }, [messageId, selectedTab]);
 
   // ✅ [공지 상세 자동표시 - 최종확정 10/25]
   useEffect(() => {
@@ -133,7 +107,56 @@ export default function MessagesPage() {
     }
   }, [location.search, messages]);
 
-  // ✅ 메시지 목록 불러오기
+  // ✅ [관리자 쪽지 자동 표시 - 10/25 최종]
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const idFromQuery = params.get("id");
+    const tab = params.get("tab");
+
+    if (tab === "admin" && idFromQuery) {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      // messages가 이미 로드된 경우 즉시 처리
+      if (messages.length > 0) {
+        const found = messages.find(
+          (m) =>
+            String(m.id) === String(idFromQuery) ||
+            String(m.message_id) === String(idFromQuery)
+        );
+        if (found) {
+          console.log("✅ 관리자 쪽지 자동 표시 성공:", found);
+          setSelectedMessage(found);
+          return;
+        }
+      }
+
+      // messages가 아직 비었으면 0.3초 후 재시도
+      const timer = setTimeout(() => {
+        console.log("⏳ 관리자 쪽지 자동 재시도...");
+        axios
+          .get(`http://localhost:8000/messages/${idFromQuery}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          .then((res) => {
+            const msg = res.data?.data || res.data;
+            if (msg) {
+              setSelectedMessage(msg);
+              console.log("✅ 관리자 쪽지 단건 로드 완료:", msg);
+            }
+          })
+          .catch((err) => {
+            console.error("❌ 관리자 쪽지 자동 불러오기 실패:", err);
+          });
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+  }, [location.search, messages]);
+
+  // ---------------------------------------------------------------------
+  // ✅ 메시지 목록 불러오기 (탭별 URL 분기)
+  // ---------------------------------------------------------------------
   async function fetchMessages(tab = selectedTab) {
     setLoading(true);
     setError(null);
@@ -150,9 +173,9 @@ export default function MessagesPage() {
       else if (tab === "sent") url = "http://localhost:8000/messages/sent";
       else if (tab === "notice")
         url = "http://localhost:8000/messages?category=NOTICE";
-      else if (tab === "admin") {
+      else if (tab === "admin")
         url = "http://localhost:8000/messages?category=ADMIN";
-      } else return;
+      else return;
 
       const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
@@ -173,33 +196,36 @@ export default function MessagesPage() {
     }
   }
 
-  // ✅ [10/24 최종 보강] 새로고침 시 tab=notice 인 경우 자동 목록 로드
+  // ✅ [핵심 수정] selectedTab 변경 시 목록 로드 (중복 방지 + 초기화 제어)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const tab = params.get("tab");
+    const idFromQuery = params.get("id");
+    const tabFromQuery = params.get("tab");
 
-    if (tab === "notice" && messages.length === 0) {
-      setSelectedTab("notice");
-      fetchMessages("notice");
-    }
-  }, []); // ✅ 최초 1회만 실행
+    // 🩵 알림에서 진입한 경우 (tab=admin/notice + id 있음)
+    const isFromNotification =
+      idFromQuery && ["admin", "notice"].includes(tabFromQuery);
 
-  // selectedTab이 변경될 때마다 실행되지만,
-  // "compose"일 때는 요청하지 않고 messages를 초기화만 함
-  useEffect(() => {
+    // 🩵 이미 fetchMessages(tab) 실행됨 → 재호출 방지
+    if (isFromNotification) return;
+
+    // compose 모드일 때는 목록 초기화만 수행
     if (selectedTab === "compose") {
-      setMessages([]);
-      setError(null);
-      setLoading(false);
+      setMessages([]); // ✅ compose는 목록 비움
       return;
     }
 
-    if (["inbox", "sent", "notice", "admin"].includes(selectedTab)) {
+    // ⚙️ 일반 탭 전환 시에만 실행 (렌더 안정화를 위해 0.2초 지연)
+    const timer = setTimeout(() => {
       fetchMessages(selectedTab);
-    }
+    }, 200);
+
+    return () => clearTimeout(timer);
   }, [selectedTab]);
 
-  // ✅ 렌더링 시작
+  // ---------------------------------------------------------------------
+  // ✅ 렌더링
+  // ---------------------------------------------------------------------
   return (
     <div className="msg-layout">
       {/* ✅ 왼쪽 메뉴 */}
@@ -208,8 +234,9 @@ export default function MessagesPage() {
 
         {/* ✅ 공지사항 탭 */}
         <button
-          className={`msg-sidebar__btn ${selectedTab === "notice" ? "msg-sidebar__btn--active" : ""
-            }`}
+          className={`msg-sidebar__btn ${
+            selectedTab === "notice" ? "msg-sidebar__btn--active" : ""
+          }`}
           onClick={() => setSelectedTab("notice")}
         >
           📢 공지사항
@@ -217,8 +244,9 @@ export default function MessagesPage() {
 
         {/* ✅ 관리자 탭 */}
         <button
-          className={`msg-sidebar__btn ${selectedTab === "admin" ? "msg-sidebar__btn--active" : ""
-            }`}
+          className={`msg-sidebar__btn ${
+            selectedTab === "admin" ? "msg-sidebar__btn--active" : ""
+          }`}
           onClick={() => setSelectedTab("admin")}
         >
           👮 관리자
@@ -226,8 +254,9 @@ export default function MessagesPage() {
 
         {/* ✅ 쪽지 작성 */}
         <button
-          className={`msg-sidebar__btn ${selectedTab === "compose" ? "msg-sidebar__btn--active" : ""
-            }`}
+          className={`msg-sidebar__btn ${
+            selectedTab === "compose" ? "msg-sidebar__btn--active" : ""
+          }`}
           onClick={() => setSelectedTab("compose")}
         >
           ✉️ 쪽지 보내기
@@ -235,16 +264,18 @@ export default function MessagesPage() {
 
         {/* ✅ 받은/보낸 쪽지 */}
         <button
-          className={`msg-sidebar__btn ${selectedTab === "inbox" ? "msg-sidebar__btn--active" : ""
-            }`}
+          className={`msg-sidebar__btn ${
+            selectedTab === "inbox" ? "msg-sidebar__btn--active" : ""
+          }`}
           onClick={() => setSelectedTab("inbox")}
         >
           📥 받은 쪽지
         </button>
 
         <button
-          className={`msg-sidebar__btn ${selectedTab === "sent" ? "msg-sidebar__btn--active" : ""
-            }`}
+          className={`msg-sidebar__btn ${
+            selectedTab === "sent" ? "msg-sidebar__btn--active" : ""
+          }`}
           onClick={() => setSelectedTab("sent")}
         >
           📤 보낸 쪽지
@@ -260,12 +291,12 @@ export default function MessagesPage() {
             {selectedTab === "notice"
               ? "공지사항 목록"
               : selectedTab === "admin"
-                ? "관리자 쪽지 목록"
-                : selectedTab === "inbox"
-                  ? "받은 쪽지 목록"
-                  : selectedTab === "sent"
-                    ? "보낸 쪽지 목록"
-                    : "쪽지 작성"}
+              ? "관리자 쪽지 목록"
+              : selectedTab === "inbox"
+              ? "받은 쪽지 목록"
+              : selectedTab === "sent"
+              ? "보낸 쪽지 목록"
+              : "쪽지 작성"}
           </span>
         </div>
 
@@ -276,7 +307,7 @@ export default function MessagesPage() {
         ) : selectedTab === "compose" ? (
           <MessageCompose
             onSent={() => setSelectedTab("sent")}
-            defaultReceiver={receiverFromQuery}   // ✅ 쿼리에서 받은 닉네임 전달
+            defaultReceiver={receiverFromQuery} // ✅ 쿼리에서 받은 닉네임 전달
           />
         ) : messages.length === 0 ? (
           <p className="p-4 text-gray-500">쪽지가 없습니다.</p>
