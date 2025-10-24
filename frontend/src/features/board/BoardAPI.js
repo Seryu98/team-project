@@ -18,10 +18,12 @@ export async function getBoardPosts(params = {}) {
 }
 
 export async function getBoardPostDetail(postId) {
-  const res = await authFetch(`/board/${postId}`, { method: "GET" });
-  return { post: res.post || {}, comments: res.comments || [] };
+  const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/public/board/${postId}`, {
+    method: "GET",
+  });
+  const data = await res.json();
+  return { post: data.post || {}, comments: data.comments || [] };
 }
-
 export async function createBoardPost(data) {
   const res = await authFetch(`/board`, {
     method: "POST",

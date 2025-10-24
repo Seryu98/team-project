@@ -218,23 +218,12 @@ export default function HomePage() {
                     console.error("❌ 프로젝트 로드 실패:", err.response?.status);
                 }
 
-                // ✅ 인기 게시판 (토큰 제거)
+                // ✅ 이번주 인기글 (공개 라우터 사용)
                 try {
-                    const boardRes = await axios.get(`${API_URL}/board/list?skip=0&limit=20`);
-
-                    // 🔥 서버에서 내려주는 top_posts (badge 포함)
-                    if (boardRes.data.top_posts) {
-                        setTopBoards(boardRes.data.top_posts.slice(0, 3));
-                    } else {
-                        // fallback: like_count 정렬
-                        const boards = boardRes.data.posts || [];
-                        const sortedBoards = Array.isArray(boards)
-                            ? boards.sort((a, b) => (b.like_count || 0) - (a.like_count || 0))
-                            : [];
-                        setTopBoards(sortedBoards.slice(0, 3));
-                    }
+                    const hotRes = await axios.get(`${API_URL}/public/board/top3-weekly`);
+                    setTopBoards(hotRes.data.slice(0, 3));   // ✅ 인기글 TOP3 직접 세팅
                 } catch (err) {
-                    console.error("❌ 게시판 로드 실패:", err.response?.status);
+                    console.error("❌ 이번주 인기글 로드 실패:", err.response?.status, err.message);
                 }
 
             } catch (err) {
