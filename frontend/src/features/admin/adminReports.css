@@ -147,3 +147,70 @@
     flex: 1 1 100%;
   }
 }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.modal {
+  background: white;
+  width: 400px;
+  max-width: 90vw;
+  padding: 20px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.modal label {
+  font-weight: bold;
+}
+.modal select,
+.modal textarea {
+  width: 100%;
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ✅ 내용 펼침 버튼 */
+.toggle-btn {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.8rem;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.toggle-btn:hover {
+  text-decoration: underline;
+}
+
+/* ✅ 신고 대상 내용 상자 */
+.report-content-box {
+  background: #f9fafb;
+  border-radius: 8px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.scroll-box {
+  max-height: 220px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  padding: 8px 10px;
+  border-radius: 6px;
+  white-space: pre-wrap;
+}

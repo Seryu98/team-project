@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getBoardPostDetail, updateBoardPost } from "./BoardAPI";
+import RichTextEditor from "../../components/RichTextEditor";
 import "./Board.css";
 
 export default function BoardEditPage() {
@@ -31,11 +32,13 @@ export default function BoardEditPage() {
             title: res.post.title,
             category_id: res.post.category_id,
             content: res.post.content,
-            attachment_url: res.post.attachment_url || "",
+            attachment_url: res.post.attachment_url,  // ✅ 항상 기본 이미지든 업로드 이미지든 값 있음
           });
-          if (res.post.attachment_url)
-            setPreview(`http://localhost:8000${res.post.attachment_url}`);
+
+          // ✅ preview는 무조건 보여줌
+          setPreview(`http://localhost:8000${res.post.attachment_url}`);
         }
+
       } catch {
         alert("게시글 정보를 불러오지 못했습니다.");
       } finally {
@@ -161,15 +164,12 @@ export default function BoardEditPage() {
         {/* 내용 */}
         <div className="form-group">
           <label>내용 *</label>
-          <textarea
-            className="form-textarea"
-            name="content"
+          <RichTextEditor
             value={form.content}
-            onChange={handleChange}
-            placeholder="내용을 입력하세요"
-            required
+            onChange={(value) => setForm((prev) => ({ ...prev, content: value }))}
           />
         </div>
+
 
         {/* 버튼 */}
         <div className="form-buttons">

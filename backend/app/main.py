@@ -2,7 +2,10 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+
 from fastapi import FastAPI, Request, WebSocket
+from app.project_post import ai_router
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -11,6 +14,7 @@ from app.messages.message_router import router as message_router
 from app.board.hot3_scheduler import start_scheduler   # ✅ team-project 기능
 from app.search import search_router                   # ✅ soldesk 기능
 from app.stats import stats_router                     # ✅ soldesk 기능
+from fastapi import HTTPException
 
 import os
 import traceback
@@ -117,6 +121,7 @@ app.include_router(skill_router.router)
 app.include_router(recipe_router.router)
 app.include_router(meta_router.router)
 app.include_router(upload_router.router)
+app.include_router(ai_router.router)
 
 # ✅ board router (public + 일반 둘 다)
 if hasattr(board_router, "public_router"):
@@ -152,6 +157,15 @@ async def log_requests(request: Request, call_next):
     try:
         response = await call_next(request)
         return response
+
+    # ✅ FastAPI 기본 예외 유지 (detail 구조 보존)
+    except HTTPException as e:
+        return JSONResponse(
+            status_code=e.status_code,
+            content={"detail": e.detail},  # 구조 그대로 유지
+        )
+
+    # ✅ 그 외 예외는 내부 오류 처리
     except Exception as e:
         print(f"\n🔥 [GLOBAL ERROR] 요청 경로: {request.url.path}")
         traceback.print_exc()

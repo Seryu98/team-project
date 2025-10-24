@@ -233,7 +233,7 @@ def resolve_report(
 
 
 # ===============================================
-# ✅ 댓글/유저 신고 처리
+# ✅ 댓글/유저 신고 처리 (RESOLVE + REJECT 모두 지원)
 # ===============================================
 def resolve_user_comment_report(report_id: int, body, admin_id: int, db: Optional[Session] = None) -> bool:
     db, close = _get_db(db)
@@ -251,6 +251,23 @@ def resolve_user_comment_report(report_id: int, body, admin_id: int, db: Optiona
         reported_user_id = report["reported_user_id"]
         target_id = report["target_id"]
 
+        # ✅ (1) 반려(REJECT) 처리 분기 추가
+        if body.comment_action == "REJECT":
+            db.execute(text("UPDATE reports SET status='REJECTED' WHERE id=:rid"), {"rid": report_id})
+            send_notification(
+                user_id=reporter_id,
+                type_=NotificationType.REPORT_REJECTED.value,
+                message="신고가 반려되었습니다.",
+                related_id=report_id,
+                redirect_path="/admin/reports",
+                category=NotificationCategory.ADMIN.value,
+                db=db,
+            )
+            db.commit()
+            logger.info(f"🚫 댓글 신고 반려 완료: report_id={report_id}")
+            return True
+
+        # ✅ (2) 기존 처리(RESOLVE)
         if body.comment_action == "DELETE":
             db.execute(text("DELETE FROM comments WHERE id=:cid"), {"cid": target_id})
         elif body.comment_action == "HIDE":

@@ -517,14 +517,21 @@ export default function HomePage() {
                                             }}>
                                                 {truncatedTitle}
                                             </h3>
-                                            {/* 설명 (10글자) */}
-                                            <p style={{
-                                                fontSize: '1.25rem',
-                                                opacity: 0.9,
-                                                lineHeight: '1.6'
-                                            }}>
-                                                {truncatedDesc}
-                                            </p>
+                                            {/* 설명 (10글자, HTML 렌더링 지원) */}
+                                            <div
+                                                style={{
+                                                    fontSize: '1.25rem',
+                                                    opacity: 0.9,
+                                                    lineHeight: '1.6'
+                                                }}
+                                                dangerouslySetInnerHTML={{
+                                                    __html: project.description
+                                                        ? project.description.length > 100
+                                                            ? project.description.substring(0, 100) + "..."
+                                                            : project.description
+                                                        : "설명 없음"
+                                                }}
+                                            />
                                         </div>
 
                                         {/* 하단 정보 - 스킬 + 리더 + 인원 */}

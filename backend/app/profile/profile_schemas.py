@@ -1,6 +1,6 @@
 # app/profile/profile_schemas.py
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import date
 from enum import Enum
 
@@ -19,13 +19,14 @@ class SkillOut(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
-    nickname: Optional[str] = None  # ✅ 추가
+    nickname: Optional[str] = None  
     headline: Optional[str] = None
     bio: Optional[str] = None
     experience: Optional[str] = None
     certifications: Optional[str] = None
     birth_date: Optional[date] = None
     gender: Optional[str] = None
+    visibility: Optional[Dict[str, bool]] = None  
 
     class Config:
         orm_mode = True
@@ -42,6 +43,7 @@ class ProfileOut(BaseModel):
     certifications: Optional[str] = None
     birth_date: Optional[date] = None
     gender: Optional[str] = None
+    visibility: Optional[Dict[str, bool]] = None  
     follower_count: int
     following_count: int
     skills: List[SkillOut] = []

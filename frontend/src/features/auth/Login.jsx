@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { loginAndFetchUser, getCurrentUser, clearTokens } from "./api";
+import Modal from "../../components/Modal"; // ✅ 전역 모달
 import "./Login.css";
 
 /* ✅ 로컬 리소스 import */
@@ -19,6 +20,9 @@ function Login() {
 
   /* ✅ 중복 로그인 감지용 모달 상태 */
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+
+  /* ✅ 제재(BAN) 모달 상태 */
+  const [banInfo, setBanInfo] = useState(null);
 
   /* ✅ WebSocket 연결 객체 (강제 로그아웃 감지용) */
   const wsRef = useRef(null);
@@ -39,7 +43,7 @@ function Login() {
     })();
   }, [navigate]);
 
-  /* ✅ WebSocket 연결 설정 (로그아웃 감지) */
+  /* ✅ WebSocket 연결 설정 (강제 로그아웃 감지) */
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) return;
@@ -65,14 +69,41 @@ function Login() {
     };
 
     return () => {
-      ws.close();
+      try {
+        ws.close();
+      } catch {}
     };
   }, [navigate]);
+
+  /* ✅ 백엔드에서 /login?ban=... 또는 /login?error=SOCIAL_ERROR 로 리다이렉트된 경우 처리 */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const banParam = params.get("ban");
+    const errorParam = params.get("error");
+
+    if (banParam) {
+      try {
+        const info = JSON.parse(decodeURIComponent(banParam));
+        setBanInfo(info);
+      } catch (err) {
+        console.error("제재 정보 파싱 실패:", err);
+      }
+      // URL 정리 (뒤로가기 시 다시 모달 안 뜨게)
+      window.history.replaceState({}, document.title, "/login");
+      return;
+    }
+
+    if (errorParam === "SOCIAL_ERROR") {
+      setMsg("⚠️ 소셜 로그인 중 오류가 발생했습니다. 다시 시도해주세요.");
+      window.history.replaceState({}, document.title, "/login");
+    }
+  }, []);
 
   /* ✅ 일반 로그인 */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMsg("");
+
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
@@ -92,29 +123,50 @@ function Login() {
         data = {};
       }
 
-      // ✅ 백엔드가 existing_session 또는 중복 세션 상태를 응답할 경우 처리
+      // ✅ 409 또는 서버가 중복 세션을 명시한 경우 → 중복 로그인 모달
       if (
         res.status === 409 ||
         data?.existing_session === true ||
         data?.status === "DUPLICATE_SESSION" ||
-        (typeof data?.detail === "string" &&
-          data.detail.includes("이미 로그인된 기기")) ||
-        (typeof data?.message === "string" &&
-          data.message.includes("이미 로그인"))
+        (typeof data?.detail === "string" && data.detail.includes("이미 로그인된 기기")) ||
+        (typeof data?.message === "string" && data.message.includes("이미 로그인"))
       ) {
         console.warn("⚠️ 중복 로그인 감지:", data);
         setShowDuplicateModal(true);
         return;
       }
 
-      if (!res.ok) throw new Error(data.detail || "로그인 실패");
+      // ✅ 에러 응답에서 BAN 정보가 포함된 경우 → BAN 모달
+      if (!res.ok) {
+        // FastAPI의 detail이 문자열 JSON일 수 있음 → 파싱 시도
+        let detail = data?.detail ?? data?.message ?? null;
+        try {
+          if (typeof detail === "string") {
+            const maybeObj = JSON.parse(detail);
+            detail = maybeObj;
+          }
+        } catch {
+          /* 문자열이면 그대로 둠 */
+        }
+
+        if (detail && (detail.type === "TEMP_BAN" || detail.type === "PERM_BAN")) {
+          setBanInfo(detail);
+          return;
+        }
+
+        throw new Error(
+          (typeof detail === "string" && detail) || "로그인 실패"
+        );
+      }
 
       // ✅ 정상 로그인 처리
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
 
       // ✅ WebSocket 재연결 (로그인 후)
-      if (wsRef.current) wsRef.current.close();
+      try {
+        if (wsRef.current) wsRef.current.close();
+      } catch {}
       const wsUrl = API_BASE.replace("http", "ws") + "/ws/notify";
       wsRef.current = new WebSocket(`${wsUrl}?token=${data.access_token}`);
 
@@ -123,6 +175,7 @@ function Login() {
       navigate("/", { replace: true });
     } catch (err) {
       console.error("❌ 로그인 에러:", err);
+
       const message = String(err?.message || "");
       if (message.includes("423")) {
         setMsg("⏳ 계정이 잠겼습니다. 잠시 후 다시 시도하세요.");
@@ -150,15 +203,35 @@ function Login() {
         }),
       });
 
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
 
-      if (!res.ok) throw new Error(data.detail || "강제 로그인 실패");
+      if (!res.ok) {
+        // 강제 로그인에서도 BAN 가능 → 파싱 동일 적용
+        let detail = data?.detail ?? data?.message ?? null;
+        try {
+          if (typeof detail === "string") {
+            detail = JSON.parse(detail);
+          }
+        } catch {}
+        if (detail && (detail.type === "TEMP_BAN" || detail.type === "PERM_BAN")) {
+          setBanInfo(detail);
+          return;
+        }
+        throw new Error((typeof detail === "string" && detail) || "강제 로그인 실패");
+      }
 
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
 
       // ✅ WebSocket 재연결 (강제 로그인 후)
-      if (wsRef.current) wsRef.current.close();
+      try {
+        if (wsRef.current) wsRef.current.close();
+      } catch {}
       const wsUrl = API_BASE.replace("http", "ws") + "/ws/notify";
       wsRef.current = new WebSocket(`${wsUrl}?token=${data.access_token}`);
 
@@ -214,7 +287,6 @@ function Login() {
 
         {/* ✅ 소셜 로그인 */}
         <div className="social-login">
-          {/* ✅ Google */}
           <button
             type="button"
             className="social-btn google"
@@ -224,20 +296,13 @@ function Login() {
             <span>구글 계정으로 로그인</span>
           </button>
 
-          {/* ✅ Naver (SVG 로고) */}
           <button
             type="button"
             className="social-btn naver"
             onClick={() => handleSocialLogin("naver")}
           >
             <div className="naver-logo-area" aria-hidden="true">
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                role="img"
-                aria-label="Naver"
-              >
+              <svg width="22" height="22" viewBox="0 0 24 24" role="img" aria-label="Naver">
                 <path
                   fill="#FFFFFF"
                   d="M4 4h4.2l7.6 10.8V4H20v16h-4.2L8.2 9.2V20H4z"
@@ -247,7 +312,6 @@ function Login() {
             <span>네이버 아이디로 로그인</span>
           </button>
 
-          {/* ✅ Kakao */}
           <button
             type="button"
             className="social-btn kakao"
@@ -283,6 +347,30 @@ function Login() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ✅ 제재 모달 */}
+      {banInfo && (
+        <Modal
+          title="🚫 제재된 계정"
+          confirmText="확인"
+          onConfirm={() => setBanInfo(null)}
+        >
+          <p style={{ marginBottom: "8px" }}>{banInfo.message}</p>
+
+          {banInfo.type === "TEMP_BAN" && banInfo.remaining && (
+            <p style={{ color: "#2563eb", fontWeight: 600 }}>
+              남은 시간:{" "}
+              {banInfo.remaining.days > 0 && `${banInfo.remaining.days}일 `}
+              {banInfo.remaining.hours > 0 && `${banInfo.remaining.hours}시간 `}
+              {banInfo.remaining.minutes > 0 && `${banInfo.remaining.minutes}분`}
+            </p>
+          )}
+
+          <p style={{ marginTop: "10px", fontSize: "14px", color: "#6b7280" }}>
+            문의: <b>support@solmatching.com</b>
+          </p>
+        </Modal>
       )}
     </div>
   );

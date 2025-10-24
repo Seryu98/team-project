@@ -113,53 +113,38 @@ def create_report(
         report_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
 
         # ===============================
-        # 🩵 신고자 알림 & 관리자 쪽지 전송
+        # 🩵 신고자 알림 & 관리자 알림 (쪽지 제거)
         # ===============================
         try:
             # 🚨 신고자 알림 (즉시, redirect 없음)
-            # ✅ [10/20 변경됨] 클릭 시 이동 없이 단순 알림만 남김
             send_notification(
                 user_id=reporter_user_id,
                 type_=NotificationType.REPORT_RECEIVED.value,
                 message="🚨 신고가 접수되었습니다.",
                 related_id=int(report_id),
-                redirect_path=None,  # ✅ 클릭시 이동 없음
-                category=NotificationCategory.NORMAL.value,  # ✅ 일반 사용자 알림으로 변경
+                redirect_path=None,
+                category=NotificationCategory.NORMAL.value,
                 db=db,
             )
-
-            # 🚨 관리자 쪽지
-            admin_id = db.execute(text("SELECT id FROM users WHERE role='ADMIN' LIMIT 1")).scalar()
-            if admin_id:
-                send_message(
-                    sender_id=reporter_user_id,
-                    receiver_id=admin_id,
-                    content=(
-                        f"[신고 접수 알림]\n"
-                        f"신고자 ID: {reporter_user_id}\n"
-                        f"대상: {target_type}(ID:{target_id})\n"
-                        f"사유: {reason}\n"
-                        f"📅 시간: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}"
-                    ),
-                    db=db,
-                    category=MessageCategory.ADMIN.value,
-                )
 
             # 🚨 관리자 알림 (대시보드용)
-            send_notification(
-                user_id=admin_id,
-                type_=NotificationType.REPORT_RECEIVED.value,
-                message=f"신고(ID:{report_id})가 접수되었습니다.",
-                related_id=int(report_id),
-                redirect_path="/admin/reports",  # 🩵 [수정] 클릭 시 대시보드 신고 관리 페이지로
-                category=NotificationCategory.ADMIN.value,
-                db=db,
-            )
+            admin_id = db.execute(text("SELECT id FROM users WHERE role='ADMIN' LIMIT 1")).scalar()
+            if admin_id:
+                send_notification(
+                    user_id=admin_id,
+                    type_=NotificationType.REPORT_RECEIVED.value,
+                    message=f"신고(ID:{report_id})가 접수되었습니다.",
+                    related_id=int(report_id),
+                    redirect_path="/admin/reports",  # 🩵 클릭 시 대시보드 신고 관리 페이지
+                    category=NotificationCategory.ADMIN.value,
+                    db=db,
+                )
 
             logger.info(f"📨 신고 접수 완료: report_id={report_id}, reporter={reporter_user_id}")
 
         except Exception as e:
             logger.error(f"🚨 신고자 또는 관리자 알림 전송 실패: {e}")
+
 
         # 🩵 [수정] 이벤트 트리거 제거 (중복 및 딜레이 원인)
         # ❌ on_report_created(report_id=int(report_id), reporter_user_id=reporter_user_id, db=db)

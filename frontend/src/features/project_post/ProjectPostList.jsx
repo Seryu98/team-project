@@ -156,11 +156,11 @@ export default function ProjectPostList() {
     <div className="project-wrapper">
       {/* 왼쪽 필터 영역 */}
       <aside className="project-filter-panel">
-        <h3>필터</h3>
+        <h3 className="sidebar-title">필터</h3>
 
         {/* ✅ 검색 */}
         <div className="filter-group">
-          <label className="filter-group-title">검색</label>
+          <h4 className="filter-group-title">검색</h4>
           <input
             type="text"
             className="search-input"
@@ -305,96 +305,100 @@ export default function ProjectPostList() {
                   <div className="project-card-body">
                     <h3 className="project-title">{post.title}</h3>
 
-                    <p className="project-description">
-                      {post.description?.length > 100
-                        ? `${post.description.substring(0, 100)}...`
-                        : post.description}
-                    </p>
-
-                    <div className="project-meta">
-                      <span className="meta-item">
-                        <span className="meta-highlight">
-                          {post.current_members}/{post.capacity}명
-                        </span>
+                    <div
+                      className="project-description"
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          post.description?.length > 100
+                            ? `${post.description.substring(0, 100)}...`
+                            : post.description || "",
+                      }}
+                    ></div>
+                    
+                  <div className="project-meta">
+                    <span className="meta-item">
+                      <span className="meta-highlight">
+                        {post.current_members}/{post.capacity}명
                       </span>
-                      <span className="meta-divider"></span>
-                      <span className="meta-item">{post.type}</span>
-                      <span className="meta-divider"></span>
-                      <span className="meta-item">
-                        {post.start_date} ~ {post.end_date}
-                      </span>
-                    </div>
+                    </span>
+                    <span className="meta-divider"></span>
+                    <span className="meta-item">{post.type}</span>
+                    <span className="meta-divider"></span>
+                    <span className="meta-item">
+                      {post.start_date} ~ {post.end_date}
+                    </span>
+                  </div>
 
-                    <div className="project-skills">
-                      {post.skills?.map((skill) => (
-                        <span key={skill.id} className="skill-tag">
-                          {skill.name}
-                        </span>
-                      ))}
-                    </div>
+                  <div className="project-skills">
+                    {post.skills?.map((skill) => (
+                      <span key={skill.id} className="skill-tag">
+                        {skill.name}
+                      </span>
+                    ))}
                   </div>
                 </div>
+                </div>
               ))}
-            </div>
+          </div>
 
-            {/* ✅ 페이지네이션 */}
-            <div
+        {/* ✅ 페이지네이션 */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "10px",
+            marginTop: "30px",
+          }}
+        >
+          <button
+            onClick={handlePrevPage}
+            disabled={filters.page === 1}
+            style={{
+              padding: "6px 12px",
+              borderRadius: "5px",
+              border: "1px solid #ccc",
+              background: filters.page === 1 ? "#f8f9fa" : "#fff",
+              cursor: filters.page === 1 ? "not-allowed" : "pointer",
+            }}
+          >
+            이전
+          </button>
+
+          {visiblePages.map((pageNum) => (
+            <button
+              key={pageNum}
+              onClick={() => handlePageChange(pageNum)}
               style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: "10px",
-                marginTop: "30px",
+                padding: "6px 12px",
+                border: "none",
+                background: "transparent",
+                fontWeight: filters.page === pageNum ? "bold" : "normal",
+                color: filters.page === pageNum ? "#000" : "#888",
+                cursor: "pointer",
               }}
             >
-              <button
-                onClick={handlePrevPage}
-                disabled={filters.page === 1}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: "5px",
-                  border: "1px solid #ccc",
-                  background: filters.page === 1 ? "#f8f9fa" : "#fff",
-                  cursor: filters.page === 1 ? "not-allowed" : "pointer",
-                }}
-              >
-                이전
-              </button>
+              {pageNum}
+            </button>
+          ))}
 
-              {visiblePages.map((pageNum) => (
-                <button
-                  key={pageNum}
-                  onClick={() => handlePageChange(pageNum)}
-                  style={{
-                    padding: "6px 12px",
-                    border: "none",
-                    background: "transparent",
-                    fontWeight: filters.page === pageNum ? "bold" : "normal",
-                    color: filters.page === pageNum ? "#000" : "#888",
-                    cursor: "pointer",
-                  }}
-                >
-                  {pageNum}
-                </button>
-              ))}
-
-              <button
-                onClick={handleNextPage}
-                disabled={!hasNext}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: "5px",
-                  border: "1px solid #ccc",
-                  background: !hasNext ? "#f8f9fa" : "#fff",
-                  cursor: !hasNext ? "not-allowed" : "pointer",
-                }}
-              >
-                다음
-              </button>
-            </div>
-          </>
+          <button
+            onClick={handleNextPage}
+            disabled={!hasNext}
+            style={{
+              padding: "6px 12px",
+              borderRadius: "5px",
+              border: "1px solid #ccc",
+              background: !hasNext ? "#f8f9fa" : "#fff",
+              cursor: !hasNext ? "not-allowed" : "pointer",
+            }}
+          >
+            다음
+          </button>
+        </div>
+      </>
         )}
-      </main>
-    </div>
+    </main>
+    </div >
   );
 }

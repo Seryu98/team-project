@@ -109,7 +109,7 @@ export async function register(form) {
     email: form.email,
     user_id: form.user_id,
     password: form.password,
-    password_confirm: form.passwordConfirm, // ✅ 백엔드에서 요구하는 필드
+    password_confirm: form.passwordConfirm,
     name: form.name,
     nickname: form.nickname,
     phone_number: form.phone_number || null,
@@ -122,7 +122,6 @@ export async function register(form) {
   });
 
   if (!res.ok) {
-    // ✅ 서버 detail 메시지를 그대로 추출
     let errorMsg = "회원가입 실패";
     try {
       const data = await res.json();
@@ -214,6 +213,7 @@ export async function forceLogin(loginId, password) {
   }
 
   const data = await res.json();
+
   setTokens(data);
   return data;
 }
@@ -242,7 +242,7 @@ export async function refreshAccessToken() {
 }
 
 // ============================
-// API 요청 wrapper (수정버전)
+// API 요청 wrapper
 // ============================
 export async function authFetch(url, options = {}, { skipRedirect = false } = {}) {
   let token = getAccessToken();
@@ -272,7 +272,6 @@ export async function authFetch(url, options = {}, { skipRedirect = false } = {}
     }
   }
 
-  // ✅ 응답 본문(JSON or text) 파싱 시도
   let data;
   try {
     data = await res.json();
@@ -280,7 +279,6 @@ export async function authFetch(url, options = {}, { skipRedirect = false } = {}
     data = null;
   }
 
-  // ✅ 실패 시 detail 메시지 포함
   if (!res.ok) {
     const message =
       data?.detail ||
@@ -363,8 +361,6 @@ export async function resetPassword(reset_token, new_password) {
 // ============================
 // ✅ 이메일 인증 관련
 // ============================
-
-// ✅ 인증 코드 발송
 export async function sendVerificationCode(email) {
   const res = await fetch(`${API_URL}/auth/email-verification/send`, {
     method: "POST",
@@ -379,7 +375,6 @@ export async function sendVerificationCode(email) {
   return res.json();
 }
 
-// ✅ 인증 코드 검증
 export async function verifyCode(email, code) {
   const res = await fetch(`${API_URL}/auth/email-verification/verify`, {
     method: "POST",

@@ -508,6 +508,83 @@ def authenticate_user(db: Session, user_id: str, password: str) -> Optional[User
     return None
   return user
 
+# ===============================
+# 👤 로그인 / 인증 / 토큰 재발급
+# ===============================
+def login_user(db: Session, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
+    login_id = form_data.username
+
+    user = db.query(User).filter(User.user_id == login_id).first()
+
+    # 🚫 탈퇴 계정 로그인 차단
+    if user and user.status == UserStatus.DELETED:
+        logger.warning("🚫 탈퇴 계정 로그인 시도 차단: user_id=%s", login_id)
+        raise HTTPException(status_code=403, detail="탈퇴한 계정은 로그인할 수 없습니다.")
+
+    # 🚫 [추가됨] 제재(BANNED) 계정 로그인 차단 및 남은 시간 안내
+    if user and user.status == UserStatus.BANNED:
+        now = datetime.utcnow()
+        if user.banned_until:
+            remaining = user.banned_until - now
+            if remaining.total_seconds() > 0:
+                days = remaining.days
+                hours = remaining.seconds // 3600
+                minutes = (remaining.seconds % 3600) // 60
+                logger.warning(
+                    "🚫 제재 중 로그인 시도: user_id=%s until=%s",
+                    login_id,
+                    user.banned_until,
+                )
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "type": "TEMP_BAN",
+                        "message": "현재 제재 중인 계정입니다.",
+                        "remaining": {
+                            "days": days,
+                            "hours": hours,
+                            "minutes": minutes,
+                        },
+                        "banned_until": user.banned_until.isoformat(),
+                    },
+                )
+        # ✅ 영구정지 계정
+        logger.warning("🚫 영구정지 계정 로그인 시도: user_id=%s", login_id)
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "type": "PERM_BAN",
+                "message": "이 계정은 영구정지 상태입니다. 문의해주세요.",
+            },
+        )
+
+    if user and _is_locked(user):
+        db.commit()
+        logger.warning("잠금 상태 로그인 시도: user_id=%s", login_id)
+        return None
+
+    db_user = authenticate_user(db, login_id, form_data.password)
+    if not db_user:
+        if user:
+            _on_login_fail(user)
+            db.commit()
+        logger.info("로그인 실패: user_id=%s", login_id)
+        return None
+
+    _on_login_success(db_user)
+    db.commit()
+    db.refresh(db_user)
+
+    access_token, refresh_token = _issue_jwt_pair(db_user.id)
+    logger.info("로그인 성공: user_id=%s id=%s", db_user.user_id, db_user.id)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }
+
 
 def refresh_access_token(refresh_token: str) -> Optional[dict]:
   payload = verify_token(refresh_token, expected_type="refresh")
@@ -655,6 +732,13 @@ def get_oauth_login_url(provider: str) -> str:
 
 
 def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResponse:
+    """
+    ✅ 소셜 로그인 콜백 처리
+    - 정상 로그인: 프론트로 토큰 전달
+    - 제재 상태: /login?ban=... 으로 리다이렉트 (프론트에서 모달 표시)
+    - 오류 발생: /login?error=SOCIAL_ERROR 로 리다이렉트
+    """
+    import json  # 👈 인코딩용
     base_redirect = _oauth_base_redirect()
 
     try:
@@ -662,13 +746,14 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
         if not cfg:
             raise ValueError("지원하지 않는 provider입니다.")
 
-        # 🔹 토큰 교환
+        # ✅ 토큰 교환
         token_json = _token_exchange(cfg["token_url"], cfg["token_payload"](code))
         access_token = token_json.get("access_token")
         if not access_token:
             raise ValueError(cfg["missing_token_msg"])
 
-        # 🔹 유저 정보 조회
+
+        # ✅ 유저 정보 조회
         user_info_raw = _get_json(
             cfg["userinfo_url"],
             headers={"Authorization": f"Bearer {access_token}"},
@@ -680,15 +765,42 @@ def handle_oauth_callback(db: Session, provider: str, code: str) -> RedirectResp
 
     except Exception as e:
         logger.exception("소셜 로그인 오류(%s): %s", provider, e)
-        raise ValueError("소셜 로그인 처리 실패")
+        # ⚠️ 오류 시 프론트 로그인 페이지로 리다이렉트
+        return RedirectResponse(f"{_frontend_origin()}/login?error=SOCIAL_ERROR")
 
     if not social_id:
-        raise ValueError("소셜 사용자 ID를 확인할 수 없습니다.")
+        return RedirectResponse(f"{_frontend_origin()}/login?error=NO_SOCIAL_ID")
 
-    # ✅ 사용자 등록/복귀 + 신규 가입자 여부 확인
+    # ✅ 사용자 조회 또는 신규등록
     user, is_new_user = _upsert_social_user(db, provider, social_id, email, name)
 
-    # ✅ JWT 발급
+    # 🚫 제재 상태면 로그인 페이지로 리다이렉트
+    if user.status == UserStatus.BANNED:
+        now = datetime.utcnow()
+        if user.banned_until and user.banned_until > now:
+            remaining = user.banned_until - now
+            error_data = {
+                "type": "TEMP_BAN",
+                "message": "현재 제재 중인 계정입니다.",
+                "remaining": {
+                    "days": remaining.days,
+                    "hours": remaining.seconds // 3600,
+                    "minutes": (remaining.seconds % 3600) // 60,
+                },
+                "banned_until": user.banned_until.isoformat(),
+            }
+        else:
+            error_data = {
+                "type": "PERM_BAN",
+                "message": "이 계정은 영구정지 상태입니다. 문의해주세요.",
+            }
+
+        # ✅ JSON → URL-safe 문자열로 변환
+        encoded = quote_plus(json.dumps(error_data))
+        logger.warning("🚫 제재된 계정 소셜 로그인 차단: user_id=%s", user.id)
+        return RedirectResponse(f"{_frontend_origin()}/login?ban={encoded}")
+
+    # ✅ JWT 발급 및 프론트로 리다이렉트
     access_token, refresh_token = _issue_jwt_pair(user.id)
     logger.info(
         "%s 로그인 성공: user_id=%s email=%s is_new=%s",

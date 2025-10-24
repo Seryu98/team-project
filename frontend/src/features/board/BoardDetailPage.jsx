@@ -276,16 +276,23 @@ export default function BoardDetailPage() {
         </div>
 
         {/* 이미지 + 본문 */}
-        <div className="detail-content-row">
-          {post.attachment_url && (
+        <div className="detail-content-section">
+          {/* 이미지 */}
+          <div className="detail-image-box">
             <img
               src={`${import.meta.env.VITE_API_BASE_URL}${post.attachment_url}`}
-              alt="대표 이미지"
-              className="post-cover-side"
+              alt={`${post.category_name} 대표 이미지`}
+              className="post-cover"
             />
-          )}
-          <div className="detail-text">{post.content}</div>
+          </div>
+
+          {/* 본문 */}
+          <div
+            className="detail-text"
+            dangerouslySetInnerHTML={{ __html: post.content }}
+          ></div>
         </div>
+
 
         {/* 메타 정보 */}
         <div className="detail-meta">
@@ -415,7 +422,11 @@ export default function BoardDetailPage() {
                         </div>
                       </div>
                     ) : (
-                      <p className="comment-content">{c.content}</p>
+                      <div
+                        className="comment-content"
+                        dangerouslySetInnerHTML={{ __html: c.content }}
+                      ></div>
+
                     )}
 
                     <div className="comment-buttons">
@@ -477,7 +488,11 @@ export default function BoardDetailPage() {
                                   </div>
                                 </div>
                               ) : (
-                                <p className="comment-content">{r.content}</p>
+                                <div
+                                  className="comment-content"
+                                  dangerouslySetInnerHTML={{ __html: r.content }}
+                                ></div>
+
                               )}
 
                               <div className="comment-buttons">

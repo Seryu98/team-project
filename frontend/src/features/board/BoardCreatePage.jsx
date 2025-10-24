@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createBoardPost } from "./BoardAPI";
+import RichTextEditor from "../../components/RichTextEditor";
 import "./Board.css";
 
 export default function BoardCreatePage() {
@@ -11,7 +12,7 @@ export default function BoardCreatePage() {
     title: "",
     category_id: "",
     content: "",
-    attachment_url: "",
+    attachment_url: "", 
   });
 
   const [preview, setPreview] = useState(null);
@@ -111,26 +112,40 @@ export default function BoardCreatePage() {
             accept="image/*"
             onChange={handleImageUpload}
           />
-          {preview && (
-            <div className="image-preview-box">
-              <img src={preview} alt="미리보기" className="image-preview" />
-              {uploading && <p className="uploading-text">업로드 중...</p>}
-            </div>
-          )}
+          <div className="image-preview-box">
+            <img
+              src={
+                preview
+                  ? preview
+                  : form.category_id === "1"
+                    ? `${import.meta.env.VITE_API_BASE_URL}/assets/profile/promotion.png`
+                    : form.category_id === "2"
+                      ? `${import.meta.env.VITE_API_BASE_URL}/assets/profile/small_talk.png`
+                      : form.category_id === "3"
+                        ? `${import.meta.env.VITE_API_BASE_URL}/assets/profile/show_off.png`
+                        : form.category_id === "4"
+                          ? `${import.meta.env.VITE_API_BASE_URL}/assets/profile/question.png`
+                          : form.category_id === "5"
+                            ? `${import.meta.env.VITE_API_BASE_URL}/assets/profile/information.png`
+                            : `${import.meta.env.VITE_API_BASE_URL}/assets/profile/promotion.png` // 기본값 (홍보글)
+              }
+              alt="대표 이미지 미리보기"
+              className="image-preview"
+            />
+            {uploading && <p className="uploading-text">업로드 중...</p>}
+          </div>
         </div>
 
         {/* 내용 */}
         <div className="form-group">
           <label>내용 *</label>
-          <textarea
-            className="form-textarea"
-            name="content"
+          <RichTextEditor
             value={form.content}
-            onChange={handleChange}
-            placeholder="내용을 입력하세요"
-            required
+            onChange={(value) => setForm((prev) => ({ ...prev, content: value }))}
+            placeholder="내용을 입력해주세요." // 안내문구 표시
           />
         </div>
+
 
         {/* 버튼 */}
         <div className="form-buttons">

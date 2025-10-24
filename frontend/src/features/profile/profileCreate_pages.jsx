@@ -28,6 +28,12 @@ export default function ProfileCreate() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
 
+  // ✅ visibility state 추가
+  const [visibility, setVisibility] = useState({
+    birth_date: true,
+    gender: true,
+  });
+
   const SKILL_ICONS = useMemo(
     () => ({ ...buildIconMap(skillGlob1), ...buildIconMap(skillGlob2) }),
     []
@@ -74,6 +80,11 @@ export default function ProfileCreate() {
       setProfile(res.data);
       setForm(res.data);
       setPreviewImage(res.data.profile_image || null);
+
+      // ✅ visibility 불러오기
+      if (res.data.visibility) {
+        setVisibility(res.data.visibility);
+      }
     } catch {
       alert("내 프로필 불러오기 실패");
     }
@@ -85,6 +96,11 @@ export default function ProfileCreate() {
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  // ✅ visibility 토글 함수
+  const toggleVisibility = (field) => {
+    setVisibility((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
   const handleSave = async () => {
@@ -108,7 +124,10 @@ export default function ProfileCreate() {
         certifications: form.certifications || "",
         birth_date: form.birth_date || null,
         gender: form.gender || null,
+        visibility: visibility,  // ✅ visibility 객체 전송
       };
+
+      console.log("=== 💾 저장 데이터 ===", updateData);
 
       await api.put("/profiles/me", updateData, {
         headers: { Authorization: `Bearer ${token}` },
@@ -263,6 +282,30 @@ export default function ProfileCreate() {
     </div>
   );
 
+  // ✅ 공개/비공개 토글 버튼 컴포넌트
+  const VisibilityToggle = ({ isVisible, onToggle }) => (
+    <button
+      type="button"
+      onClick={onToggle}
+      style={{
+        padding: "8px 12px",
+        border: "none",
+        borderRadius: "6px",
+        fontSize: "13px",
+        fontWeight: "500",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        background: isVisible ? "#3b82f6" : "#ef4444",
+        color: "white",
+        transition: "all 0.2s",
+      }}
+    >
+      {isVisible ? "👁️ 공개" : "🔒 비공개"}
+    </button>
+  );
+
   return (
     <div style={{ minHeight: "100vh", background: "#fff", padding: "40px 20px" }}>
       <div style={{ maxWidth: "600px", margin: "0 auto" }}>
@@ -346,16 +389,21 @@ export default function ProfileCreate() {
           </div>
         </div>
 
+        {/* ✅ 생년월일 + 토글 */}
         <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            생년월일
-          </label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <label style={{ fontSize: "14px", fontWeight: "500" }}>생년월일</label>
+            <VisibilityToggle
+              isVisible={visibility.birth_date}
+              onToggle={() => toggleVisibility("birth_date")}
+            />
+          </div>
           <input
             type="date"
             name="birth_date"
             value={form.birth_date || ""}
             onChange={handleChange}
-            max={new Date().toISOString().split('T')[0]}
+            max={new Date().toISOString().split("T")[0]}
             style={{
               width: "106%",
               padding: "16px",
@@ -368,10 +416,15 @@ export default function ProfileCreate() {
           />
         </div>
 
+        {/* ✅ 성별 + 토글 */}
         <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
-            성별
-          </label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <label style={{ fontSize: "14px", fontWeight: "500" }}>성별</label>
+            <VisibilityToggle
+              isVisible={visibility.gender}
+              onToggle={() => toggleVisibility("gender")}
+            />
+          </div>
           <select
             name="gender"
             value={form.gender || ""}
@@ -391,7 +444,6 @@ export default function ProfileCreate() {
             <option value="FEMALE">여성</option>
           </select>
         </div>
-
         <div style={{ marginBottom: "24px" }}>
           <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}>
             자기소개

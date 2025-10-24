@@ -3,7 +3,7 @@
 // - 🔥 인기급상승 배지 제목 왼쪽
 // - 댓글 수/프로필/미리보기 정상 반영
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getBoardPosts } from "./BoardAPI";
 import "./Board.css";
@@ -19,49 +19,93 @@ export default function BoardListPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // ✅ 추가: 페이지, 무한스크롤 상태
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loaderRef = useRef(null);
+
   // ✅ 상세페이지 복귀 시 자동 새로고침
   useEffect(() => {
-    if (location.state?.refresh) fetchPosts();
+    if (location.state?.refresh) fetchPosts(1, true);
   }, [location.state]);
 
   // ✅ 목록 로딩
   useEffect(() => {
-    fetchPosts();
+    fetchPosts(1, true);
   }, [category, sort, search]);
 
-  async function fetchPosts() {
+  // ✅ 게시글 불러오기 (무한스크롤 대응)
+  async function fetchPosts(pageNum = 1, reset = false) {
     try {
-      setLoading(true);
+      if (loadingMore) return;
+      if (reset) setLoading(true);
+      else setLoadingMore(true);
+
       const res = await getBoardPosts({
         category: category === "전체" ? "" : category,
         sort,
         search,
+        page: pageNum,
+        page_size: 12, // 페이지당 12개씩
       });
-      setPosts(res.posts || []);
-      setTopPosts(res.top_posts || []);
+
+      // ✅ 데이터 갱신
+      if (reset) {
+        setPosts(res.posts || []);
+        setTopPosts(res.top_posts || []);
+      } else {
+        setPosts((prev) => [...prev, ...(res.posts || [])]);
+      }
+
+      // ✅ 다음 페이지 존재 여부 판단
+      setHasMore(res.posts && res.posts.length > 0);
+      setPage(pageNum);
     } catch (err) {
       console.error("게시글 목록 로드 실패:", err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }
+
+  // ✅ 무한스크롤 IntersectionObserver 설정
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0];
+        if (target.isIntersecting && hasMore && !loading && !loadingMore) {
+          fetchPosts(page + 1);
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    if (loaderRef.current) observer.observe(loaderRef.current);
+    return () => observer.disconnect();
+  }, [page, hasMore, loading, loadingMore]);
 
   const openPost = (id) => navigate(`/board/${id}`);
   const writePost = () => navigate("/board/write");
   const goProfile = (id) => navigate(`/profile/${id}`);
 
-  const previewText = (text) => {
-    if (!text) return "";
-    return text.length > 20 ? text.slice(0, 20) + "..." : text;
+  const previewText = (html) => {
+    if (!html) return "";
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html; // HTML 파싱
+    const text = tmp.textContent || tmp.innerText || "";
+    return text.length > 50 ? text.slice(0, 50) + "..." : text;
   };
 
   return (
     <div className="board-wrapper">
       {/* ✅ 좌측 필터 */}
       <aside className="board-filter-panel">
-        {/* ✅ 검색 섹션 수정 */}
+        <h3 className="sidebar-title">필터</h3>
+
+        {/* ✅ 검색 섹션 */}
         <div className="search-section">
-          <h3 className="search-section-title">필터 검색</h3>
+          <h4 className="search-section-title">검색</h4>
           <input
             type="text"
             placeholder="제목, 설명 검색..."
@@ -201,13 +245,12 @@ export default function BoardListPage() {
           )}
         </section>
 
-
         <hr className="top3-divider" />
         {/* 📰 게시글 목록 */}
         <section className="board-section">
           <h3 className="board-section-title">📰 게시글 목록</h3>
           <div className="board-list">
-            {loading ? (
+            {loading && posts.length === 0 ? (
               <p>로딩 중...</p>
             ) : posts.length === 0 ? (
               <p>게시글이 없습니다.</p>
@@ -218,16 +261,12 @@ export default function BoardListPage() {
                   className="board-card-horizontal"
                   onClick={() => openPost(post.id)}
                 >
-                  {/* ✅ 왼쪽 썸네일 */}
-                  {post.attachment_url ? (
-                    <img
-                      src={`${import.meta.env.VITE_API_BASE_URL}${post.attachment_url}`}
-                      alt="썸네일"
-                      className="board-thumbnail"
-                    />
-                  ) : (
-                    <div className="board-thumbnail-placeholder">No Image</div>
-                  )}
+                  {/* ✅ 왼쪽 썸네일 (항상 DB에서 온 이미지 표시) */}
+                  <img
+                    src={`${import.meta.env.VITE_API_BASE_URL}${post.attachment_url}`}
+                    alt={`${post.category_name} 썸네일`}
+                    className="board-thumbnail"
+                  />
 
                   {/* ✅ 오른쪽 콘텐츠 */}
                   <div className="board-card-content">
@@ -285,6 +324,15 @@ export default function BoardListPage() {
                 </div>
               ))
             )}
+          </div>
+
+          {/* ✅ 무한스크롤 감지용 로더 */}
+          <div ref={loaderRef} className="scroll-loader">
+            {loadingMore
+              ? "로딩 중..."
+              : hasMore
+              ? "스크롤 시 더 불러옵니다."
+              : "모든 게시글을 불러왔습니다."}
           </div>
         </section>
       </main>

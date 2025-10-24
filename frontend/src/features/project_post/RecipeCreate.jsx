@@ -3,25 +3,32 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { authFetch } from "../auth/api";
 import Modal from "../../components/Modal";
+import RichTextEditor from "../../components/RichTextEditor";
 import "./RecipeCreate.css";
+
+// ========================================
+// 🤖 AI 관련 import
+// ========================================
+import AIModal from "./components/AIModal";
+import { PROJECT_EXAMPLE, STUDY_EXAMPLE } from "./components/examples";
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 export default function RecipeCreate() {
   const navigate = useNavigate();
 
-  // ---------------------------------------
+  // =======================================
   // 🧩 상태 정의
-  // ---------------------------------------
-  const [type, setType] = useState("");
-  const [applicationFields, setApplicationFields] = useState([]);
-  const [skills, setSkills] = useState([]);
-  const [skillSearch, setSkillSearch] = useState("");
-  const [filteredSkills, setFilteredSkills] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [modalMessage, setModalMessage] = useState("");
-
-  const today = new Date().toISOString().split("T")[0];
+  // =======================================
+  const [type, setType] = useState(""); // 프로젝트 / 스터디 타입
+  const [applicationFields, setApplicationFields] = useState([]); // 지원서 필드 목록
+  const [skills, setSkills] = useState([]); // 스킬 목록
+  const [skillSearch, setSkillSearch] = useState(""); // 스킬 검색 키워드
+  const [filteredSkills, setFilteredSkills] = useState([]); // 검색 결과
+  const [showModal, setShowModal] = useState(false); // 일반 모달
+  const [modalMessage, setModalMessage] = useState(""); // 모달 메시지
+  const [showAIModal, setShowAIModal] = useState(false); // ✅ AI 모달
+  const today = new Date().toISOString().split("T")[0]; // 오늘 날짜
 
   const [form, setForm] = useState({
     title: "",
@@ -37,9 +44,9 @@ export default function RecipeCreate() {
     field: "",
   });
 
-  // ---------------------------------------
+  // =======================================
   // 📥 메타데이터 불러오기
-  // ---------------------------------------
+  // =======================================
   useEffect(() => {
     async function fetchMeta() {
       try {
@@ -55,9 +62,9 @@ export default function RecipeCreate() {
     fetchMeta();
   }, []);
 
-  // ---------------------------------------
+  // =======================================
   // ⚙️ 입력 핸들러
-  // ---------------------------------------
+  // =======================================
   const handleChange = (e) => {
     if (e.target.type === "file") {
       const file = e.target.files[0];
@@ -67,9 +74,9 @@ export default function RecipeCreate() {
     }
   };
 
-  // ---------------------------------------
+  // =======================================
   // 🖼️ 이미지 업로드
-  // ---------------------------------------
+  // =======================================
   const uploadFile = async (file) => {
     try {
       const formData = new FormData();
@@ -83,18 +90,24 @@ export default function RecipeCreate() {
       setShowModal(true);
     }
   };
-
-  // ---------------------------------------
-  // 🎯 타입 선택
-  // ---------------------------------------
+  
+  // =======================================
+  // 🎯 타입 선택 (프로젝트 / 스터디)
+  // =======================================
   const handleTypeSelect = (selectedType) => {
     setType(selectedType);
-    setForm((prev) => ({ ...prev, type: selectedType }));
+    setForm((prev) => ({
+      ...prev,
+      type: selectedType,
+      // ✅ HTML 태그 그대로 저장 → 나중에 dangerouslySetInnerHTML 로 렌더링
+      description: selectedType === "PROJECT" ? PROJECT_EXAMPLE : STUDY_EXAMPLE,
+    }));
   };
 
-  // ---------------------------------------
-  // 🧩 지원자 입력값 선택 토글
-  // ---------------------------------------
+
+  // =======================================
+  // 🧩 지원자 필수 입력값 토글
+  // =======================================
   const toggleSelection = (id, key) => {
     setForm((prev) => {
       const already = prev[key].includes(id);
@@ -105,9 +118,9 @@ export default function RecipeCreate() {
     });
   };
 
-  // ---------------------------------------
-  // 🔍 기술 스택 검색
-  // ---------------------------------------
+  // =======================================
+  // 🔍 기술 스택 자동완성
+  // =======================================
   useEffect(() => {
     if (skillSearch.trim() === "") setFilteredSkills([]);
     else {
@@ -118,9 +131,9 @@ export default function RecipeCreate() {
     }
   }, [skillSearch, skills]);
 
-  // ---------------------------------------
+  // =======================================
   // ⚙️ 스킬 추가/삭제
-  // ---------------------------------------
+  // =======================================
   const addSkill = (skill) => {
     if (!form.skills.includes(skill.id)) {
       setForm({ ...form, skills: [...form.skills, skill.id] });
@@ -133,35 +146,29 @@ export default function RecipeCreate() {
     setForm({ ...form, skills: form.skills.filter((id) => id !== skillId) });
   };
 
-  // ---------------------------------------
-  // ✅ 검증 함수 (날짜 포함)
-  // ---------------------------------------
+  // =======================================
+  // ✅ 유효성 검증 (날짜 포함)
+  // =======================================
   const checkValid = () => {
     const titleOk = (form.title ?? "").trim().length >= 2;
     const descOk = (form.description ?? "").trim().length >= 5;
     const capOk = Number(form.capacity) >= 2;
     const typeOk = type === "PROJECT" || type === "STUDY";
 
-    // 📅 날짜 검증 (모두 입력 + 순서 체크)
     const sd = form.start_date ? new Date(form.start_date) : null;
     const ed = form.end_date ? new Date(form.end_date) : null;
     const ps = form.project_start ? new Date(form.project_start) : null;
     const pe = form.project_end ? new Date(form.project_end) : null;
 
     const allDatesFilled = sd && ed && ps && pe;
-    // ✅ 변경됨: 프로젝트 시작일은 모집 종료일 이후가 아니라, 모집 시작일 이후면 가능
-    const periodOk =
-      allDatesFilled &&
-      sd <= ed &&  // 모집시작 ≤ 모집종료
-      sd <= ps &&  // 프로젝트시작 ≥ 모집시작
-      ps <= pe;    // 프로젝트종료 ≥ 프로젝트시작
+    const periodOk = allDatesFilled && sd <= ed && sd <= ps && ps <= pe;
 
     return titleOk && descOk && capOk && typeOk && allDatesFilled && periodOk;
   };
 
-  // ---------------------------------------
+  // =======================================
   // 📤 등록 요청
-  // ---------------------------------------
+  // =======================================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -201,16 +208,19 @@ export default function RecipeCreate() {
     }
   };
 
+  // ✅ prefix (스터디 / 프로젝트)
   const workLabelPrefix = type === "STUDY" ? "스터디" : "프로젝트";
 
-  // ---------------------------------------
-  // 🧱 UI
-  // ---------------------------------------
+  // =======================================
+  // 🧱 UI 렌더링
+  // =======================================
   return (
     <div className="recipe-create-container">
       <h2 className="recipe-create-title">모집공고 생성</h2>
 
-      {/* 타입 선택 */}
+      {/* ------------------------------------ */}
+      {/* 🎯 타입 선택 */}
+      {/* ------------------------------------ */}
       <div className="type-selector">
         <button
           type="button"
@@ -244,14 +254,28 @@ export default function RecipeCreate() {
             />
           </div>
 
-          {/* 설명 */}
-          <div className="form-group">
-            <label className="form-label">{type === "PROJECT" ? "설명" : "소개"} *</label>
-            <textarea
-              name="description"
-              className="form-textarea"
+          {/* 설명 / 소개 */}
+          <div className="form-group description-group">
+            <div className="description-header">
+              <label className="form-label">
+                {type === "PROJECT" ? "설명" : "소개"} *
+              </label>
+
+              {/* ✅ 프로젝트 타입일 때만 AI 버튼 표시 */}
+              {type === "PROJECT" && (
+                <button
+                  type="button"
+                  className="ai-generate-button"
+                  onClick={() => setShowAIModal(true)}
+                >
+                  🤖 AI 설명 생성
+                </button>
+              )}
+            </div>
+
+            <RichTextEditor
               value={form.description}
-              onChange={handleChange}
+              onChange={(value) => setForm((prev) => ({ ...prev, description: value }))}
             />
           </div>
 
@@ -306,7 +330,6 @@ export default function RecipeCreate() {
                 className="form-input"
                 value={form.project_start}
                 onChange={handleChange}
-                // ✅ 변경됨: 모집 종료일이 아니라 모집 시작일 이후면 가능
                 min={form.start_date || today}
               />
             </div>
@@ -323,8 +346,7 @@ export default function RecipeCreate() {
             </div>
           </div>
 
-
-          {/* 분야 — 프로젝트일 때만 표시 */}
+          {/* 분야 (프로젝트 전용) */}
           {type === "PROJECT" && (
             <div className="form-group">
               <label className="form-label">분야</label>
@@ -339,7 +361,7 @@ export default function RecipeCreate() {
             </div>
           )}
 
-          {/* 사용 언어 — 프로젝트일 때만 표시 */}
+          {/* 기술 스택 (프로젝트 전용) */}
           {type === "PROJECT" && (
             <div className="form-group">
               <label className="form-label">사용 언어</label>
@@ -375,7 +397,6 @@ export default function RecipeCreate() {
             </div>
           )}
 
-
           {/* 지원자 필수 입력값 */}
           <div className="form-group">
             <label className="form-label">지원자 필수 입력값</label>
@@ -407,28 +428,44 @@ export default function RecipeCreate() {
                 onChange={handleChange}
               />
             </label>
-          </div>
 
-          {form.image_url && (
+            {/* ✅ 업로드 여부와 무관하게 항상 미리보기 */}
             <div className="image-preview-container">
               <img
-                src={`http://localhost:8000${form.image_url}`}
-                alt="대표 이미지"
+                src={
+                  form.image_url
+                    ? `${API_URL}${form.image_url}`           // 서버 업로드된 이미지
+                    : type === "PROJECT"
+                      ? `${API_URL}/assets/profile/project.png`  // 기본 프로젝트 이미지
+                      : `${API_URL}/assets/profile/study.png`    // 기본 스터디 이미지
+                }
+                alt="대표 이미지 미리보기"
                 className="image-preview"
               />
             </div>
-          )}
+          </div>
 
+
+          {/* 제출 버튼 */}
           <button type="submit" className="submit-button">
             🎉 등록하기
           </button>
         </form>
       )}
 
+      {/* 일반 모달 */}
       {showModal && (
         <Modal title="입력 확인" confirmText="확인" onConfirm={() => setShowModal(false)}>
           {modalMessage}
         </Modal>
+      )}
+
+      {/* ✅ AI 모달 */}
+      {showAIModal && (
+        <AIModal
+          onClose={() => setShowAIModal(false)}
+          onResult={(desc) => setForm((prev) => ({ ...prev, description: desc }))}
+        />
       )}
     </div>
   );

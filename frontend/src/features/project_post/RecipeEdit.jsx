@@ -3,7 +3,13 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { authFetch } from "../auth/api";
 import Modal from "../../components/Modal";
+import RichTextEditor from "../../components/RichTextEditor";
 import "./RecipeCreate.css";
+
+// =======================================
+// 🤖 AI 관련 import
+// =======================================
+import AIModal from "./components/AIModal";
 
 export default function RecipeEdit() {
   const { postId } = useParams();
@@ -20,6 +26,7 @@ export default function RecipeEdit() {
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [originalStartDate, setOriginalStartDate] = useState("");
+  const [showAIModal, setShowAIModal] = useState(false); // ✅ AI 모달 추가
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -45,6 +52,10 @@ export default function RecipeEdit() {
     async function fetchData() {
       try {
         const res = await authFetch(`/recipe/${postId}`, { method: "GET" });
+        // ✅ 기존 DB가 \n 기반이라면 HTML로 변환
+        const safeDesc = res.description?.includes("<p>") || res.description?.includes("<br>")
+          ? res.description
+          : res.description?.replace(/\n/g, "<br>") || "";
 
         setForm({
           title: res.title,
@@ -165,12 +176,8 @@ export default function RecipeEdit() {
     const pe = form.project_end ? new Date(form.project_end) : null;
 
     const allDatesFilled = sd && ed && ps && pe;
-    // ✅ 수정됨: 프로젝트 시작일은 모집 종료일 이전이어도 됨 (단, 모집 시작일 이후여야 함)
     const periodOk =
-      allDatesFilled &&
-      sd <= ed && // 모집시작 ≤ 모집종료
-      sd <= ps && // 프로젝트시작 ≥ 모집시작
-      ps <= pe;   // 프로젝트종료 ≥ 프로젝트시작
+      allDatesFilled && sd <= ed && sd <= ps && ps <= pe;
 
     const notEarlierThanOriginal =
       !originalStartDate ||
@@ -249,14 +256,27 @@ export default function RecipeEdit() {
         </div>
 
         {/* 설명 */}
-        <div className="form-group">
-          <label className="form-label">설명 *</label>
-          <textarea
-            name="description"
-            className="form-textarea"
+        <div className="form-group description-group">
+          <div className="description-header">
+            <label className="form-label">설명 *</label>
+
+            {/* ✅ AI 버튼을 오른쪽에 정렬 */}
+            {form.type === "PROJECT" && (
+              <button
+                type="button"
+                className="ai-generate-button"
+                onClick={() => setShowAIModal(true)}
+              >
+                🤖 AI 설명 생성
+              </button>
+            )}
+          </div>
+
+          <RichTextEditor
             value={form.description}
-            onChange={handleChange}
+            onChange={(value) => setForm((prev) => ({ ...prev, description: value }))}
           />
+
         </div>
 
         {/* 모집 인원 */}
@@ -310,7 +330,6 @@ export default function RecipeEdit() {
               className="form-input"
               value={form.project_start}
               onChange={handleChange}
-              // ✅ 수정됨: 모집 시작일 이후면 가능
               min={form.start_date || today}
             />
           </div>
@@ -386,7 +405,6 @@ export default function RecipeEdit() {
           </div>
         )}
 
-
         {/* 지원자 필수 입력값 */}
         <div className="form-group">
           <label className="form-label">지원자 필수 입력값</label>
@@ -435,18 +453,25 @@ export default function RecipeEdit() {
           </div>
         )}
 
-
         {/* 제출 버튼 */}
         <button type="submit" className="submit-button">
           🛠 수정 완료
         </button>
       </form>
 
-      {/* ✅ 모달 */}
+      {/* ✅ 일반 모달 */}
       {showModal && (
         <Modal title="입력 확인" confirmText="확인" onConfirm={() => setShowModal(false)}>
           {modalMessage}
         </Modal>
+      )}
+
+      {/* ✅ AI 모달 */}
+      {showAIModal && (
+        <AIModal
+          onClose={() => setShowAIModal(false)}
+          onResult={(desc) => setForm((prev) => ({ ...prev, description: desc }))}
+        />
       )}
     </div>
   );
