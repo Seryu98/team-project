@@ -217,7 +217,7 @@ def list_inbox(user_id: int, limit: int = 50, db: Optional[Session] = None, cate
             JOIN users sender ON m.sender_id = sender.id
             JOIN users receiver ON m.receiver_id = receiver.id
             WHERE m.receiver_id = :u
-            AND m.is_deleted = 0
+            AND m.is_deleted_receiver = 0 
             AND LOWER(CAST(m.category AS CHAR)) = LOWER(:cat)
             ORDER BY m.id DESC
             LIMIT :limit
@@ -252,26 +252,30 @@ def delete_messages(user_id: int, message_ids: Optional[List[int]] = None, delet
             if category:
                 db.execute(text("""
                     UPDATE messages
-                       SET is_deleted = 1
+                       SET is_deleted_sender = CASE WHEN sender_id = :uid THEN 1 ELSE is_deleted_sender END,
+                           is_deleted_receiver = CASE WHEN receiver_id = :uid THEN 1 ELSE is_deleted_receiver END
                      WHERE (receiver_id = :uid OR sender_id = :uid)
                        AND LOWER(CAST(category AS CHAR)) = LOWER(:cat)
                 """), {"uid": user_id, "cat": category})
             else:
                 db.execute(text("""
                     UPDATE messages
-                       SET is_deleted = 1
+                       SET is_deleted_sender = CASE WHEN sender_id = :uid THEN 1 ELSE is_deleted_sender END,
+                           is_deleted_receiver = CASE WHEN receiver_id = :uid THEN 1 ELSE is_deleted_receiver END
                      WHERE (receiver_id = :uid OR sender_id = :uid)
                 """), {"uid": user_id})
             print(f"🧹 전체 쪽지 삭제 완료: user={user_id}")
 
         elif message_ids:
+            # @수정: 보낸 쪽/받은 쪽 각각 업데이트
             id_list = ",".join(map(str, message_ids))
             db.execute(
                 text(f"""
                     UPDATE messages
-                       SET is_deleted = 1
-                     WHERE (receiver_id = :uid OR sender_id = :uid)
-                       AND id IN ({id_list})
+                       SET is_deleted_sender = CASE WHEN sender_id = :uid THEN 1 ELSE is_deleted_sender END,
+                           is_deleted_receiver = CASE WHEN receiver_id = :uid THEN 1 ELSE is_deleted_receiver END
+                     WHERE id IN ({id_list})
+                       AND (receiver_id = :uid OR sender_id = :uid)
                 """),
                 {"uid": user_id},
             )
@@ -302,7 +306,7 @@ def list_sent(user_id: int, limit: int = 50, db: Optional[Session] = None) -> Li
             JOIN users sender ON m.sender_id = sender.id
             JOIN users receiver ON m.receiver_id = receiver.id
             WHERE m.sender_id = :u
-            AND m.is_deleted = 0
+            AND m.is_deleted_sender = 0
             ORDER BY m.id DESC
             LIMIT :limit
         """), {"u": user_id, "limit": limit}).mappings().all()
@@ -318,12 +322,12 @@ def list_sent(user_id: int, limit: int = 50, db: Optional[Session] = None) -> Li
 def get_message(user_id: int, message_id: int, db: Optional[Session] = None) -> Optional[Dict]:
     db, close = _get_db(db)
     try:
-        # 1️⃣ 일반 메시지(보낸/받은 쪽지) 먼저 시도
         row = db.execute(text("""
             SELECT 
                 m.id, m.sender_id, sender.nickname AS sender_nickname,
                 m.receiver_id, receiver.nickname AS receiver_nickname,
-                m.content, m.is_read, m.created_at, m.category, m.is_deleted
+                m.content, m.is_read, m.created_at, m.category,
+                m.is_deleted_sender, m.is_deleted_receiver       -- @수정: 개별 삭제 컬럼 포함
             FROM messages m
             JOIN users sender ON m.sender_id = sender.id
             JOIN users receiver ON m.receiver_id = receiver.id
@@ -331,9 +335,11 @@ def get_message(user_id: int, message_id: int, db: Optional[Session] = None) -> 
               AND (m.sender_id = :u OR m.receiver_id = :u)
         """), {"mid": message_id, "u": user_id}).mappings().first()
 
-        # 🩵 [10/25] 삭제된 쪽지는 조회 불가 처리
-        if row and row["is_deleted"]:
-            raise HTTPException(status_code=403, detail="삭제된 쪽지입니다.")
+        # @수정: 삭제된 쪽지 접근 차단 로직 개선
+        if row:
+            if (row["sender_id"] == user_id and row["is_deleted_sender"]) or \
+               (row["receiver_id"] == user_id and row["is_deleted_receiver"]):
+                raise HTTPException(status_code=403, detail="삭제된 쪽지입니다.")
 
         # 2️⃣ 공지사항(운영자 → 모든 유저)일 경우 fallback 조회
         if not row:

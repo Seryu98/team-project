@@ -390,6 +390,11 @@ CREATE TABLE messages (
 ALTER TABLE messages 
 ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '쪽지 삭제 여부 (1=삭제됨)';
 
+ALTER TABLE messages
+DROP COLUMN is_deleted,
+ADD COLUMN is_deleted_sender TINYINT(1) NOT NULL DEFAULT 0 COMMENT '보낸 사람 삭제 여부',
+ADD COLUMN is_deleted_receiver TINYINT(1) NOT NULL DEFAULT 0 COMMENT '받은 사람 삭제 여부';
+
 
 CREATE TABLE report_actions (
   id BIGINT NOT NULL AUTO_INCREMENT,
@@ -490,3 +495,9 @@ MODIFY COLUMN type ENUM(
 --메세지 컬럼 추가 (메세지함 소프트 삭제)
 ALTER TABLE messages 
 ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '쪽지 삭제 여부 (1=삭제됨)';
+
+--메세지 컬럼 삭제+추가(삭제되는거 서로 따로따로 하기위함)
+ALTER TABLE messages
+DROP COLUMN is_deleted,
+ADD COLUMN is_deleted_sender TINYINT(1) NOT NULL DEFAULT 0 COMMENT '보낸 사람 삭제 여부',
+ADD COLUMN is_deleted_receiver TINYINT(1) NOT NULL DEFAULT 0 COMMENT '받은 사람 삭제 여부';
