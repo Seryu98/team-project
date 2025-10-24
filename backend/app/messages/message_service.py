@@ -253,14 +253,14 @@ def delete_messages(user_id: int, message_ids: Optional[List[int]] = None, delet
                 db.execute(text("""
                     UPDATE messages
                        SET is_deleted = 1
-                     WHERE receiver_id = :uid
+                     WHERE (receiver_id = :uid OR sender_id = :uid)
                        AND LOWER(CAST(category AS CHAR)) = LOWER(:cat)
                 """), {"uid": user_id, "cat": category})
             else:
                 db.execute(text("""
                     UPDATE messages
                        SET is_deleted = 1
-                     WHERE receiver_id = :uid
+                     WHERE (receiver_id = :uid OR sender_id = :uid)
                 """), {"uid": user_id})
             print(f"🧹 전체 쪽지 삭제 완료: user={user_id}")
 
@@ -270,7 +270,7 @@ def delete_messages(user_id: int, message_ids: Optional[List[int]] = None, delet
                 text(f"""
                     UPDATE messages
                        SET is_deleted = 1
-                     WHERE receiver_id = :uid
+                     WHERE (receiver_id = :uid OR sender_id = :uid)
                        AND id IN ({id_list})
                 """),
                 {"uid": user_id},

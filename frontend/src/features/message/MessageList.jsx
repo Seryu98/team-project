@@ -59,7 +59,7 @@ export default function MessageList({ messages, selectedTab, onSelect }) {
         },
       });
       alert("선택한 쪽지가 삭제되었습니다.");
-      window.location.reload();
+      window.location.href = window.location.href;
     } catch (err) {
       console.error("❌ 선택삭제 실패:", err);
       alert("삭제 중 오류가 발생했습니다.");
@@ -77,7 +77,7 @@ export default function MessageList({ messages, selectedTab, onSelect }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       alert("모든 쪽지가 삭제되었습니다.");
-      window.location.reload();
+      window.location.href = window.location.href;
     } catch (err) {
       console.error("❌ 전체삭제 실패:", err);
       alert("삭제 중 오류가 발생했습니다.");
