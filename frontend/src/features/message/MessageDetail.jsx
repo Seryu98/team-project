@@ -135,9 +135,19 @@ export default function MessageDetail({ message }) {
           <strong>받은 사람:</strong> {msg.receiver_nickname || msg.receiver_id}
         </p>
 
-        <div className="my-3 whitespace-pre-line text-sm leading-relaxed">
-          {msg.content}
+        <div className="my-3 text-sm leading-relaxed">
+          {(typeof msg.content === "string" ? msg.content : "")
+            .split(/\r?\n/) // 윈도우/리눅스 개행 모두 처리
+            .map((line, i) => (
+              <React.Fragment key={i}>
+                {line}
+                <br />
+              </React.Fragment>
+            ))}
         </div>
+
+
+
 
         <p className="text-xs text-right opacity-60">
           {new Date(msg.created_at).toLocaleString()}

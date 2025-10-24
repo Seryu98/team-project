@@ -203,17 +203,11 @@ def send_admin_announcement(
 # ---------------------------------------------------------------------
 # ✅ 수신함 목록
 # ---------------------------------------------------------------------
-def list_inbox(
-    user_id: int,
-    limit: int = 50,
-    db: Optional[Session] = None,
-    category: str = MessageCategory.NORMAL.value,
-) -> List[Dict]:
-    """
-    수신한 쪽지 목록 (카테고리별 구분)
-    """
+def list_inbox(user_id: int, limit: int = 50, db: Optional[Session] = None, category: str = MessageCategory.NORMAL.value) -> List[Dict]:
     db, close = _get_db(db)
     try:
+        db.commit()  # ✅ 세션 캐시 플러시 (신규 커밋 반영 강제)
+        db.expire_all()  # ✅ ORM 캐시 무효화
         rows = db.execute(text("""
             SELECT 
                 m.id, m.sender_id, sender.nickname AS sender_nickname,
@@ -223,7 +217,7 @@ def list_inbox(
             JOIN users sender ON m.sender_id = sender.id
             JOIN users receiver ON m.receiver_id = receiver.id
             WHERE m.receiver_id = :u
-              AND m.category = :cat
+            AND LOWER(CAST(m.category AS CHAR)) = LOWER(:cat)
             ORDER BY m.id DESC
             LIMIT :limit
         """), {"u": user_id, "limit": limit, "cat": category}).mappings().all()
@@ -231,6 +225,7 @@ def list_inbox(
     finally:
         if close:
             db.close()
+
 
 
 # ---------------------------------------------------------------------
@@ -266,11 +261,12 @@ def list_sent(user_id: int, limit: int = 50, db: Optional[Session] = None) -> Li
 
 
 # ---------------------------------------------------------------------
-# ✅ 단일 메시지 조회 (상세)
+# ✅ 단일 메시지 조회 (상세) — 공지사항(운영자 발송)도 포함
 # ---------------------------------------------------------------------
 def get_message(user_id: int, message_id: int, db: Optional[Session] = None) -> Optional[Dict]:
     db, close = _get_db(db)
     try:
+        # 1️⃣ 일반 메시지(보낸/받은 쪽지) 먼저 시도
         row = db.execute(text("""
             SELECT 
                 m.id, m.sender_id, sender.nickname AS sender_nickname,
@@ -283,16 +279,43 @@ def get_message(user_id: int, message_id: int, db: Optional[Session] = None) -> 
               AND (m.sender_id = :u OR m.receiver_id = :u)
         """), {"mid": message_id, "u": user_id}).mappings().first()
 
+        # 2️⃣ 공지사항(운영자 → 모든 유저)일 경우 fallback 조회
         if not row:
+            row = db.execute(text("""
+                SELECT 
+                    m.id, m.sender_id, sender.nickname AS sender_nickname,
+                    m.receiver_id, receiver.nickname AS receiver_nickname,
+                    m.content, m.is_read, m.created_at, m.category
+                FROM messages m
+                JOIN users sender ON m.sender_id = sender.id
+                JOIN users receiver ON m.receiver_id = receiver.id
+                WHERE m.id = :mid
+                  AND m.category = 'NOTICE'
+            """), {"mid": message_id}).mappings().first()
+            if row:
+                print(f"📢 [get_message] NOTICE 메시지 fallback 조회됨: message_id={message_id}")
+
+        if not row:
+            print(f"⚠️ [get_message] 메시지 없음: message_id={message_id}, user_id={user_id}")
             return None
 
-        # ✅ 완전한 일반 dict 복제 (RowMapping → Pure dict)
+        # ✅ RowMapping → dict 변환
         data = copy.deepcopy(dict(row))
 
-        # ✅ 기본값 세팅
+        # 🩵 기본 상태 지정
         data["application_status"] = "PENDING"
+        data["application_id"] = None
+        data["post_id"] = None
 
+        # 🩵 지원서 ID / 게시글 ID 추출
         app_id = _extract_application_id(data.get("content"))
+        post_id = _extract_post_id(data.get("content"))
+        if app_id:
+            data["application_id"] = app_id
+        if post_id:
+            data["post_id"] = post_id
+
+        # 🩵 지원서 상태 동기화 (없으면 기본값 유지)
         if app_id:
             result = db.execute(
                 text("SELECT status FROM applications WHERE id=:aid LIMIT 1"),
@@ -300,17 +323,21 @@ def get_message(user_id: int, message_id: int, db: Optional[Session] = None) -> 
             ).fetchone()
             if result and result[0]:
                 data["application_status"] = result[0]
+            else:
+                data["application_status"] = "PENDING"
 
+        # ✅ 방어로직 (NULL 방지)
         if not data.get("application_status"):
             data["application_status"] = "PENDING"
 
-        # ✅ 디버그 출력
-        print(f"📤 [get_message] 응답 데이터: {data}")
-
+        print(f"📤 [get_message] 최종 응답 데이터: {data}")
         return data
+
     finally:
         if close:
             db.close()
+
+
 
 
 
