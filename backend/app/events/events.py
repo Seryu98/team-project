@@ -104,10 +104,10 @@ def on_application_submitted(
             WHERE a.application_id = :app_id
         """), {"app_id": application_id}).mappings().all()
 
-        # 답변 내용을 문자열로 구성
+        # 답변 내용을 보기 좋게 구성
         if answers:
             answer_texts = "\n".join(
-                [f"{row['field_name']}: {row['answer_text']}" for row in answers]
+                [f"- {row['field_name']}: {row['answer_text']}" for row in answers]
             )
         else:
             answer_texts = "(답변 내용 없음)"
@@ -116,16 +116,16 @@ def on_application_submitted(
         send_notification(
             user_id=leader_id,
             type_=NotificationType.APPLICATION.value,
-            message=f"새 지원서가 도착했습니다. (application_id={application_id}, post_id={post_id})",
+            message=f"📨 새로운 지원서가 도착했습니다. (application_id={application_id}, post_id={post_id})",
             related_id=application_id,
             db=db,
         )
 
-        # ✅ 쪽지 전송 — application_id, post_id, 상태 포함
         content = (
-            f"안녕하세요. 지원서를 제출했습니다. "
-            f"(application_id={application_id}, post_id={post_id})\n\n"
-            f"지원 내용:\n{answer_texts}"
+        f"📩 [새로운 지원서 제출]\n\n"
+        f"application_id={application_id}\n"
+        f"post_id={post_id}\n\n"
+        f"🧾 지원 내용:\n{answer_texts}\n\n"
         )
 
         send_message(
@@ -133,7 +133,7 @@ def on_application_submitted(
             receiver_id=leader_id,
             content=content,
             db=db,
-            category=MessageCategory.NORMAL.value,  # 🔹 명시적 카테고리
+            category=MessageCategory.NORMAL.value,
         )
 
         db.commit()
@@ -142,6 +142,7 @@ def on_application_submitted(
     finally:
         if close:
             db.close()
+
 
 
 # ✅ 지원 승인/거절 결과 알림

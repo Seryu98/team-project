@@ -201,27 +201,32 @@ def notify_admin_on_report_created(report_id: int, reporter_id: int, db: Optiona
     """
     db, close = _get_db(db)
     try:
-        admin_id = db.execute(text("SELECT id FROM users WHERE role='ADMIN' LIMIT 1")).scalar()
+        # ✅ 최신 관리자 ID 조회 (남은 관리자 1명일 경우에도 정확히 선택)
+        admin_id = db.execute(text("SELECT id FROM users WHERE role='ADMIN' ORDER BY id DESC LIMIT 1")).scalar()
+        print("🚨 관리자 알림 대상 ID:", admin_id)
+
         if not admin_id:
+            print("⚠️ 관리자 계정이 존재하지 않아 알림 전송 불가")
             return False
 
+        # ✅ 관리자 알림 전송
         send_notification(
-            user_id=admin_id,
-            type_=NotificationType.REPORT_RECEIVED.value,
+            user_id=int(admin_id),
+            type_=NotificationType.REPORT_RECEIVED,
             message=f"새로운 신고가 접수되었습니다. (신고 ID: {report_id})",
             related_id=report_id,
             redirect_path="/admin/reports",
-            category=NotificationCategory.ADMIN.value,
+            category=NotificationCategory.ADMIN,
             db=db,
         )
 
-        # 🩵 [10/20 수정됨] send_notification 내부에서 commit 수행 → 추가 commit 생략
-        print(f"📨 관리자 신고 알림 전송 완료 (report_id={report_id})")
+        print(f"📨 관리자 신고 알림 전송 완료 (report_id={report_id}, admin_id={admin_id})")
         return True
 
     finally:
         if close:
             db.close()
+
 
 
 # ----------------------------

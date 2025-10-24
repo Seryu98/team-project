@@ -12,7 +12,16 @@ export default function NotificationList({ onClose }) {
       const { data } = await axios.get("/notifications", {
         params: { only_unread: false },
       });
-      if (data?.data) setItems(data.data);
+      if (data?.data) {
+        // 🩵 [추가] 역할(role)에 따라 필터링 적용
+        const role = localStorage.getItem("role");
+        const filtered =
+          role === "ADMIN"
+            ? data.data.filter((n) => n.category === "ADMIN")
+            : data.data.filter((n) => n.category === "NORMAL");
+
+        setItems(filtered);
+      }
     } catch (err) {
       console.error("❌ 알림 불러오기 실패:", err);
     }
@@ -89,7 +98,11 @@ export default function NotificationList({ onClose }) {
       // 🩵 [수정] 유형별 이동 로직 (서버 Enum과 일치)
       switch (n.type) {
         case "ADMIN_NOTICE":
-          window.location.href = "/messages?tab=notice";
+          if (n.related_id) {
+            window.location.href = `/messages?tab=notice&id=${n.related_id}`;
+          } else {
+            window.location.href = "/messages?tab=notice";
+          }
           break;
 
         case "MESSAGE":
