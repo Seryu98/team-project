@@ -209,9 +209,9 @@ export default function AdminReportsPage() {
         <p className="empty-text">로딩 중...</p>
       ) : (
         <div className="report-sections">
-          {/* 👤 유저/댓글 신고 */}
+          {/* 👤 유저/댓글/쪽지 신고 */}
           <section className="report-section">
-            <h2>👤 유저 / 댓글 신고</h2>
+            <h2>👤 유저 / 댓글 / 쪽지 신고</h2>
             {userCommentReports.length === 0 ? (
               <p className="empty-text">처리할 유저/댓글 신고가 없습니다.</p>
             ) : (
@@ -240,18 +240,33 @@ export default function AdminReportsPage() {
                       {expandedId === r.id ? "내용 접기 ▲" : "내용 보기 ▼"}
                     </button>
 
-                    {/* ✅ 댓글 내용 표시 (스크롤 포함) */}
+                    {/* ✅ 댓글/쪽지 내용 표시 (스크롤 포함) */}
                     {expandedId === r.id && (
                       <div className="report-content-box">
-                        <h4>💬 신고된 댓글 내용</h4>
+                        {/* 🩵 target_type 에 따라 제목 다르게 */}
+                        <h4>
+                          {r.target_type === "MESSAGE" ||
+                            r.target_type === "DM" ||
+                            r.target_type === "USER_MESSAGE"
+                            ? "✉️ 신고된 쪽지 내용"
+                            : "💬 신고된 댓글 내용"}
+                        </h4>
+
+                        {/* 🩵 내용 분기: 댓글 vs 쪽지 */}
                         <div
                           className="scroll-box"
                           dangerouslySetInnerHTML={{
-                            __html: r.comment_content || "<i>댓글 내용을 불러올 수 없습니다.</i>",
+                            __html:
+                              (r.target_type === "MESSAGE" ||
+                                r.target_type === "DM" ||
+                                r.target_type === "USER_MESSAGE")
+                                ? r.message_content || r.content || "<i>쪽지 내용을 불러올 수 없습니다.</i>"
+                                : r.comment_content || "<i>댓글 내용을 불러올 수 없습니다.</i>",
                           }}
                         />
                       </div>
                     )}
+
 
 
                     <div className="report-actions">
