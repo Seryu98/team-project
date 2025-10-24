@@ -24,7 +24,7 @@ export default function SessionManager() {
 
   // ✅ WebSocket 연결 및 강제 로그아웃 처리
   useEffect(() => {
-    if (!token) return;
+    if (!token && !wsRef.current) return;
 
     const pureToken = token.startsWith("Bearer ")
       ? token.replace("Bearer ", "")

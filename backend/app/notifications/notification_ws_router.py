@@ -35,7 +35,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
         logging.warning("⚠️ WebSocket 연결 거부: user_id 변환 실패")
         return
 
-    # ✅ 연결 성공
+    # ✅ 기존 세션이 있으면 모두 강제 종료 후 새 연결 등록
+    await ws_manager.force_logout_all(user_id)
     await ws_manager.connect(user_id, websocket)
     logging.info(f"✅ WebSocket 연결 성공: user_id={user_id}")
 

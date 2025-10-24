@@ -219,6 +219,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
             }
         )
 
+    # ✅ [추가됨] 로그인 성공 시 기존 WebSocket 세션 종료 (단일 접속 유지)
+    from app.notifications.notification_ws_manager import ws_manager  # 로컬 import (순환참조 방지)
+    user = db.query(User).filter(User.user_id == form_data.username).first()
+    if user:
+        await ws_manager.force_logout_all(user.id)
+
     return tokens
 
 
