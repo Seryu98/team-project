@@ -5,9 +5,10 @@ import axios from "axios"; //  삭제 요청용 axios 추가
 import "./messageControls.css"; // 쪽지 목록 제어 버튼 스타일
 
 
-export default function MessageList({ messages, selectedTab, onSelect }) {
+export default function MessageList({ messages: initialMessages, selectedTab, onSelect }) {
   // 선택된 쪽지 ID 목록
   const [selectedIds, setSelectedIds] = useState([]);
+  const [messages, setMessages] = useState(initialMessages); // 🩵 프론트 상태 관리 추가
 
   // 🩵 [추가됨] FastAPI Enum에 맞게 category 변환 함수
   const mapCategory = (tab) => {
@@ -59,7 +60,11 @@ export default function MessageList({ messages, selectedTab, onSelect }) {
         },
       });
       alert("선택한 쪽지가 삭제되었습니다.");
-      window.location.href = window.location.href;
+      setSelectedIds([]); // 선택 초기화
+      // 화면상에서도 삭제 반영 (즉시 리스트 갱신)
+      onSelect && onSelect(null); // 상세보기 닫기
+      window.dispatchEvent(new CustomEvent("message-refresh"));
+      setMessages((prev) => prev.filter((m) => !selectedIds.includes(m.id)));
     } catch (err) {
       console.error("❌ 선택삭제 실패:", err);
       alert("삭제 중 오류가 발생했습니다.");
@@ -77,7 +82,10 @@ export default function MessageList({ messages, selectedTab, onSelect }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       alert("모든 쪽지가 삭제되었습니다.");
-      window.location.href = window.location.href;
+      setSelectedIds([]);
+      onSelect && onSelect(null);
+      window.dispatchEvent(new CustomEvent("message-refresh"));
+      setMessages([]);
     } catch (err) {
       console.error("❌ 전체삭제 실패:", err);
       alert("삭제 중 오류가 발생했습니다.");
