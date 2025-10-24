@@ -70,10 +70,10 @@ def global_search(
     db.query(RecipePost)
     .filter(
         and_(
-            RecipePost.project_status != "ENDED",
-            RecipePost.recruit_status.in_(["OPEN", "CLOSED"]),
-            RecipePost.status == "VISIBLE",      # 🔥 숨김된 프로젝트 제외
-            RecipePost.deleted_at.is_(None),     # 🔥 삭제된 프로젝트 제외
+            RecipePost.project_status != "ENDED",             # 종료된 건 제외
+            RecipePost.recruit_status.in_(["OPEN", "CLOSED"]),# 모집중 + 모집완료
+            RecipePost.status == "APPROVED",                  # 🔥 승인된 글만
+            RecipePost.deleted_at.is_(None),                  # 삭제 제외
             or_(
                 RecipePost.title.like(keyword),
                 RecipePost.description.like(keyword),
@@ -88,7 +88,6 @@ def global_search(
     .limit(10)
     .all()
 )
-
     projects = []
     for project in project_results:
         # 프로젝트 스킬 조회
