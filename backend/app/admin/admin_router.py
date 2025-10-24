@@ -44,12 +44,13 @@ def api_get_admin_stats(user=Depends(get_current_user), db: Session = Depends(ge
 
 
 # ✅ 신고 대기 목록 조회 (관리자 신고 처리 페이지용)
+# app/admin/admin_router.py (일부 수정)
 @router.get("/pending-reports")
 def api_get_pending_reports(user=Depends(get_current_user), db: Session = Depends(get_db)):
     """
     처리 대기 중인 신고 목록 조회
     - 상태: PENDING
-    - 게시글/댓글 내용 함께 반환 (관리자 판단용)
+    - 게시글/댓글/쪽지 내용 함께 반환 (관리자 판단용)
     """
     _ensure_admin(user)
 
@@ -67,10 +68,11 @@ def api_get_pending_reports(user=Depends(get_current_user), db: Session = Depend
                 r.status,
                 r.created_at,
 
-                -- ✅ 게시글 및 댓글 내용 추가
+                -- ✅ 게시글 / 댓글 / 쪽지 내용 병합
                 bp.title AS post_title,
                 bp.content AS post_content,
-                c.content AS comment_content
+                c.content AS comment_content,
+                m.content AS message_content   -- ✅ 추가됨 (쪽지 본문)
 
             FROM reports r
             LEFT JOIN users ru ON ru.id = r.reporter_user_id      -- 신고자
@@ -79,6 +81,9 @@ def api_get_pending_reports(user=Depends(get_current_user), db: Session = Depend
                 ON r.target_type IN ('POST', 'BOARD_POST') AND bp.id = r.target_id
             LEFT JOIN comments c 
                 ON r.target_type = 'COMMENT' AND c.id = r.target_id
+            LEFT JOIN messages m 
+                ON r.target_type = 'MESSAGE' AND m.id = r.target_id   -- ✅ 쪽지 JOIN 추가
+
             WHERE r.status = 'PENDING'
             ORDER BY r.created_at DESC
         """)

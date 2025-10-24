@@ -37,10 +37,10 @@ def send_message(
     - sender_id → 발신자
     - receiver_id → 수신자
     - content → 본문
+    - ADMIN 카테고리는 "새 메시지 알림" 비활성화
     """
     db, close = _get_db(db)
     try:
-        # ✅ 관리자 또는 실제 유저 존재 확인
         sender_exists = db.execute(
             text("SELECT COUNT(*) FROM users WHERE id=:sid"),
             {"sid": sender_id}
@@ -48,7 +48,6 @@ def send_message(
         if not sender_exists:
             raise HTTPException(status_code=400, detail=f"잘못된 발신자 ID입니다: {sender_id}")
 
-        # ✅ 쪽지 저장 (UTC 시간 기준)
         result = db.execute(text("""
             INSERT INTO messages(sender_id, receiver_id, content, is_read, category, created_at)
             VALUES (:s, :r, :c, 0, :cat, UTC_TIMESTAMP())
@@ -61,41 +60,39 @@ def send_message(
             else db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
         )
 
-        # ✅ 송신/수신자 상태 테이블 업데이트
         db.execute(text("""
             INSERT INTO message_user_status (message_id, user_id, is_read)
             VALUES (:m, :sender, 1), (:m, :receiver, 0)
         """), {"m": message_id, "sender": sender_id, "receiver": receiver_id})
 
-        # ✅ [수정됨] category별 알림 카테고리 구분
+        # ✅ 카테고리별 알림 분기
         if category == MessageCategory.ADMIN.value:
-            noti_category = NotificationCategory.ADMIN.value
-        elif category == MessageCategory.NOTICE.value:
-            noti_category = NotificationCategory.NOTICE.value
+            # 🧩 관리자 메시지는 알림 생성하지 않음
+            print(f"🚫 ADMIN 메시지이므로 알림 생성 생략 (receiver={receiver_id})")
         else:
-            noti_category = NotificationCategory.NORMAL.value
+            # ✅ 기존 로직 유지
+            if category == MessageCategory.NOTICE.value:
+                noti_type = NotificationType.ADMIN_NOTICE.value if hasattr(NotificationType, "ADMIN_NOTICE") else NotificationType.MESSAGE.value
+                noti_message = "📢 새로운 공지사항이 도착했습니다!"
+                redirect_path = "/messages?tab=notice"
+                noti_category = NotificationCategory.NOTICE.value
+            else:
+                noti_type = NotificationType.MESSAGE.value
+                noti_message = "새 메시지가 도착했습니다."
+                redirect_path = f"/messages/{message_id}"
+                noti_category = NotificationCategory.NORMAL.value
 
-        # ✅ [공지사항 전용 알림 타입/메시지/경로]
-        if category == MessageCategory.NOTICE.value:
-            noti_type = NotificationType.ADMIN_NOTICE.value if hasattr(NotificationType, "ADMIN_NOTICE") else NotificationType.MESSAGE.value
-            noti_message = "📢 새로운 공지사항이 도착했습니다!"
-            redirect_path = "/messages?tab=notice"
-        else:
-            noti_type = NotificationType.MESSAGE.value
-            noti_message = "새 메시지가 도착했습니다."
-            redirect_path = f"/messages/{message_id}"
+            send_notification(
+                user_id=receiver_id,
+                type_=noti_type,
+                message=noti_message,
+                related_id=message_id,
+                redirect_path=redirect_path,
+                category=noti_category,
+                db=db,
+            )
 
-        send_notification(
-            user_id=receiver_id,
-            type_=noti_type,
-            message=noti_message,
-            related_id=message_id,
-            redirect_path=redirect_path,
-            category=noti_category,
-            db=db,
-        )
-
-        db.commit()  # ✅ 공지사항 전송 후 커밋 확실히!
+        db.commit()
         print(f"📨 메시지 전송 완료: sender={sender_id}, receiver={receiver_id}, cat={category}")
         return int(message_id)
     finally:
