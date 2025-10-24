@@ -373,6 +373,7 @@ ALTER TABLE notifications
 ADD COLUMN category ENUM('NORMAL','NOTICE','ADMIN') DEFAULT 'NORMAL'
 COMMENT '알림 카테고리 (NORMAL / NOTICE / ADMIN)';
 
+
 CREATE TABLE messages (
   id BIGINT NOT NULL AUTO_INCREMENT,
   sender_id BIGINT NOT NULL,
@@ -480,4 +481,23 @@ MODIFY COLUMN type ENUM(
   'REPORT_RESOLVED',
   'REPORT_REJECTED',
   'ADMIN_NOTICE'  -- ✅ 오늘 추가된 타입
-) NOT NULL;
+) NOT NULL; 
+
+
+-- ======================================================================
+-- ✅✅ [최신 버전] 세션 관리 테이블 (user_sessions) - DB 구조 반영 (2025-10-21)
+-- ======================================================================
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '세션 ID',
+  user_id BIGINT NOT NULL COMMENT '세션 소유자 users.id',
+  device_id VARCHAR(100) NOT NULL COMMENT '기기/브라우저 식별자 (uuid 또는 UA 해시)',
+  token VARCHAR(512) NOT NULL COMMENT '현재 활성 Access 토큰(JWT)',
+  ip VARCHAR(100) DEFAULT NULL COMMENT 'IP 주소',
+  is_active TINYINT(1) DEFAULT 1 COMMENT '활성 상태',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '세션 생성 시각',
+  expires_at DATETIME DEFAULT (NOW() + INTERVAL 1 DAY) COMMENT '만료 시각 (1일)',
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_user_sessions_user_device (user_id, device_id),
+  KEY idx_user_sessions_user (user_id, created_at),
+  CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
