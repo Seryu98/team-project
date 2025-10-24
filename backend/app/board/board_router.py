@@ -18,7 +18,7 @@ from app.board.board_schema import (
     ReportCreate,
 )
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_current_user_optional  # ✅ 선택적 인증 추가
 from app.models import User
 
 # 🔹 기존 보호 라우터 (작성/수정/삭제 등)
@@ -264,12 +264,12 @@ def list_posts(
 # ===============================
 # 📄 게시글 상세 + 댓글 포함
 # ===============================
-@router.get("/{post_id}")
+@public_router.get("/{post_id}")  # ✅ public_router로 이동 (비로그인 허용)
 def get_post_detail(
     post_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    me=Depends(get_current_user),  # ✅ 추가
+    me=Depends(get_current_user_optional),  # ✅ 로그인 선택적 허용
 ):
     ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent", "")

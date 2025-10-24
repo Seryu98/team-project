@@ -102,7 +102,7 @@ from app.profile import profile_router, follow_router, skill_router
 from app.project_post import recipe_router
 from app.meta import meta_router
 from app.files import upload_router
-from app.board import board_router
+from app.board.board_router import public_router as board_public_router, router as board_router
 from app.users import user_router
 from app.admin import admin_router
 from app.report import report_router
@@ -120,10 +120,10 @@ app.include_router(meta_router.router)
 app.include_router(upload_router.router)
 app.include_router(ai_router.router)
 
-# ✅ board router (public + 일반 둘 다)
-if hasattr(board_router, "public_router"):
-    app.include_router(board_router.public_router)
-app.include_router(board_router.router)
+# ✅ 공개용 먼저 등록 (비로그인 허용)
+app.include_router(board_public_router)
+# ✅ 그 다음 로그인 보호용 등록
+app.include_router(board_router)
 
 app.include_router(user_router.router)
 app.include_router(admin_router.router)
