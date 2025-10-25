@@ -16,10 +16,16 @@ from app.core.security import verify_token, hash_password
 from app.users.user_model import User, UserStatus
 
 # ✅ 추가: 이메일 인증 모듈
-from app.core.email_verifier import is_verified as is_email_verified, send_code, verify_code
+from app.core.email_verifier import (
+    is_verified as is_email_verified,
+    send_code,
+    verify_code,
+)
 
 # ✅ 추가: WebSocket 매니저 (기존 세션 강제 로그아웃 알림용)
-from app.notifications.notification_ws_manager import manager  # 경로는 프로젝트 구조에 맞춰 유지
+from app.notifications.notification_ws_manager import (
+    manager,
+)  # 경로는 프로젝트 구조에 맞춰 유지
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -65,8 +71,13 @@ def is_valid_email_domain(email: str) -> bool:
         domain = email.split("@")[1]
         dns.resolver.resolve(domain, "MX")
         return True
-    except (IndexError, dns.resolver.NoAnswer, dns.resolver.NXDOMAIN,
-            dns.resolver.NoNameservers, dns.resolver.LifetimeTimeout):
+    except (
+        IndexError,
+        dns.resolver.NoAnswer,
+        dns.resolver.NXDOMAIN,
+        dns.resolver.NoNameservers,
+        dns.resolver.LifetimeTimeout,
+    ):
         return False
     except Exception:
         return False
@@ -89,10 +100,11 @@ def verify_email(email: str = Query(..., description="확인할 이메일 주소
 @router.get("/check-id")
 def check_user_id(user_id: str, db: Session = Depends(get_db)):
     """🔎 아이디 중복 확인 API"""
-    existing_user = db.query(User).filter(
-        User.user_id == user_id,
-        User.status == UserStatus.ACTIVE
-    ).first()
+    existing_user = (
+        db.query(User)
+        .filter(User.user_id == user_id, User.status == UserStatus.ACTIVE)
+        .first()
+    )
     if existing_user:
         raise HTTPException(status_code=400, detail="이미 사용 중인 아이디입니다.")
     return {"message": "사용 가능한 아이디입니다."}
@@ -102,12 +114,16 @@ def check_user_id(user_id: str, db: Session = Depends(get_db)):
 # ✅ 전화번호 중복 확인
 # ===============================
 @router.get("/check-phone")
-def check_phone(phone_number: str = Query(..., description="확인할 전화번호"), db: Session = Depends(get_db)):
+def check_phone(
+    phone_number: str = Query(..., description="확인할 전화번호"),
+    db: Session = Depends(get_db),
+):
     """📞 전화번호 중복 확인 API"""
-    existing_user = db.query(User).filter(
-        User.phone_number == phone_number,
-        User.status == UserStatus.ACTIVE
-    ).first()
+    existing_user = (
+        db.query(User)
+        .filter(User.phone_number == phone_number, User.status == UserStatus.ACTIVE)
+        .first()
+    )
 
     if existing_user:
         return {"available": False, "message": "❌ 이미 등록된 전화번호입니다."}
@@ -132,16 +148,37 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
             raise ValueError("존재하지 않는 이메일 도메인입니다.")
 
         if not is_email_verified(user.email):
-            raise ValueError("이메일 인증이 완료되지 않았습니다. 인증 코드를 확인해주세요.")
+            raise ValueError(
+                "이메일 인증이 완료되지 않았습니다. 인증 코드를 확인해주세요."
+            )
 
-        if db.query(User).filter(User.email == user.email, User.status == UserStatus.ACTIVE).first():
+        if (
+            db.query(User)
+            .filter(User.email == user.email, User.status == UserStatus.ACTIVE)
+            .first()
+        ):
             raise ValueError("이미 등록된 이메일입니다.")
-        if db.query(User).filter(User.user_id == user.user_id, User.status == UserStatus.ACTIVE).first():
+        if (
+            db.query(User)
+            .filter(User.user_id == user.user_id, User.status == UserStatus.ACTIVE)
+            .first()
+        ):
             raise ValueError("이미 사용 중인 아이디입니다.")
-        if db.query(User).filter(User.nickname == user.nickname, User.status == UserStatus.ACTIVE).first():
+        if (
+            db.query(User)
+            .filter(User.nickname == user.nickname, User.status == UserStatus.ACTIVE)
+            .first()
+        ):
             raise ValueError("이미 사용 중인 닉네임입니다.")
         if user.phone_number:
-            if db.query(User).filter(User.phone_number == user.phone_number, User.status == UserStatus.ACTIVE).first():
+            if (
+                db.query(User)
+                .filter(
+                    User.phone_number == user.phone_number,
+                    User.status == UserStatus.ACTIVE,
+                )
+                .first()
+            ):
                 raise ValueError("이미 등록된 전화번호입니다.")
 
         new_user = auth_service.register_user(db, user)
@@ -161,26 +198,38 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         elif "phone_number" in err_msg:
             raise HTTPException(status_code=400, detail="이미 등록된 전화번호입니다.")
         else:
-            raise HTTPException(status_code=400, detail="회원가입 중 중복된 정보가 있습니다.")
+            raise HTTPException(
+                status_code=400, detail="회원가입 중 중복된 정보가 있습니다."
+            )
     except Exception as e:
         print("회원가입 중 예외 발생:", e)
-        raise HTTPException(status_code=500, detail="회원가입 처리 중 서버 오류가 발생했습니다.")
+        raise HTTPException(
+            status_code=500, detail="회원가입 처리 중 서버 오류가 발생했습니다."
+        )
 
 
 # ✅ 로그인 / 로그아웃 / 토큰
 from fastapi import Query  # ✅ 추가
 from datetime import datetime
 
+
 @router.post("/login")
 async def login(  # ✅ async: 강제 로그아웃 신호 전송을 위해 await 사용
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
-    force: bool = Query(False)  # ✅ 추가: 강제 로그인 플래그
+    force: bool = Query(False),  # ✅ 추가: 강제 로그인 플래그
 ):
     """🔐 일반 로그인 (Access + Refresh Token 발급 + 단일 세션 감지 + 강제 로그인)"""
     user = db.query(User).filter(User.user_id == form_data.username).first()
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    # ✅ [추가됨] 로그인 정합성 복구 로직
+    # DB에서는 is_logged_in=True인데 실제 WebSocket 세션이 없는 경우 상태 초기화
+    if user.is_logged_in and str(user.id) not in manager.active_connections:
+        print(f"⚠️ 세션 불일치 감지 → {user.user_id} is_logged_in=False 복구")
+        user.is_logged_in = False
+        db.commit()
 
     # ✅ 중복 로그인 감지
     if user.is_logged_in and not force:
@@ -190,7 +239,9 @@ async def login(  # ✅ async: 강제 로그아웃 신호 전송을 위해 await
     if user.is_logged_in and force:
         # 🚨 기존 접속 중인 클라이언트에 WebSocket으로 강제 로그아웃 신호 전송
         try:
-            await manager.send_personal_message({"type": "FORCED_LOGOUT"}, user.id)
+            await manager.send_personal_message(
+                user.user_id, {"type": "FORCED_LOGOUT"}
+            )  # ✅ 수정됨
         except Exception as e:
             print(f"⚠️ 기존 세션 로그아웃 신호 전송 실패: {e}")
 
@@ -230,10 +281,14 @@ def refresh_token(req: RefreshRequest):
     """♻️ Refresh Token으로 Access Token 재발급"""
     payload = verify_token(req.refresh_token, expected_type="refresh")
     if not payload:
-        raise HTTPException(status_code=401, detail="리프레시 토큰이 유효하지 않습니다.")
+        raise HTTPException(
+            status_code=401, detail="리프레시 토큰이 유효하지 않습니다."
+        )
     new_token = auth_service.refresh_access_token(req.refresh_token)
     if not new_token:
-        raise HTTPException(status_code=401, detail="Access 토큰 재발급에 실패했습니다.")
+        raise HTTPException(
+            status_code=401, detail="Access 토큰 재발급에 실패했습니다."
+        )
     return new_token
 
 
@@ -266,13 +321,21 @@ def get_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
 
 
 @router.patch("/me")
-def update_me(req: UpdateUserRequest, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def update_me(
+    req: UpdateUserRequest,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
     """✏️ 개인정보 수정 (닉네임/전화번호/비밀번호)"""
     payload = verify_token(token, expected_type="access")
     if not payload:
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
     user_id = payload.get("sub")
-    user = db.query(User).filter(User.id == int(user_id), User.status != UserStatus.DELETED).first()
+    user = (
+        db.query(User)
+        .filter(User.id == int(user_id), User.status != UserStatus.DELETED)
+        .first()
+    )
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
     if req.nickname:
@@ -347,7 +410,9 @@ def request_password_reset(req: PasswordResetRequest, db: Session = Depends(get_
     """🪄 비밀번호 재설정 토큰 발급 (user_id 기반)"""
     token = auth_service.generate_reset_token_by_user_id(db, req.user_id)
     if not token:
-        raise HTTPException(status_code=400, detail="계정을 찾을 수 없거나 소셜 계정입니다.")
+        raise HTTPException(
+            status_code=400, detail="계정을 찾을 수 없거나 소셜 계정입니다."
+        )
     return {"msg": "비밀번호 재설정 토큰 발급됨", "reset_token": token}
 
 
@@ -383,23 +448,30 @@ def social_callback(provider: str, code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail="이미 해당 이메일로 가입된 계정이 있습니다.")
+        raise HTTPException(
+            status_code=400, detail="이미 해당 이메일로 가입된 계정이 있습니다."
+        )
     except Exception:
-        raise HTTPException(status_code=500, detail="소셜 로그인 중 오류가 발생했습니다.")
+        raise HTTPException(
+            status_code=500, detail="소셜 로그인 중 오류가 발생했습니다."
+        )
 
 
 @router.patch("/tutorial-complete")
-def complete_tutorial(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def complete_tutorial(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+):
     """튜토리얼 완료 처리"""
     payload = verify_token(token, expected_type="access")
     if not payload:
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
 
     user_id = payload.get("sub")
-    user = db.query(User).filter(
-        User.id == int(user_id),
-        User.status == UserStatus.ACTIVE
-    ).first()
+    user = (
+        db.query(User)
+        .filter(User.id == int(user_id), User.status == UserStatus.ACTIVE)
+        .first()
+    )
 
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
@@ -415,9 +487,11 @@ def complete_tutorial(token: str = Depends(oauth2_scheme), db: Session = Depends
 from pydantic import EmailStr
 from typing import Literal
 
+
 class EmailCodeRequest(BaseModel):
     email: EmailStr
     purpose: Literal["signup", "reset"]
+
 
 @router.post("/email/send-code")
 def send_verification_email(req: EmailCodeRequest):
@@ -427,7 +501,9 @@ def send_verification_email(req: EmailCodeRequest):
         return {"message": f"{req.purpose}용 인증 코드가 전송되었습니다."}
     except Exception as e:
         print("이메일 발송 오류:", e)
-        raise HTTPException(status_code=500, detail="이메일 발송 중 오류가 발생했습니다.")
+        raise HTTPException(
+            status_code=500, detail="이메일 발송 중 오류가 발생했습니다."
+        )
 
 
 class VerifyCodeRequest(BaseModel):
@@ -435,9 +511,12 @@ class VerifyCodeRequest(BaseModel):
     code: str
     purpose: Literal["signup", "reset"]
 
+
 @router.post("/email/verify-code")
 def verify_email_code(req: VerifyCodeRequest):
     """✅ 이메일 인증 코드 검증 (회원가입/비밀번호찾기 공통)"""
     if verify_code(req.email, req.code):
         return {"verified": True, "message": "인증이 완료되었습니다."}
-    raise HTTPException(status_code=400, detail="인증 코드가 유효하지 않거나 만료되었습니다.")
+    raise HTTPException(
+        status_code=400, detail="인증 코드가 유효하지 않거나 만료되었습니다."
+    )

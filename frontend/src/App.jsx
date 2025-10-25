@@ -124,14 +124,27 @@ export default function App() {
     // ✅ WebSocket 단일 로그인 감지
     const setupWebSocket = async () => {
       try {
-        // 로그인 여부 확인 (리디렉션 방지)
-        const user = await getCurrentUser({ skipRedirect: true });
-        if (!user || isWsConnected.current) return;
+        // ✅ 로그인 여부 확인 (401 → null 반환 처리)
+        const user = await getCurrentUser({ skipRedirect: true }).catch(() => null);
+
+        // ✅ 세션 만료 상태에서는 재시도
+        if (!user) {
+          console.warn("⏳ 세션 만료 상태 → WebSocket 연결 대기 중...");
+          setTimeout(setupWebSocket, 5000); // 5초 후 재시도
+          return;
+        }
+
+        // ✅ 이미 연결된 경우 중복 방지
+        if (isWsConnected.current) return;
 
         const API_BASE =
           import.meta.env.VITE_API_BASE_URL ||
           import.meta.env.VITE_API_BASE ||
           "http://localhost:8000";
+
+        // ✅ 이미 로그인된 세션만 WebSocket 연결
+        if (!localStorage.getItem("access_token")) return;
+
         const ws = new WebSocket(
           `${API_BASE.replace("http", "ws")}/notifications/ws/${user.id}`
         );
@@ -152,16 +165,12 @@ export default function App() {
             if (data.type === "FORCED_LOGOUT" || data.type === "FORCE_LOGOUT") {
               console.warn("🚨 다른 기기에서 로그인됨 → 자동 로그아웃");
 
-              // ✅ 모달용 메시지 저장
               setForceMessage(
                 data.message ||
                   "⚠️ 다른 기기에서 로그인되어 자동 로그아웃됩니다."
               );
 
-              // ✅ 토큰 삭제 (리다이렉트 X)
               clearTokens("never");
-
-              // ✅ 모달 표시 (사용자 확인 후 이동)
               setForceLogout(true);
             }
           } catch (err) {
@@ -169,18 +178,34 @@ export default function App() {
           }
         };
 
+        // ✅ 수정된 부분 시작
         ws.onclose = (e) => {
-          console.log("🔌 WebSocket 연결 종료:", e.reason);
+          console.log("🔌 WebSocket 연결 종료:", e.reason, "code:", e.code);
           isWsConnected.current = false;
 
-          // ✅ 추가: 서버가 code=4001로 닫은 경우에도 모달 표시
-          if (e.code === 4001) {
+          // ✅ 다양한 종료 케이스 대응 (브라우저/서버/네트워크)
+          if (
+            e.code === 4001 || // 서버에서 명시적으로 닫은 경우
+            e.code === 1006 || // 브라우저 비정상 종료
+            e.reason?.includes("로그아웃")
+          ) {
+            console.warn("⚠️ 중복 로그인 또는 강제 종료 감지됨");
             setForceMessage("⚠️ 다른 기기에서 로그인되어 자동 로그아웃됩니다.");
+            clearTokens("never");
             setForceLogout(true);
           }
+
+          // ✅ 자동 재연결 (세션 유지 중 네트워크 단절 대비)
+          if (![4001, 1001].includes(e.code)) {
+            console.log("♻️ WebSocket 재연결 시도 중...");
+            setTimeout(setupWebSocket, 5000);
+          }
         };
+        // ✅ 수정된 부분 끝
       } catch (err) {
         console.warn("WebSocket 초기화 실패:", err);
+        // ✅ 예외 발생 시에도 재시도
+        setTimeout(setupWebSocket, 5000);
       }
     };
 
