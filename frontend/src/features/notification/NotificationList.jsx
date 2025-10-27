@@ -99,12 +99,14 @@ export default function NotificationList({ onClose }) {
       // 🩵 [수정] 유형별 이동 로직 (서버 Enum과 일치)
       switch (n.type) {
         case "ADMIN_NOTICE":
+          // 공지사항 탭으로 이동 (쿼리 파라미터 기반)
           if (n.related_id) {
             window.location.href = `/messages?tab=notice&id=${n.related_id}`;
           } else {
-            window.location.href = "/messages?tab=notice";
+            window.location.href = `/messages?tab=notice`;
           }
           break;
+
 
         case "MESSAGE":
           if (n.category === "ADMIN" && n.related_id) {

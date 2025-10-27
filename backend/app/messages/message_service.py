@@ -180,7 +180,7 @@ def send_admin_announcement(
                 type_=NotificationType.ADMIN_NOTICE.value,
                 message="📢 새로운 공지사항이 도착했습니다!",
                 related_id=message_id,
-                redirect_path="/messages?tab=notice",
+                redirect_path="/messages/notice",
                 category=NotificationCategory.NOTICE.value,
                 db=db,
             )
@@ -198,31 +198,70 @@ def send_admin_announcement(
             db.close()
 
 # ---------------------------------------------------------------------
-# ✅ 수신함 목록
+# ✅ 수신함 목록 (삭제된 쪽지 제외)
 # ---------------------------------------------------------------------
-def list_inbox(user_id: int, limit: int = 50, db: Optional[Session] = None, category: str = MessageCategory.NORMAL.value) -> List[Dict]:
+def list_inbox(
+    user_id: int,
+    limit: int = 50,
+    db: Optional[Session] = None,
+    category: str = MessageCategory.NORMAL.value
+) -> List[Dict]:
     db, close = _get_db(db)
     try:
-        db.commit()  # ✅ 세션 캐시 플러시 (신규 커밋 반영 강제)
-        db.expire_all()  # ✅ ORM 캐시 무효화
+        db.commit()
+        db.expire_all()
+
         rows = db.execute(text("""
             SELECT 
-                m.id, m.sender_id, sender.nickname AS sender_nickname,
+                m.id,
+                m.sender_id, sender.nickname AS sender_nickname,
                 m.receiver_id, receiver.nickname AS receiver_nickname,
                 m.content, m.is_read, m.created_at, m.category
             FROM messages m
+            JOIN message_user_status mus ON mus.message_id = m.id   -- ✅ 상태 연결
             JOIN users sender ON m.sender_id = sender.id
             JOIN users receiver ON m.receiver_id = receiver.id
-            WHERE m.receiver_id = :u
-            AND LOWER(CAST(m.category AS CHAR)) = LOWER(:cat)
+            WHERE m.receiver_id = :uid                              -- ✅ 받은 사람 기준
+              AND mus.user_id = :uid                                -- ✅ 본인 상태만
+              AND mus.is_deleted = 0                                -- ✅ 삭제 안 된 것만
+              AND LOWER(CAST(m.category AS CHAR)) = LOWER(:cat)
             ORDER BY m.id DESC
             LIMIT :limit
-        """), {"u": user_id, "limit": limit, "cat": category}).mappings().all()
+        """), {"uid": user_id, "limit": limit, "cat": category}).mappings().all()
+
         return [dict(r) for r in rows]
     finally:
         if close:
             db.close()
 
+
+# ---------------------------------------------------------------------
+# ✅ 보낸함 목록 (삭제된 쪽지 제외)
+# ---------------------------------------------------------------------
+def list_sent(user_id: int, limit: int = 50, db: Optional[Session] = None) -> List[Dict]:
+    db, close = _get_db(db)
+    try:
+        rows = db.execute(text("""
+            SELECT 
+                m.id,
+                m.sender_id, sender.nickname AS sender_nickname,
+                m.receiver_id, receiver.nickname AS receiver_nickname,
+                m.content, m.is_read, m.created_at, m.category
+            FROM messages m
+            JOIN message_user_status mus ON mus.message_id = m.id   -- ✅ 상태 연결
+            JOIN users sender ON m.sender_id = sender.id
+            JOIN users receiver ON m.receiver_id = receiver.id
+            WHERE m.sender_id = :uid                                -- ✅ 보낸 사람 기준
+              AND mus.user_id = :uid                                -- ✅ 본인 상태만
+              AND mus.is_deleted = 0                                -- ✅ 삭제 안 된 것만
+            ORDER BY m.id DESC
+            LIMIT :limit
+        """), {"uid": user_id, "limit": limit}).mappings().all()
+
+        return [dict(r) for r in rows]
+    finally:
+        if close:
+            db.close()
 
 
 # ---------------------------------------------------------------------
@@ -234,23 +273,28 @@ def list_admin_messages(user_id: int, limit: int = 50, db: Optional[Session] = N
 
 
 # ---------------------------------------------------------------------
-# ✅ 보낸함 목록 (내가 보낸 쪽지)
+# ✅ 보낸함 목록 (삭제된 쪽지 제외)
 # ---------------------------------------------------------------------
 def list_sent(user_id: int, limit: int = 50, db: Optional[Session] = None) -> List[Dict]:
     db, close = _get_db(db)
     try:
         rows = db.execute(text("""
             SELECT 
-                m.id, m.sender_id, sender.nickname AS sender_nickname,
+                m.id,
+                m.sender_id, sender.nickname AS sender_nickname,
                 m.receiver_id, receiver.nickname AS receiver_nickname,
                 m.content, m.is_read, m.created_at, m.category
             FROM messages m
+            JOIN message_user_status mus ON mus.message_id = m.id   -- ✅ 상태 연결
             JOIN users sender ON m.sender_id = sender.id
             JOIN users receiver ON m.receiver_id = receiver.id
-            WHERE m.sender_id = :u
+            WHERE m.sender_id = :uid                                -- ✅ 보낸 사람 기준
+              AND mus.user_id = :uid                                -- ✅ 본인 상태만
+              AND mus.is_deleted = 0                                -- ✅ 삭제 안 된 것만
             ORDER BY m.id DESC
             LIMIT :limit
-        """), {"u": user_id, "limit": limit}).mappings().all()
+        """), {"uid": user_id, "limit": limit}).mappings().all()
+
         return [dict(r) for r in rows]
     finally:
         if close:
