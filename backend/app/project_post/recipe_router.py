@@ -1,8 +1,9 @@
+# app/project_post/recipe_router.py
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session, joinedload, aliased
 from typing import List, Optional
 from datetime import date, datetime, timedelta  # ✅ timedelta 추가 (쿨타임 계산용)
-from sqlalchemy import func, text  # ✅ text 추가 (RAW SQL로 status_changed_at 다룸)
+from sqlalchemy import func, text, or_, and_  # ✅ or_, and_ 추가
 from app.profile.profile_model import Profile
 from app.users.user_model import User
 
@@ -52,10 +53,15 @@ def _apply_auto_state_updates_for_posts(db: Session, posts: List[models.RecipePo
         if len(post.members) >= post.capacity and post.recruit_status == "OPEN":
             post.recruit_status = "CLOSED"
             changed = True
-        # 정원 늘린 경우 자동 재개
-        elif len(post.members) < post.capacity and post.recruit_status == "CLOSED":
+        # ✅ 정원 늘린 경우 자동 재개 (단, 리더가 수동으로 닫은 상태는 유지)
+        elif (
+            len(post.members) < post.capacity
+            and post.recruit_status == "CLOSED"
+            and post.project_status != "ONGOING"  # ⚠️ 진행중인 프로젝트는 자동 재개 금지
+        ):
             post.recruit_status = "OPEN"
             changed = True
+
 
     if changed:
         db.commit()
@@ -114,12 +120,11 @@ def to_dto(post: models.RecipePost) -> RecipePostResponse:
                 nickname=getattr(m.user, "nickname", None),
                 profile_image=_full_url(
                     getattr(m.user.profile, "profile_image", None)
-                ),  # ✅ 여기서 절대경로로 보정
+                ),  # ✅ 절대경로 보정
             )
             for m in post.members
         ],
     )
-
 
 
 # ---------------------------------------------------------------------
@@ -206,13 +211,21 @@ async def get_posts(
     page: int = 1,
     page_size: int = 10,
 ):
-    # 상태 업데이트
+    """
+    ✅ 모집공고 목록 조회
+    - recruit_status:
+        "OPEN" → 모집중 (OPEN or ONGOING)
+        "CLOSED" → 모집완료 (CLOSED and ONGOING)
+        None → 전체 (project_status != ENDED)
+    """
+    # ✅ 상태 자동 업데이트 (모집기간 / 프로젝트기간 / 정원)
     prescan = db.query(models.RecipePost).filter(
         models.RecipePost.status == status,
         models.RecipePost.deleted_at.is_(None)
     ).all()
     _apply_auto_state_updates_for_posts(db, prescan)
 
+    # ✅ 기본 쿼리
     query = (
         db.query(models.RecipePost)
         .options(
@@ -222,13 +235,35 @@ async def get_posts(
         )
         .filter(models.RecipePost.status == status)
         .filter(models.RecipePost.deleted_at.is_(None))
-        .filter(getattr(models.RecipePost, "project_status") != "ENDED")
     )
 
-    if recruit_status:
-        query = query.filter(models.RecipePost.recruit_status == recruit_status)
+    # ✅ 모집상태별 조건 처리 (수정된 핵심 부분)
+    if recruit_status == "OPEN":
+        # 모집중 → 모집상태가 OPEN이고, 종료되지 않은 프로젝트만
+        query = query.filter(
+            and_(
+                models.RecipePost.recruit_status == "OPEN",
+                models.RecipePost.project_status != "ENDED"
+            )
+        )
+    elif recruit_status == "CLOSED":
+        # 모집완료 → 모집상태가 CLOSED이고, 종료되지 않은 프로젝트만
+        query = query.filter(
+            and_(
+                models.RecipePost.recruit_status == "CLOSED",
+                models.RecipePost.project_status != "ENDED"
+            )
+        )
+    else:
+        # 전체 보기 → 종료된 프로젝트 제외
+        query = query.filter(models.RecipePost.project_status != "ENDED")
+
+
+    # ✅ 구분 필터 (프로젝트/스터디)
     if type:
         query = query.filter(models.RecipePost.type == type)
+
+    # ✅ 스킬 필터
     if skill_ids:
         if match_mode == "AND":
             query = (
@@ -241,23 +276,28 @@ async def get_posts(
             query = query.join(models.RecipePostSkill).filter(
                 models.RecipePostSkill.skill_id.in_(skill_ids)
             )
+
+    # ✅ 모집기간 필터
     if start_date and end_date:
         query = query.filter(
             models.RecipePost.start_date <= end_date,
             models.RecipePost.end_date >= start_date,
         )
+
+    # ✅ 검색어 필터
     if search:
         query = query.filter(
             (models.RecipePost.title.contains(search)) |
             (models.RecipePost.description.contains(search))
         )
-    
-    query = query.order_by(models.RecipePost.created_at.desc())
 
+    # ✅ 정렬 및 페이지네이션
+    query = query.order_by(models.RecipePost.created_at.desc())
     total = query.count()
     posts = query.offset((page - 1) * page_size).limit(page_size).all()
     has_next = page * page_size < total
 
+    # ✅ 결과 반환
     return {
         "items": [to_dto(post) for post in posts],
         "total": total,
@@ -265,6 +305,7 @@ async def get_posts(
         "page_size": page_size,
         "has_next": has_next,
     }
+
 
 
 # ---------------------------------------------------------------------
