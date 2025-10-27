@@ -1,0 +1,293 @@
+/* =========================================
+  src/features/admin/AdminUsersPage.css
+   ========================================= */
+
+/* 전체 컨테이너 */
+.admin-users-page {
+  padding: 32px 24px;
+  background: #ffffff;
+  min-height: 100vh;
+  font-family: 'Noto Sans KR', 'Segoe UI', sans-serif;
+}
+
+/* 헤더 영역 */
+.admin-users-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.admin-users-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-users-refresh-btn {
+  padding: 10px 20px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.admin-users-refresh-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+}
+
+/* 로딩 상태 */
+.admin-users-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+/* 빈 상태 */
+.admin-users-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+/* 테이블 컨테이너 */
+.admin-users-table-container {
+  overflow-x: auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+/* 테이블 */
+.admin-users-table {
+  min-width: 100%;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* 테이블 헤더 */
+.admin-users-table thead {
+  background: linear-gradient(to bottom, #f9fafb 0%, #f3f4f6 100%);
+}
+
+.admin-users-table thead tr {
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.admin-users-table th {
+  padding: 16px 20px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.admin-users-table th:last-child {
+  text-align: right;
+}
+
+/* 테이블 바디 */
+.admin-users-table tbody tr {
+  border-bottom: 1px solid #f3f4f6;
+  transition: all 0.2s ease;
+}
+
+.admin-users-table tbody tr:hover {
+  background: #f9fafb;
+  transform: scale(1.002);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.admin-users-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.admin-users-table td {
+  padding: 16px 20px;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+/* ID 셀 */
+.admin-users-id {
+  font-weight: 600;
+  color: #6b7280;
+}
+
+/* 닉네임 셀 */
+.admin-users-nickname {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* 이메일 셀 */
+.admin-users-email {
+  color: #6b7280;
+}
+
+/* 상태 셀 */
+.admin-users-status {
+  font-weight: 600;
+  color: #dc2626;
+}
+
+/* 제재 만료 셀 */
+.admin-users-banned-until {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+/* 액션 버튼 컨테이너 */
+.admin-users-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 버튼 공통 스타일 */
+.admin-users-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+/* 3일 버튼 */
+.admin-users-btn-3day {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.admin-users-btn-3day:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+/* 7일 버튼 */
+.admin-users-btn-7day {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+}
+
+.admin-users-btn-7day:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(139, 92, 246, 0.4);
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+}
+
+/* 영구 버튼 */
+.admin-users-btn-permanent {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.admin-users-btn-permanent:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+/* 커스텀 버튼 */
+.admin-users-btn-custom {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
+}
+
+.admin-users-btn-custom:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4);
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+/* 해제 버튼 */
+.admin-users-btn-unban {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+.admin-users-btn-unban:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .admin-users-page {
+    padding: 20px 16px;
+  }
+
+  .admin-users-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .admin-users-title {
+    font-size: 24px;
+  }
+
+  .admin-users-refresh-btn {
+    width: 100%;
+  }
+
+  .admin-users-table th,
+  .admin-users-table td {
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+
+  .admin-users-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .admin-users-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* 애니메이션 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-users-table tbody tr {
+  animation: fadeIn 0.3s ease-out;
+}

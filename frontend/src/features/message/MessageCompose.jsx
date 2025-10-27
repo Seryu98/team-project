@@ -2,11 +2,11 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-export default function MessageCompose({ onSent }) {
+export default function MessageCompose({ onSent, defaultReceiver = "" }) {
   /* ================================
      ✅ 상태 정의
   ================================ */
-  const [receiverNickname, setReceiverNickname] = useState(""); // ✅ 닉네임 기반
+  const [receiverNickname, setReceiverNickname] = useState(defaultReceiver); // ✅ 쿼리에서 받은 닉네임으로 초기값
   const [suggestions, setSuggestions] = useState([]); // 자동완성 목록
   const [content, setContent] = useState(""); // 쪽지 내용
   const [loading, setLoading] = useState(false);
@@ -64,8 +64,9 @@ export default function MessageCompose({ onSent }) {
         setReceiverNickname("");
         setContent("");
         setSuggestions([]);
-        alert("쪽지를 성공적으로 보냈습니다!");
-        onSent?.(); // 보낸함으로 이동
+        setTimeout(() => {
+          onSent?.(); // 보낸함으로 이동
+        }, 1500);
       } else {
         alert("쪽지 전송에 실패했습니다.");
       }
@@ -86,73 +87,111 @@ export default function MessageCompose({ onSent }) {
   ================================ */
   return (
     <div className="msg-compose">
-      <h3 className="msg-detail__title">쪽지 보내기</h3>
+      {/* ✅ 헤더 */}
+      <div className="msg-compose__header">
+        <h3 className="msg-compose__title">✉️ 새 쪽지 작성</h3>
+        <p className="msg-compose__subtitle">소중한 메시지를 전달해보세요</p>
+      </div>
 
       {/* ✅ 전송 성공 메시지 */}
       {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 text-sm mb-3 p-2 rounded">
-          ✅ 쪽지가 성공적으로 전송되었습니다.
+        <div className="msg-compose__alert msg-compose__alert--success">
+          <span className="msg-compose__alert-icon">✓</span>
+          <span>쪽지가 성공적으로 전송되었습니다!</span>
         </div>
       )}
 
       {/* ✅ 에러 메시지 */}
       {error && (
-        <div className="text-red-500 text-sm mb-3 bg-red-50 border border-red-200 rounded p-2">
-          ⚠️ {error}
+        <div className="msg-compose__alert msg-compose__alert--error">
+          <span className="msg-compose__alert-icon">⚠</span>
+          <span>{error}</span>
         </div>
       )}
 
-      {/* ✅ 닉네임 입력 */}
-      <label className="block text-sm font-semibold mb-2">받는 사람 닉네임</label>
-      <input
-        type="text"
-        value={receiverNickname}
-        onChange={(e) => {
-          setReceiverNickname(e.target.value);
-          searchUser(e.target.value);
-        }}
-        className="w-full border rounded p-2 mb-2"
-        placeholder="예: 홍길동"
-        disabled={loading}
-      />
+      {/* ✅ 받는 사람 입력 */}
+      <div className="msg-compose__field msg-compose__field--receiver">
+        <label className="msg-compose__label">
+          <span className="msg-compose__label-icon">👤</span>
+          받는 사람
+        </label>
+        <div className="msg-compose__input-wrapper">
+          <input
+            type="text"
+            value={receiverNickname}
+            onChange={(e) => {
+              setReceiverNickname(e.target.value);
+              searchUser(e.target.value);
+            }}
+            className="msg-compose__input"
+            placeholder="닉네임을 입력하세요"
+            disabled={loading}
+          />
+      </div>
 
       {/* ✅ 자동완성 목록 */}
       {suggestions.length > 0 && (
-        <ul className="border rounded mb-3 bg-white max-h-40 overflow-y-auto">
+        <ul className="msg-compose__suggestions">
           {suggestions.map((user) => (
             <li
               key={user.id}
-              className="p-2 cursor-pointer hover:bg-blue-50"
+              className="msg-compose__suggestion-item"
               onClick={() => {
                 setReceiverNickname(user.nickname);
                 setSuggestions([]);
               }}
             >
-              {user.nickname}{" "}
-              <span className="text-gray-400">({user.user_id})</span>
+              <span className="msg-compose__suggestion-name">
+                {user.nickname}
+              </span>
+              <span className="msg-compose__suggestion-id">
+                @{user.user_id}
+              </span>
             </li>
           ))}
         </ul>
       )}
+    </div>
 
-      {/* ✅ 쪽지 내용 입력 */}
-      <label className="block text-sm font-semibold mb-2">내용</label>
+      {/* ✅ 쪽지 내용 입력 */ }
+  <div className="msg-compose__field">
+    <label className="msg-compose__label">
+      <span className="msg-compose__label-icon">📝</span>
+      메시지 내용
+    </label>
+    <div className="msg-compose__textarea-wrapper">
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        className="w-full border rounded p-2 h-40 resize-none"
-        placeholder="쪽지 내용을 입력하세요."
+        className="msg-compose__textarea"
+        placeholder="여기에 메시지를 입력하세요..."
         disabled={loading}
+        maxLength={1000}
       />
-
-      {/* ✅ 전송 버튼 */}
-      <button
-        onClick={handleSend}
-        disabled={loading}
-        className={`msg-btn msg-btn--green w-full ${loading ? "opacity-70" : ""}`}
-      >
-        {loading ? "📨 전송 중..." : "📨 쪽지 보내기"}
-      </button>
+      <div className="msg-compose__char-count">
+        {content.length} / 1000자
+      </div>
     </div>
+  </div>
+
+  {/* ✅ 전송 버튼 */ }
+  <button
+    onClick={handleSend}
+    disabled={loading || !receiverNickname.trim() || !content.trim()}
+    className="msg-compose__submit"
+  >
+    {loading ? (
+      <>
+        <span className="msg-compose__submit-spinner"></span>
+        전송 중...
+      </>
+    ) : (
+      <>
+        <span className="msg-compose__submit-icon">📨</span>
+        쪽지 보내기
+      </>
+    )}
+  </button>
+    </div >
   );
 }

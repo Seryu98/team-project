@@ -25,7 +25,7 @@ from app.models import User
 router = APIRouter(prefix="/board", tags=["Board"])
 
 # 🔹 공개 전용 라우터 (목록/조회 등 비로그인 허용 용도)
-public_router = APIRouter(prefix="/board", tags=["Board Public"])
+public_router = APIRouter(prefix="/public/board", tags=["Board Public"])
 
 # ===============================
 # 📚 카테고리 목록
@@ -38,7 +38,7 @@ def list_categories(db: Session = Depends(get_db)):
 # ===============================
 # 🔥 주간 Top3 (최근 7일 기준)
 # ===============================
-@router.get("/top3-weekly")
+@public_router.get("/top3-weekly")
 def top3_weekly(
     days_offset: int = Query(0, description="KST 자정 기준 일 단위 오프셋 (예: -1=어제, +1=내일)"),
     db: Session = Depends(get_db),
@@ -264,7 +264,7 @@ def list_posts(
 # ===============================
 # 📄 게시글 상세 + 댓글 포함
 # ===============================
-@public_router.get("/{post_id}")  # ✅ public_router로 이동 (비로그인 허용)
+@public_router.get("/{post_id}")   
 def get_post_detail(
     post_id: int,
     request: Request,

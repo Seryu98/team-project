@@ -7,6 +7,11 @@
    =========================== */
 :root {
   --msg-font: 'Noto Sans KR', 'Segoe UI', sans-serif;
+  --msg-primary: #2563eb;
+  --msg-success: #16a34a;
+  --msg-error: #dc2626;
+  --msg-border: #e5e7eb;
+  --msg-bg: #f8fafc;
 }
 
 .msg-layout,
@@ -21,7 +26,7 @@
 .msg-layout {
   display: flex;
   height: calc(100vh - 80px);
-  background: #f8fafc;
+  background: var(--msg-bg);
   font-family: "Pretendard", "Noto Sans KR", sans-serif;
 }
 
@@ -31,7 +36,7 @@
 .msg-sidebar {
   width: 240px;
   background: #ffffff;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid var(--msg-border);
   display: flex;
   flex-direction: column;
   box-shadow: 2px 0 4px rgba(0, 0, 0, 0.03);
@@ -40,7 +45,7 @@
   font-weight: 700;
   font-size: 16px;
   padding: 18px 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--msg-border);
   color: #111827;
   background: #f9fafb;
 }
@@ -75,7 +80,7 @@
 .msg-list {
   flex: 1;
   background: #fff;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid var(--msg-border);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -85,7 +90,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--msg-border);
   font-weight: 600;
   font-size: 15px;
   color: #111827;
@@ -107,8 +112,8 @@
   border-radius: 10px;
   margin: 6px 10px;
   position: relative;
-  overflow: visible; /* ✅ 아이콘 잘림 방지 */
-  display: block; /* ✅ 기준점을 정확히 li 전체로 맞춤 */
+  overflow: visible;
+  display: block;
 }
 /* ✅ 수정됨: hover 시 살짝 들리는 효과 추가 */
 .msg-item:hover {
@@ -145,7 +150,7 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid #e5e7eb;
+  border-left: 1px solid var(--msg-border);
 }
 .msg-detail__inner {
   padding: 20px;
@@ -194,21 +199,21 @@
   transition: all 0.2s ease-in-out;
 }
 .msg-btn--green {
-  background: #16a34a;
+  background: var(--msg-success);
 }
 .msg-btn--green:hover {
   background: #15803d;
   transform: scale(1.03);
 }
 .msg-btn--red {
-  background: #dc2626;
+  background: var(--msg-error);
 }
 .msg-btn--red:hover {
   background: #b91c1c;
   transform: scale(1.03);
 }
 .msg-btn--blue {
-  background: #2563eb;
+  background: var(--msg-primary);
 }
 .msg-btn--blue:hover {
   background: #1d4ed8;
@@ -216,59 +221,333 @@
 }
 
 /* =========================================
-   🟧 쪽지 작성 (compose)
+   🟧 쪽지 작성 (compose) - 완전히 새로운 디자인
    ========================================= */
 .msg-compose {
-  padding: 24px;
-  background: #fff;
+  padding: 0;
+  background: #ffffff;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
 }
+
+/* 헤더 영역 */
+.msg-compose__header {
+  background: #ffffff;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.msg-compose__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.5px;
+}
+.msg-compose__subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 400;
+}
+
+/* 알림 메시지 */
+.msg-compose__alert {
+  margin: 16px 24px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  animation: slideDown 0.3s ease-out;
+}
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.msg-compose__alert--success {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+.msg-compose__alert--error {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 1px solid #f87171;
+}
+.msg-compose__alert-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* 폼 필드 */
+.msg-compose__field {
+  margin: 0 24px 20px 24px;
+  position: relative;
+}
+.msg-compose__field:first-of-type {
+  margin-top: 100px; /* ✅ 40px에서 60px로 대폭 증가 */
+}
+.msg-compose__field:last-of-type {
+  margin-bottom: 12px;
+  max-width: 95%; /* ✅ 메시지 내용 칸만 넓게 */
+}
+
+/* 라벨 스타일 */
+.msg-compose__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+/* ✅ 첫 번째 필드의 라벨만 위쪽 여백 추가 */
+.msg-compose__field:first-of-type .msg-compose__label {
+  margin-top: 30px;
+}
+.msg-compose__label-icon {
+  font-size: 18px;
+}
+.msg-compose__field--receiver {
+  margin-top: 40px;   /* ✅ 👤 받는 사람 블록만 전체적으로 아래로 */
+}
+
+/* 입력 필드 래퍼 */
+.msg-compose__input-wrapper {
+  position: relative;
+}
+
+/* 텍스트 입력 */
 .msg-compose__input {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  margin-bottom: 10px;
+  max-width: 400px; /* ✅ 받는 사람 칸 너비 제한 */
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
   font-size: 14px;
+  font-family: inherit;
+  background: #ffffff;
+  color: #1f2937;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
-.msg-compose__textarea {
-  width: 100%;
-  height: 160px;
-  padding: 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  resize: none;
-  font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 12px;
-}
-/* ✅ 수정됨: 포커스 상태에서 파란 테두리와 부드러운 그림자 */
-.msg-compose__textarea:focus,
 .msg-compose__input:focus {
   outline: none;
   border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1),
+              0 2px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+.msg-compose__input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+.msg-compose__input::placeholder {
+  color: #9ca3af;
 }
 
-/* ✅ 추가됨: 자동완성 리스트 스타일 */
-.msg-suggestions {
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  margin-bottom: 12px;
-  max-height: 160px;
+/* 자동완성 목록 */
+.msg-compose__suggestions {
+  list-style: none;
+  margin: 8px 0 0 0;
+  padding: 0;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  max-height: 180px;
+  max-width: 400px; /* ✅ 받는 사람 input과 동일한 너비 */
   overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
-.msg-suggestions li {
-  padding: 8px 10px;
+.msg-compose__suggestion-item {
+  padding: 10px 14px;
   cursor: pointer;
-  transition: background 0.15s ease-in-out;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f3f4f6;
 }
-.msg-suggestions li:hover {
-  background: #f3f4f6;
+.msg-compose__suggestion-item:last-child {
+  border-bottom: none;
 }
-.msg-suggestions li.selected {
-  background: #e0f2fe;
+.msg-compose__suggestion-item:hover {
+  background: #f0f9ff;
+  transform: translateX(4px);
+}
+.msg-compose__suggestion-name {
   font-weight: 600;
+  color: #1f2937;
+  font-size: 14px;
+}
+.msg-compose__suggestion-id {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* 텍스트 영역 래퍼 */
+.msg-compose__textarea-wrapper {
+  position: relative;
+}
+
+/* 텍스트 영역 */
+.msg-compose__textarea {
+  width: 100%;
+  min-height: 220px; /* ✅ 140px에서 220px로 증가 */
+  padding: 12px 16px 36px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.6;
+  background: #ffffff;
+  color: #1f2937;
+  resize: vertical;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.msg-compose__textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1),
+              0 2px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+.msg-compose__textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+.msg-compose__textarea::placeholder {
+  color: #9ca3af;
+}
+
+/* 글자 수 카운터 */
+.msg-compose__char-count {
+  position: absolute;
+  bottom: 10px;
+  right: 16px;
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 3px 8px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+/* 전송 버튼 */
+.msg-compose__submit {
+  margin: 8px 24px 24px auto;
+  padding: 10px 20px;
+  background: #1d4ed8; /* ✅ 단색 파란색 */
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 10px rgba(29, 78, 216, 0.3);
+  position: relative;
+  overflow: hidden;
+  width: auto;
+  align-self: flex-end;
+}
+.msg-compose__submit::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+.msg-compose__submit:hover::before {
+  width: 300px;
+  height: 300px;
+}
+.msg-compose__submit:hover {
+  transform: translateY(-2px);
+  background: #1e40af; /* ✅ hover 시 조금 더 진한 파란색 */
+  box-shadow: 0 5px 15px rgba(29, 78, 216, 0.4);
+}
+.msg-compose__submit:active {
+  transform: translateY(0);
+}
+.msg-compose__submit:disabled {
+  background: #9ca3af; /* ✅ 회색으로 변경 */
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  opacity: 0.8;
+}
+.msg-compose__submit:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+.msg-compose__submit-icon {
+  font-size: 16px; /* ✅ 20px에서 16px로 축소 */
+  position: relative;
+  z-index: 1;
+}
+.msg-compose__submit-spinner {
+  width: 16px; /* ✅ 20px에서 16px로 축소 */
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3); /* ✅ 3px에서 2px로 */
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  position: relative;
+  z-index: 1;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 스크롤바 스타일링 */
+.msg-compose::-webkit-scrollbar {
+  width: 8px;
+}
+.msg-compose::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+.msg-compose::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+.msg-compose::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
