@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -18,7 +18,7 @@ import SessionExpiredModal from "./components/SessionExpiredModal";
 // ---------------------------------------
 // Auth
 // ---------------------------------------
-import { clearTokens } from "./features/auth/api";
+import { clearTokens, getCurrentUser } from "./features/auth/api";
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
 import FindAccount from "./features/auth/FindAccount";
@@ -59,8 +59,7 @@ import BoardEditPage from "./features/board/BoardEditPage";
 // 알림, 메시지, 관리자 페이지
 // ---------------------------------------
 import AdminDashboard from "./features/admin/AdminDashboard";
-import MessageDetail from "./features/message/MessageDetail";
-import MessagesPage from "./features/message/MessagePage"; 
+import MessagesPage from "./features/message/MessagePage";
 import AdminPendingPage from "./features/admin/AdminPendingPage";
 import AdminReportsPage from "./features/admin/AdminReportsPage";
 import AdminUsersPage from "./features/admin/AdminUsersPage.jsx";
@@ -106,183 +105,265 @@ function AuthLayout() {
 // ---------------------------------------
 export default function App() {
   const [showSessionModal, setShowSessionModal] = useState(false);
+  const [forceLogout, setForceLogout] = useState(false);
+  const [forceMessage, setForceMessage] = useState("");
+  const wsRef = useRef(null);
+  const isWsConnected = useRef(false); // ✅ 중복 연결 방지용 ref
 
   useEffect(() => {
     // ✅ 세션 만료 처리
     if (localStorage.getItem("session_expired") === "true") {
       localStorage.removeItem("session_expired");
-      clearTokens("auto");
+      setForceLogout(true);
+      setForceMessage("⚠️ 다른 기기에서 로그인되어 자동 로그아웃됩니다.");
     }
 
     const handleExpire = () => setShowSessionModal(true);
     window.addEventListener("sessionExpired", handleExpire);
-    return () => window.removeEventListener("sessionExpired", handleExpire);
+
+    // ✅ WebSocket 단일 로그인 감지
+    const setupWebSocket = async () => {
+      try {
+        // ✅ 로그인 여부 확인 (401 → null 반환 처리)
+        const user = await getCurrentUser({ skipRedirect: true }).catch(() => null);
+
+        // ✅ 세션 만료 상태에서는 재시도
+        if (!user) {
+          console.warn("⏳ 세션 만료 상태 → WebSocket 연결 대기 중...");
+          setTimeout(setupWebSocket, 5000); // 5초 후 재시도
+          return;
+        }
+
+        // ✅ 이미 연결된 경우 중복 방지
+        if (isWsConnected.current) return;
+
+        const API_BASE =
+          import.meta.env.VITE_API_BASE_URL ||
+          import.meta.env.VITE_API_BASE ||
+          "http://localhost:8000";
+
+        // ✅ 이미 로그인된 세션만 WebSocket 연결
+        if (!localStorage.getItem("access_token")) return;
+
+        const ws = new WebSocket(
+          `${API_BASE.replace("http", "ws")}/notifications/ws/${user.id}`
+        );
+        wsRef.current = ws;
+        isWsConnected.current = true;
+
+        ws.onopen = () => {
+          console.log("📡 WebSocket 연결됨:", user.id);
+          ws.send(JSON.stringify({ type: "PING" }));
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log("💬 WebSocket 수신:", data);
+
+            // ✅ 서버/클라이언트 모두 대응: FORCE_LOGOUT 또는 FORCED_LOGOUT
+            if (data.type === "FORCED_LOGOUT" || data.type === "FORCE_LOGOUT") {
+              console.warn("🚨 다른 기기에서 로그인됨 → 자동 로그아웃");
+
+              setForceMessage(
+                data.message ||
+                  "⚠️ 다른 기기에서 로그인되어 자동 로그아웃됩니다."
+              );
+
+              clearTokens("never");
+              setForceLogout(true);
+            }
+          } catch (err) {
+            console.error("❌ WebSocket 메시지 파싱 실패:", err);
+          }
+        };
+
+        // ✅ 수정된 부분 시작
+        ws.onclose = (e) => {
+          console.log("🔌 WebSocket 연결 종료:", e.reason, "code:", e.code);
+          isWsConnected.current = false;
+
+          // ✅ 다양한 종료 케이스 대응 (브라우저/서버/네트워크)
+          if (
+            e.code === 4001 || // 서버에서 명시적으로 닫은 경우
+            e.code === 1006 || // 브라우저 비정상 종료
+            e.reason?.includes("로그아웃")
+          ) {
+            console.warn("⚠️ 중복 로그인 또는 강제 종료 감지됨");
+            setForceMessage("⚠️ 다른 기기에서 로그인되어 자동 로그아웃됩니다.");
+            clearTokens("never");
+            setForceLogout(true);
+          }
+
+          // ✅ 자동 재연결 (세션 유지 중 네트워크 단절 대비)
+          if (![4001, 1001].includes(e.code)) {
+            console.log("♻️ WebSocket 재연결 시도 중...");
+            setTimeout(setupWebSocket, 5000);
+          }
+        };
+        // ✅ 수정된 부분 끝
+      } catch (err) {
+        console.warn("WebSocket 초기화 실패:", err);
+        // ✅ 예외 발생 시에도 재시도
+        setTimeout(setupWebSocket, 5000);
+      }
+    };
+
+    setupWebSocket();
+
+    return () => {
+      window.removeEventListener("sessionExpired", handleExpire);
+      if (wsRef.current) {
+        wsRef.current.close();
+        isWsConnected.current = false;
+      }
+    };
   }, []);
 
   return (
-    <Router>
-      <Routes>
-        {/* ✅ Navbar 없는 그룹 (로그인/회원가입/아이디찾기/소셜콜백/튜토리얼) */}
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/find-account" element={<FindAccount />} />
-          <Route path="/social/callback" element={<SocialCallback />} />
-          <Route path="/tutorial" element={<ProfileTutorial />} />
-        </Route>
-
-        {/* ✅ Navbar 포함된 그룹 */}
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<HomePage />} />
-
-          {/* ---------------------------------------
-              🔍 통합 검색
-          --------------------------------------- */}
-          <Route path="/search" element={<SearchPage />} />
-
-          {/* ---------------------------------------
-              🔹 프로젝트/스터디 게시판
-          --------------------------------------- */}
-          <Route path="/posts" element={<ProjectPostList />} />
-          <Route path="/recipe/:postId" element={<ProjectPostDetail />} />
-          <Route
-            path="/recipe/create"
-            element={
-              <ProtectedRoute>
-                <RecipeCreate />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/recipe/:postId/edit"
-            element={
-              <ProtectedRoute>
-                <RecipeEdit />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ---------------------------------------
-              ✅ 유저 게시판
-          --------------------------------------- */}
-          <Route path="/board" element={<BoardListPage />} />
-          <Route path="/board/:id" element={<BoardDetailPage />} />
-          <Route
-            path="/board/write"
-            element={
-              <ProtectedRoute>
-                <BoardCreatePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/board/:postId/edit"
-            element={
-              <ProtectedRoute>
-                <BoardEditPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ---------------------------------------
-              🧭 랭킹 + 유저 랭킹 페이지
-          --------------------------------------- */}
-          <Route path="/ranking" element={<Ranking />} />
-          <Route path="/users/ranking" element={<UserRanking />} />
-
-          {/* ---------------------------------------
-              🔒 프로필 관련
-          --------------------------------------- */}
-          <Route path="/profile/:userId" element={<ProfilePage />} />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile/create"
-            element={
-              <ProtectedRoute>
-                <ProfileCreate />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ---------------------------------------
-              ✅ 계정 관리 (중첩 라우트)
-          --------------------------------------- */}
-          <Route
-            path="/account"
-            element={
-              <ProtectedRoute>
-                <AccountLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="settings" replace />} />
-            <Route path="settings" element={<AccountSettings />} />
-            <Route path="change-password" element={<ChangePassword />} />
+    <>
+      <Router>
+        <Routes>
+          {/* ✅ Navbar 없는 그룹 */}
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/find-account" element={<FindAccount />} />
+            <Route path="/social/callback" element={<SocialCallback />} />
+            <Route path="/tutorial" element={<ProfileTutorial />} />
           </Route>
 
-          {/* ---------------------------------------
-              ✅ 관리자 대시보드
-          --------------------------------------- */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute requiredRole="ADMIN">
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
+          {/* ✅ Navbar 포함된 그룹 */}
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/posts" element={<ProjectPostList />} />
+            <Route path="/recipe/:postId" element={<ProjectPostDetail />} />
+            <Route
+              path="/recipe/create"
+              element={
+                <ProtectedRoute>
+                  <RecipeCreate />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recipe/:postId/edit"
+              element={
+                <ProtectedRoute>
+                  <RecipeEdit />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/board" element={<BoardListPage />} />
+            <Route path="/board/:id" element={<BoardDetailPage />} />
+            <Route
+              path="/board/write"
+              element={
+                <ProtectedRoute>
+                  <BoardCreatePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/board/:postId/edit"
+              element={
+                <ProtectedRoute>
+                  <BoardEditPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/ranking" element={<Ranking />} />
+            <Route path="/users/ranking" element={<UserRanking />} />
+            <Route path="/profile/:userId" element={<ProfilePage />} />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/create"
+              element={
+                <ProtectedRoute>
+                  <ProfileCreate />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/account"
+              element={
+                <ProtectedRoute>
+                  <AccountLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="settings" replace />} />
+              <Route path="settings" element={<AccountSettings />} />
+              <Route path="change-password" element={<ChangePassword />} />
+            </Route>
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute requiredRole="ADMIN">
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/pending"
+              element={
+                <ProtectedRoute requiredRole="ADMIN">
+                  <AdminPendingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/reports"
+              element={
+                <ProtectedRoute requiredRole="ADMIN">
+                  <AdminReportsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <ProtectedRoute requiredRole="ADMIN">
+                  <AdminUsersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/messages/*"
+              element={
+                <ProtectedRoute>
+                  <MessagesPage />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
+        </Routes>
+      </Router>
 
-          <Route
-            path="/admin/pending"
-            element={
-              <ProtectedRoute requiredRole="ADMIN">
-                <AdminPendingPage />
-              </ProtectedRoute>
-            }
-          />
-
-
-          <Route
-            path="/admin/reports"
-            element={
-              <ProtectedRoute requiredRole="ADMIN">
-                <AdminReportsPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/admin/users"
-            element={
-              <ProtectedRoute requiredRole="ADMIN">
-                <AdminUsersPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ✅ 수정: 기존 MessageInbox → MessagesPage로 교체 */}
-          <Route
-            path="/messages/*"
-            element={
-              <ProtectedRoute>
-                <MessagesPage /> {/* ← 삼분할 쪽지함 전체 페이지 */}
-              </ProtectedRoute>
-            }
-          />
-        </Route>
-      </Routes>
-
-      {/* ⏰ 세션 만료 모달 */}
+      {/* ✅ 세션 만료 모달 */}
       {showSessionModal && (
         <SessionExpiredModal onClose={() => setShowSessionModal(false)} />
       )}
-    </Router>
+
+      {/* ✅ 중복 로그인 감지 모달 */}
+      {forceLogout && (
+        <SessionExpiredModal
+          onClose={() => {
+            setForceLogout(false);
+            clearTokens("never");
+            window.location.replace("/login");
+          }}
+          message={forceMessage}
+        />
+      )}
+    </>
   );
 }

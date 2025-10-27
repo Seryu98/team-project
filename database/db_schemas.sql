@@ -501,3 +501,9 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   KEY idx_user_sessions_user (user_id, created_at),
   CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ======================================================================
+-- ✅✅ [추가] users 테이블 로그인 상태 컬럼 (is_logged_in) - 2025-10-24 반영
+-- ======================================================================
+ALTER TABLE users
+ADD COLUMN is_logged_in BOOLEAN NOT NULL DEFAULT FALSE COMMENT '현재 로그인 상태';

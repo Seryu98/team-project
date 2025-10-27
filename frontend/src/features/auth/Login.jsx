@@ -1,5 +1,5 @@
 // src/features/auth/Login.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { loginAndFetchUser, getCurrentUser, clearTokens } from "./api";
 import Modal from "../../components/Modal"; // ✅ 전역 모달 불러오기
@@ -10,7 +10,11 @@ import logoImg from "../../shared/assets/logo/logo.png";
 import googleLogo from "../../shared/assets/social/google.png";
 import kakaoLogo from "../../shared/assets/social/kakao.png";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
+// ✅ 둘 중 하나만 세팅되어 있어도 동작하도록 병합
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_BASE ||
+  "http://localhost:8000";
 
 function Login() {
   const navigate = useNavigate();
@@ -20,6 +24,14 @@ function Login() {
 
   // ✅ [추가] 제재 모달 상태
   const [banInfo, setBanInfo] = useState(null);
+
+  // ✅ [추가] 단일 로그인 관련 상태
+  const [forceLogout, setForceLogout] = useState(false);
+  const wsRef = useRef(null);
+
+  // ✅ [중복 로그인 관련 추가]
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [pendingLoginData, setPendingLoginData] = useState(null);
 
   /* ✅ 자동 로그인 */
   useEffect(() => {
@@ -71,6 +83,10 @@ function Login() {
       console.log("✅ 로그인 성공", tokens);
       const user = await getCurrentUser();
       setMsg(`✅ 로그인 성공! 환영합니다, ${user.nickname} (${user.role})`);
+
+      // ✅ [추가] WebSocket 연결 시작
+      initWebSocket(user.id);
+
       navigate("/", { replace: true });
     } catch (err) {
       console.error("❌ 로그인 후 에러:", err);
@@ -93,7 +109,7 @@ function Login() {
             detail = raw; // 이미 객체일 경우 그대로
           }
 
-        // ✅ 3️⃣ 문자열 전체 JSON일 때
+          // ✅ 3️⃣ 문자열 전체 JSON일 때
         } else if (typeof err.response?.data === "string") {
           const parsed = JSON.parse(err.response.data);
           detail = parsed?.detail;
@@ -112,6 +128,14 @@ function Login() {
         return;
       }
 
+      // ✅ [중복 로그인 관련 추가] 서버에서 이미 로그인된 세션 감지 시
+      if (err.response?.status === 409 || String(detail)?.includes("이미 로그인")) {
+        console.log("⚠️ 이미 로그인된 세션 감지 → 확인 모달 표시");
+        setPendingLoginData({ userId, password });
+        setShowConflictModal(true);
+        return;
+      }
+
       // ✅ 나머지 에러 처리
       const message = String(err?.message || "");
       if (message.includes("423")) {
@@ -127,8 +151,64 @@ function Login() {
     }
   };
 
+  // ✅ [중복 로그인 관련 추가] “확인” 눌렀을 때 강제 로그인 수행
+  const handleForceLogin = async () => {
+    try {
+      const { userId, password } = pendingLoginData;
 
+      // ✅ 백엔드에 강제 로그인 요청 (force=true)
+      const { tokens } = await loginAndFetchUser(userId, password, true);
+      console.log("✅ 강제 로그인 성공", tokens);
 
+      const user = await getCurrentUser();
+      initWebSocket(user.id);
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error("❌ 강제 로그인 실패:", err);
+      setMsg("❌ 강제 로그인 실패. 다시 시도해주세요.");
+    } finally {
+      setShowConflictModal(false);
+    }
+  };
+
+  /* ✅ 단일 로그인용 WebSocket 연결 로직 */
+  const initWebSocket = (userId) => {
+    try {
+      const ws = new WebSocket(`${API_BASE.replace("http", "ws")}/notifications/ws/${userId}`);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log("📡 WebSocket 연결됨:", userId);
+        ws.send(JSON.stringify({ type: "PING" }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("💬 WebSocket 수신:", data);
+
+          // ✅ 서버/클라이언트 모두 대응: FORCE_LOGOUT 또는 FORCED_LOGOUT
+          if (data.type === "FORCED_LOGOUT" || data.type === "FORCE_LOGOUT") {
+            console.warn("🚨 다른 기기에서 로그인됨 → 자동 로그아웃 실행");
+            // ✅ clearTokens() 즉시 실행 금지 → 모달 먼저 표시
+            setForceLogout(true);
+          }
+        } catch (err) {
+          console.error("WebSocket 메시지 파싱 오류:", err);
+        }
+      };
+
+      ws.onclose = (e) => {
+        console.log("🔌 WebSocket 연결 종료:", e.reason || e.code);
+      };
+
+      ws.onerror = (err) => {
+        console.error("⚠️ WebSocket 오류:", err);
+      };
+    } catch (err) {
+      console.error("❌ WebSocket 초기화 실패:", err);
+    }
+  };
 
   /* ✅ 소셜 로그인 */
   const handleSocialLogin = (provider) => {
@@ -238,6 +318,34 @@ function Login() {
           <p style={{ marginTop: "10px", fontSize: "14px", color: "#6b7280" }}>
             문의: <b>support@solmatching.com</b>
           </p>
+        </Modal>
+      )}
+
+      {/* ✅ 단일 로그인 감지 모달 */}
+      {forceLogout && (
+        <Modal
+          title="⚠️ 중복 로그인 감지"
+          confirmText="확인"
+          onConfirm={() => {
+            clearTokens();
+            setForceLogout(false);
+            navigate("/login", { replace: true });
+          }}
+        >
+          <p>다른 기기에서 로그인되어 현재 세션이 종료되었습니다.</p>
+        </Modal>
+      )}
+
+      {/* ✅ [중복 로그인 관련 추가] 새 로그인 시 확인 모달 */}
+      {showConflictModal && (
+        <Modal
+          title="중복 로그인 감지"
+          confirmText="확인"
+          cancelText="취소"
+          onConfirm={handleForceLogin}
+          onClose={() => setShowConflictModal(false)}
+        >
+          <p>이미 로그인된 세션이 있습니다. 이 기기에서 로그인하시겠습니까?</p>
         </Modal>
       )}
     </div>

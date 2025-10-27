@@ -54,6 +54,9 @@ class User(Base):
     banned_until = Column(DateTime, nullable=True)
     is_tutorial_completed = Column(Boolean, default=False)
 
+    # ✅ 추가: 중복 로그인 방지용 컬럼
+    is_logged_in = Column(Boolean, nullable=False, default=False)
+
     # ✅ Relationships
     joined_posts = relationship("PostMember", back_populates="user", cascade="all, delete-orphan")
     led_posts = relationship("RecipePost", back_populates="leader")
