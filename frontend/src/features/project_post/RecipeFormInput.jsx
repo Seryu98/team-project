@@ -8,7 +8,8 @@ export default function FormInput({
   required = false,
   min,
   max,
-  step = 1,   // ✅ 기본값을 1로 줌 (정수만 허용)
+  step = 1,
+  disabled = false, // ✅ 추가: 비활성화 옵션 지원
 }) {
   return (
     <div style={{ marginBottom: "1rem" }}>
@@ -22,7 +23,14 @@ export default function FormInput({
         min={min}
         max={max}
         step={step}
-        style={{ width: "100%", padding: "8px" }}
+        disabled={disabled} // ✅ 수정 시 true로 전달하면 회색 비활성화
+        style={{
+          width: "100%",
+          padding: "8px",
+          backgroundColor: disabled ? "#f0f0f0" : "white", // ✅ 회색 배경
+          color: disabled ? "#777" : "black",               // ✅ 글자색 회색
+          cursor: disabled ? "not-allowed" : "text",        // ✅ 클릭 불가 커서
+        }}
       />
     </div>
   );

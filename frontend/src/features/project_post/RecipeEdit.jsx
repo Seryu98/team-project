@@ -305,6 +305,12 @@ export default function RecipeEdit() {
               value={form.start_date}
               onChange={handleChange}
               min={originalStartDate || today}
+              disabled={true} // ✅ 수정 페이지에서는 모집 시작일 수정 불가
+              style={{
+                backgroundColor: "#f0f0f0",
+                color: "#777",
+                cursor: "not-allowed",
+              }}
             />
           </div>
           <div className="form-group">
@@ -319,6 +325,7 @@ export default function RecipeEdit() {
             />
           </div>
         </div>
+
 
         {/* 프로젝트/스터디 기간 */}
         <div className="date-group">

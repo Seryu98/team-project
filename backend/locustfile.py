@@ -40,7 +40,8 @@ class SolMatchingUser(HttpUser):
         """게시글 상세"""
         post_id = random.randint(1, 100)
         headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
-        self.client.get(f"/board/{post_id}", headers=headers, name="게시글 상세 조회")
+        # ✅ 수정 (정상 응답 200)
+        self.client.get(f"/public/board/{post_id}", headers=headers, name="게시글 상세 조회")
 
     @task(1)
     def create_board_post(self):
