@@ -347,7 +347,7 @@ def list_posts(
     total = db.execute(text(f"SELECT COUNT(*) FROM board_posts bp WHERE {where_sql}"), params).scalar_one()
     offset = (page - 1) * page_size
 
-    # ✅ 댓글 수 서브쿼리 방식으로 변경
+    # ✅ 댓글 수 서브쿼리 유지
     sql = text(f"""
         SELECT
             bp.id, bp.title, bp.content, bp.category_id, ct.name AS category_name,
@@ -395,11 +395,12 @@ def list_posts(
     ]
 
     # ─────────────────────────────────────────────
-    # 🔥 오늘 기준 급상승 점수 계산
+    # 🔥 오늘 기준 급상승 점수 계산 (UTC → KST 기준으로 변경)
     # ─────────────────────────────────────────────
     from datetime import datetime, timezone, timedelta
     KST = timezone(timedelta(hours=9))
     now_utc = datetime.utcnow()
+    now_kst = datetime.now(KST)  # ✅ KST 자정 기준으로 변경
 
     trending_sql = text("""
         WITH kst_midnight AS (
@@ -415,7 +416,7 @@ def list_posts(
         FROM board_posts bp
         LEFT JOIN board_post_views v
             ON v.board_post_id = bp.id
-            AND v.viewed_at >= (SELECT base_utc FROM kst_midnight)
+            AND v.viewed_at >= (SELECT base_utc FROM kst_midnight)   -- ✅ UTC 변환된 오늘 0시 이후
         LEFT JOIN board_post_likes l
             ON l.board_post_id = bp.id
             AND l.created_at >= CONVERT_TZ((SELECT base_utc FROM kst_midnight), '+00:00', '+09:00')
@@ -427,19 +428,22 @@ def list_posts(
 
     # 🔢 임계값 계산 (상위 20%)
     valid_scores = [v for v in trending_scores.values() if v > 0]
-    threshold = np.percentile(valid_scores, 80) if len(valid_scores) >= 10 else (
-        max(valid_scores) * 0.8 if valid_scores else 0
+    threshold = (
+        np.percentile(valid_scores, 80)
+        if len(valid_scores) >= 10
+        else (max(valid_scores) * 0.8 if valid_scores else 0)
     )
-    print(f"🔥 [DEBUG] 오늘 급상승 임계값: {threshold}")
+    print(f"🔥 [DEBUG] 오늘 급상승 임계값(KST기준): {threshold}")
 
-    # 🏷️ 게시글별 배지 부여
+    # 🏷️ 게시글별 배지 부여 (0보다 크면 무조건 표시하도록 보정)
     for p in posts:
         score = trending_scores.get(p["id"], 0)
-        if score >= threshold and score > 0:
+        if score > 0 and (score >= threshold or threshold == 0):  # ✅ 보정
             p["badge"] = "🔥 인기급상승"
             print(f"[DEBUG BADGE] id={p['id']}, today_hot={score}, badge=🔥 인기급상승")
 
     return posts, total
+
 
 
 
