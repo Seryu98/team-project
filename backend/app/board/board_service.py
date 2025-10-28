@@ -473,14 +473,15 @@ def get_post_and_touch_view(
         text("""
         SELECT 1 FROM board_post_views
         WHERE board_post_id = :pid
-          AND ((:vid IS NOT NULL AND viewer_id = :vid)
-               OR (:vid IS NULL AND ip_address = :ip))
-          AND viewed_at >= UTC_DATE()
-          AND viewed_at < (UTC_DATE() + INTERVAL 1 DAY)
+        AND ((:vid IS NOT NULL AND viewer_id = :vid)
+            OR (:vid IS NULL AND ip_address = :ip))
+        AND viewed_at >= UTC_DATE()
+        AND viewed_at < (UTC_DATE() + INTERVAL 1 DAY)
         LIMIT 1
         """),
         {"pid": post_id, "vid": viewer_id, "ip": ip_address},
     ).first()
+
 
     if not chk:
         db.execute(

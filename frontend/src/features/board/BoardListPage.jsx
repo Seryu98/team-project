@@ -272,7 +272,7 @@ export default function BoardListPage() {
                   <div className="board-card-content">
                     <div className="board-card-top">
                       <div className="title-row">
-                        {post.badge?.includes("🔥") && (
+                        {post.badge?.includes("인기급상승") && (
                           <span className="badge-hot">🔥 인기급상승</span>
                         )}
                         <h3 className="board-title">{post.title}</h3>
@@ -331,8 +331,8 @@ export default function BoardListPage() {
             {loadingMore
               ? "로딩 중..."
               : hasMore
-              ? "스크롤 시 더 불러옵니다."
-              : "모든 게시글을 불러왔습니다."}
+                ? "스크롤 시 더 불러옵니다."
+                : "모든 게시글을 불러왔습니다."}
           </div>
         </section>
       </main>

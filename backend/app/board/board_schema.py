@@ -23,6 +23,7 @@ class BoardPostCard(BaseModel):
     created_at: datetime
     view_count: int
     like_count: int
+    badge: Optional[str] = None
     model_config = {"from_attributes": True}
 
 
