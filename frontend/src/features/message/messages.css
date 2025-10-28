@@ -551,3 +551,109 @@
 .msg-compose::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5);
 }
+
+/* ===============================
+   🧩 쪽지 목록 상단 제어 영역 (체크박스 + 삭제버튼)
+   =============================== */
+.msg-list__header-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--msg-border);
+}
+
+.msg-list__header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #555;
+}
+
+.msg-list__header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.msg-list__header-right button {
+  background-color: #ef5350;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.msg-list__header-right button:hover {
+  background-color: #d32f2f;
+}
+
+.msg-list__header-right .restore-btn {
+  background-color: #4caf50;
+}
+
+.msg-list__header-right .restore-btn:hover {
+  background-color: #388e3c;
+}
+
+/* ===============================
+   📨 쪽지 아이템 (재정돈)
+   =============================== */
+.msg-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+  margin: 6px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  background-color: #fafafa;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.msg-item:hover {
+  background-color: #f5faff;
+  transform: translateY(-1px);
+}
+
+.msg-item.unread {
+  background-color: #e3f2fd;
+  font-weight: 600;
+}
+
+.msg-item input[type="checkbox"] {
+  position: absolute;
+  left: 8px;
+  top: 12px;
+}
+
+/* ===============================
+   ✅ 체크박스 겹침 해결 (정렬 개선)
+   =============================== */
+.msg-item input[type="checkbox"] {
+  position: absolute;
+  left: 12px; /* 기존 8px → 12px */
+  top: 18px;  /* 기존 12px → 18px (세로 중앙 정렬) */
+  transform: scale(1.1); /* 살짝 키워서 시각적으로 균형 */
+}
+
+/* ✅ 텍스트를 체크박스와 겹치지 않게 오른쪽으로 이동 */
+.msg-item__title,
+.msg-item__preview {
+  margin-left: 34px !important; /* 기존 6~10px → 34px */
+}
+
+/* ✅ 선택 상태 강조 */
+.msg-item.unread {
+  background-color: #e3f2fd;
+  font-weight: 600;
+  border-color: #90caf9;
+}
