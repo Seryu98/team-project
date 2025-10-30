@@ -118,6 +118,7 @@ def get_followers(
         {
             "id": user.id,
             "nickname": user.nickname,
+            "headline": db.query(Profile).filter(Profile.id == user.id).first().headline,  # ✅ 추가됨
             "profile_image": db.query(Profile).filter(Profile.id == user.id).first().profile_image
         }
         for user in followers
@@ -144,6 +145,7 @@ def get_followings(
         {
             "id": user.id,
             "nickname": user.nickname,
+            "headline": db.query(Profile).filter(Profile.id == user.id).first().headline,  # ✅ 추가됨
             "profile_image": db.query(Profile).filter(Profile.id == user.id).first().profile_image
         }
         for user in followings  
