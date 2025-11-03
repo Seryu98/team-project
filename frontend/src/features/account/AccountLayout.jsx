@@ -28,12 +28,6 @@ export default function AccountLayout() {
             </NavLink>
           </li>
           <li>
-            <NavLink
-              to="notifications"
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
-              알림 설정
-            </NavLink>
           </li>
         </ul>
       </aside>
