@@ -87,7 +87,6 @@ def reject_post(post_id: int, admin_id: int, reason: Optional[str] = None, db: O
                 category=NotificationCategory.ADMIN.value,
                 db=db,
             )
-
         db.commit()
         logger.info(f"🚫 게시글 거절 완료: post_id={post_id}, reason={reason}")
         return True

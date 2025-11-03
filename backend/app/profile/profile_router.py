@@ -13,6 +13,9 @@ from app.core.deps import get_current_user_optional
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
+# ✅ 비로그인 사용자 접근용 공개 라우터
+public_router = APIRouter(prefix="/public/profiles", tags=["Profiles Public"])
+
 
 # ---------------------------------------------------------------------
 # ✅ 내 프로필 조회
@@ -113,6 +116,37 @@ def get_user_projects(
                 p.created_at
             FROM posts p
             WHERE p.leader_id = :uid
+              AND p.deleted_at IS NULL
+            ORDER BY p.created_at DESC
+        """),
+        {"uid": user_id}
+    ).mappings().all()
+
+    return [dict(r) for r in rows]
+
+# ---------------------------------------------------------------------
+# ✅ 특정 유저의 프로젝트 조회 (공개용 - 비로그인자 가능)
+# ---------------------------------------------------------------------
+@public_router.get("/{user_id}/projects")
+def get_public_user_projects(user_id: int, db: Session = Depends(get_db)):
+    """
+    특정 유저의 프로젝트/스터디 목록 (비로그인자용 공개 API)
+    """
+    rows = db.execute(
+        text("""
+            SELECT 
+                p.id,
+                p.title,
+                p.type,              -- PROJECT / STUDY 구분
+                p.field,
+                p.status,
+                p.project_status,
+                p.leader_id,
+                p.image_url,
+                p.created_at
+            FROM posts p
+            WHERE p.leader_id = :uid
+              AND p.status IN ('APPROVED', 'PENDING', 'ENDED')
               AND p.deleted_at IS NULL
             ORDER BY p.created_at DESC
         """),

@@ -98,7 +98,8 @@ else:
 # ===================================
 from app.auth import auth_router, social_router
 from app.test import db_test
-from app.profile import profile_router, follow_router, skill_router
+from app.profile.profile_router import router as profile_router, public_router as public_profile_router
+from app.profile import follow_router, skill_router
 from app.project_post import recipe_router
 from app.meta import meta_router
 from app.files import upload_router
@@ -108,11 +109,15 @@ from app.admin import admin_router
 from app.report import report_router
 from app.admin.admin_user_router import router as admin_user_router
 
+# ✅ 공개용 먼저 등록 (비로그인 허용)
+app.include_router(board_public_router)
+app.include_router(public_profile_router)
+
 # ✅ 모든 주요 라우터 등록
 app.include_router(auth_router.router)
 app.include_router(social_router.router)
 app.include_router(db_test.router)
-app.include_router(profile_router.router)
+app.include_router(profile_router)
 app.include_router(follow_router.router)
 app.include_router(skill_router.router)
 app.include_router(recipe_router.router)
@@ -120,10 +125,9 @@ app.include_router(meta_router.router)
 app.include_router(upload_router.router)
 app.include_router(ai_router.router)
 
-# ✅ 공개용 먼저 등록 (비로그인 허용)
-app.include_router(board_public_router)
 # ✅ 그 다음 로그인 보호용 등록
 app.include_router(board_router)
+app.include_router(profile_router) 
 
 app.include_router(user_router.router)
 app.include_router(admin_router.router)
