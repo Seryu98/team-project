@@ -1,4 +1,4 @@
-def search_skillssdfs(db: Session, q: str, limit: int = 10) -> List[dict]:
+def search_skill(db: Session, q: str, limit: int = 10) -> List[dict]:
     query = db.query(Skill)
     if q:
         q_escaped = re.escape(q)
@@ -11,7 +11,7 @@ def search_skillssdfs(db: Session, q: str, limit: int = 10) -> List[dict]:
             "id": s.id,
             "name": s.name,
             "level": None,
-            "icon": f"/assets/skills/{s.name.lower().replace('+', 'plus').replace('#', 'sharp')}.pngsdf"
+            "icon": f"/assets/skills/{s.name.lower().replace('+', 'plus').replace('#', 'sharp')}.png"
         }
         for s in skills
     ]
